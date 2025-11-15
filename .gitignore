@@ -55,6 +55,7 @@ volumes/logs/
 *.sqlite
 *.sqlite3
 volumes/postgres/
+volumes/postgres-data/
 
 # Docker
 .docker/
