@@ -8,7 +8,7 @@ from sqlalchemy import select, and_
 from uuid import UUID
 
 from app.db.base import get_db
-from app.models.hierarchy import UserStory, Usecase, Project
+from app.models.hierarchy import UserStory, Usecase, Project, Program
 from app.models.user import User
 from app.schemas.hierarchy import UserStoryCreate, UserStoryUpdate, UserStoryResponse
 from app.core.security import get_current_user, require_role
@@ -42,8 +42,8 @@ async def list_user_stories(
     
     # Apply client-level filtering for non-admin users
     if current_user.role != "Admin":
-        query = query.join(Usecase).join(Project).where(
-            Project.client_id == current_user.client_id
+        query = query.join(Usecase).join(Project).join(Program).where(
+            Program.client_id == current_user.client_id
         )
     
     query = query.offset(skip).limit(limit)
@@ -77,10 +77,10 @@ async def get_user_story(
     # Check access
     if current_user.role != "Admin":
         usecase_result = await db.execute(
-            select(Usecase).join(Project).where(
+            select(Usecase).join(Project).join(Program).where(
                 and_(
                     Usecase.id == story.usecase_id,
-                    Project.client_id == current_user.client_id
+                    Program.client_id == current_user.client_id
                 )
             )
         )
@@ -119,7 +119,15 @@ async def create_user_story(
             select(Project).where(Project.id == usecase.project_id)
         )
         project = project_result.scalar_one_or_none()
-        if not project or project.client_id != current_user.client_id:
+        if not project:
+            raise ResourceNotFoundException("Project", str(usecase.project_id))
+        
+        # Get the program to access client_id
+        program_result = await db.execute(
+            select(Program).where(Program.id == project.program_id)
+        )
+        program = program_result.scalar_one_or_none()
+        if not program or program.client_id != current_user.client_id:
             raise AccessDeniedException()
     
     story = UserStory(
@@ -167,10 +175,10 @@ async def update_user_story(
     # Check access
     if current_user.role != "Admin":
         usecase_result = await db.execute(
-            select(Usecase).join(Project).where(
+            select(Usecase).join(Project).join(Program).where(
                 and_(
                     Usecase.id == story.usecase_id,
-                    Project.client_id == current_user.client_id
+                    Program.client_id == current_user.client_id
                 )
             )
         )
@@ -219,10 +227,10 @@ async def delete_user_story(
     # Check access
     if current_user.role != "Admin":
         usecase_result = await db.execute(
-            select(Usecase).join(Project).where(
+            select(Usecase).join(Project).join(Program).where(
                 and_(
                     Usecase.id == story.usecase_id,
-                    Project.client_id == current_user.client_id
+                    Program.client_id == current_user.client_id
                 )
             )
         )
