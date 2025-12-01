@@ -23,3 +23,4 @@ class Client(Base):
     # Relationships
     users = relationship("User", back_populates="client")
     programs = relationship("Program", back_populates="client", cascade="all, delete-orphan")
+    chat_audit_logs = relationship("ChatAuditLog", back_populates="client")

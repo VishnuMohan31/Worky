@@ -7,6 +7,9 @@ import { EntityType, getEntityDisplayName } from '../../stores/hierarchyStore'
 import EntityStatistics from './EntityStatistics'
 import AuditHistory from './AuditHistory'
 import EntityNotes from './EntityNotes'
+import Modal from '../common/Modal'
+import EntityForm from '../forms/EntityForm'
+import api from '../../services/api'
 
 interface EntityDetailsProps {
   entity: any
@@ -17,6 +20,8 @@ interface EntityDetailsProps {
 export default function EntityDetails({ entity, type, compact = false }: EntityDetailsProps) {
   const [showAuditHistory, setShowAuditHistory] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
   
   if (!entity) return null
   
@@ -49,6 +54,38 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
       month: 'short',
       day: 'numeric'
     })
+  }
+
+  // Format date for HTML date input (YYYY-MM-DD)
+  const formatDateForInput = (date: string | Date | undefined): string => {
+    if (!date) return ''
+    try {
+      // If it's already in YYYY-MM-DD format, return as is
+      if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date
+      }
+      
+      // Handle date-only strings (YYYY-MM-DD) that might have timezone issues
+      if (typeof date === 'string' && date.includes('T')) {
+        // ISO string with time - extract date part
+        const datePart = date.split('T')[0]
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          return datePart
+        }
+      }
+      
+      const dateObj = typeof date === 'string' ? new Date(date) : date
+      if (isNaN(dateObj.getTime())) return ''
+      
+      // Use UTC methods to avoid timezone issues
+      const year = dateObj.getFullYear()
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+      const day = String(dateObj.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    } catch (error) {
+      console.error('Error formatting date:', error, date)
+      return ''
+    }
   }
   
   if (compact) {
@@ -225,7 +262,10 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
       
       {/* Actions */}
       <div className="flex gap-3 pt-4 border-t">
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button 
+          onClick={() => setIsEditModalOpen(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
           Edit
         </button>
         <button 
@@ -269,6 +309,60 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistics</h2>
         <EntityStatistics entityId={entity.id} entityType={type} />
       </div>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={`Edit ${getEntityDisplayName(type)}`}
+        size="lg"
+      >
+        <EntityForm
+          initialData={{
+            name: entity.name || entity.title || '',
+            title: entity.title || entity.name || '',
+            short_description: entity.short_description || '',
+            long_description: entity.long_description || '',
+            status: entity.status || '',
+            priority: entity.priority || '',
+            start_date: (entity.start_date || entity.startDate) ? formatDateForInput(entity.start_date || entity.startDate) : '',
+            end_date: (entity.end_date || entity.endDate) ? formatDateForInput(entity.end_date || entity.endDate) : (entity.due_date || entity.dueDate) ? formatDateForInput(entity.due_date || entity.dueDate) : '',
+            due_date: (entity.due_date || entity.dueDate) ? formatDateForInput(entity.due_date || entity.dueDate) : '',
+            acceptance_criteria: entity.acceptance_criteria || entity.acceptanceCriteria || '',
+            story_points: entity.story_points || entity.storyPoints || 0
+          }}
+          onSubmit={async (data) => {
+            setIsUpdating(true)
+            try {
+              // Map name/title based on entity type
+              const updateData: any = { ...data }
+              if (type === 'userstory' || type === 'task') {
+                if (data.title) updateData.title = data.title
+                if (data.name && !data.title) updateData.title = data.name
+                delete updateData.name
+              } else {
+                if (data.name) updateData.name = data.name
+                if (data.title && !data.name) updateData.name = data.title
+                delete updateData.title
+              }
+              
+              await api.updateEntity(type, entity.id, updateData)
+              setIsEditModalOpen(false)
+              // Reload the page to refresh data
+              window.location.reload()
+            } catch (error: any) {
+              console.error('Failed to update entity:', error)
+              alert(error.response?.data?.detail || error.message || 'Failed to update entity')
+            } finally {
+              setIsUpdating(false)
+            }
+          }}
+          onCancel={() => setIsEditModalOpen(false)}
+          isLoading={isUpdating}
+          mode="edit"
+          entityType={getEntityDisplayName(type)}
+        />
+      </Modal>
     </div>
   )
 }

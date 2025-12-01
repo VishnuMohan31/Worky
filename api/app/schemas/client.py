@@ -9,7 +9,8 @@ from datetime import datetime
 
 class ClientBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     is_active: Optional[bool] = True
 
 
@@ -19,7 +20,8 @@ class ClientCreate(ClientBase):
 
 class ClientUpdate(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     is_active: Optional[bool] = None
 
 

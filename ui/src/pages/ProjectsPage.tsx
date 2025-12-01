@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import ProjectDetailView from '../components/projects/ProjectDetailView'
+import ProjectModal from '../components/projects/ProjectModal'
 
 export default function ProjectsPage() {
   const navigate = useNavigate()
@@ -14,8 +15,8 @@ export default function ProjectsPage() {
   const [searchParams] = useSearchParams()
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [selectedClientId, setSelectedClientId] = useState<string>('all')
-  const [selectedProgramId, setSelectedProgramId] = useState<string>('all')
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
+  const [selectedProgramId, setSelectedProgramId] = useState<string>('')
   const [clients, setClients] = useState<any[]>([])
   const [programs, setPrograms] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
@@ -25,6 +26,8 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'date'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingProject, setEditingProject] = useState<any>(null)
   
   const isAdmin = user?.role === 'Admin'
 
@@ -57,9 +60,9 @@ export default function ProjectsPage() {
   // Load programs when client changes
   useEffect(() => {
     const loadPrograms = async () => {
-      if (selectedClientId === 'all') {
+      if (!selectedClientId) {
         setPrograms([])
-        setSelectedProgramId('all')
+        setSelectedProgramId('')
         return
       }
       
@@ -68,7 +71,6 @@ export default function ProjectsPage() {
         const allPrograms = await api.getEntityList('program')
         const filteredPrograms = allPrograms.filter((p: any) => p.client_id === selectedClientId)
         setPrograms(filteredPrograms)
-        setSelectedProgramId('all')
       } catch (err) {
         console.error('Failed to load programs:', err)
       } finally {
@@ -78,34 +80,35 @@ export default function ProjectsPage() {
     loadPrograms()
   }, [selectedClientId])
 
-  // Load projects
-  useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        const data = await api.getProjects()
-        setProjects(data)
-      } catch (error) {
-        console.error('Failed to load projects:', error)
-      } finally {
-        setLoading(false)
-      }
+  // Load projects function
+  const loadProjects = async () => {
+    try {
+      const data = await api.getProjects()
+      setProjects(data)
+    } catch (error) {
+      console.error('Failed to load projects:', error)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  // Load projects on mount
+  useEffect(() => {
     loadProjects()
   }, [])
 
   // Filter and sort projects
   const filteredProjects = useMemo(() => {
+    if (!selectedClientId || !selectedProgramId) {
+      return []
+    }
+    
     let filtered = projects.filter((project: any) => {
       const matchesSearch = !searchQuery || 
         project.name?.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesStatus = filterStatus === 'all' || project.status === filterStatus
-      const matchesProgram = selectedProgramId === 'all' || project.programId === selectedProgramId
-      
-      // If client is selected, filter by programs of that client
-      if (selectedClientId !== 'all') {
-        const programIds = programs.map(p => p.id)
-        return matchesSearch && matchesStatus && matchesProgram && programIds.includes(project.programId)
-      }
+      // Use programId (camelCase) since API response is transformed
+      const matchesProgram = project.programId === selectedProgramId || project.program_id === selectedProgramId
       
       return matchesSearch && matchesStatus && matchesProgram
     })
@@ -174,57 +177,106 @@ export default function ProjectsPage() {
     )
   }
 
+  // Get selected entities for breadcrumb
+  const selectedClient = clients.find(c => c.id === selectedClientId)
+  const selectedProgram = programs.find(p => p.id === selectedProgramId)
+  
+  // Check if required selections are made
+  const hasRequiredSelections = selectedClientId && selectedProgramId
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
         <p className="text-gray-600 mt-1">Manage your projects and deliverables</p>
       </div>
-      
-      {/* Client Selector */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Client
-        </label>
-        <select
-          value={selectedClientId}
-          onChange={(e) => setSelectedClientId(e.target.value)}
-          disabled={loadingClients}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-        >
-          <option value="all">All Clients</option>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}
-            </option>
-          ))}
-        </select>
-      </div>
 
-      {/* Program Selector */}
-      {selectedClientId !== 'all' && (
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Program
-          </label>
-          <select
-            value={selectedProgramId}
-            onChange={(e) => setSelectedProgramId(e.target.value)}
-            disabled={loadingPrograms}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-          >
-            <option value="all">All Programs</option>
-            {programs.map((program) => (
-              <option key={program.id} value={program.id}>
-                {program.name}
-              </option>
-            ))}
-          </select>
+      {/* Breadcrumb Navigation */}
+      {(selectedClient || selectedProgram) && (
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          {selectedClient && (
+            <>
+              <button
+                onClick={() => navigate(`/clients`)}
+                className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+              >
+                {selectedClient.name}
+              </button>
+              {selectedProgram && <span className="text-gray-400">→</span>}
+            </>
+          )}
+          {selectedProgram && (
+            <button
+              onClick={() => navigate(`/programs/${selectedProgramId}`)}
+              className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+            >
+              {selectedProgram.name}
+            </button>
+          )}
         </div>
       )}
       
-      {/* Statistics Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      {/* Compact Hierarchy Filter Bar */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Client:</span>
+            <select
+              value={selectedClientId}
+              onChange={(e) => setSelectedClientId(e.target.value)}
+              disabled={loadingClients}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            >
+              <option value="">Select...</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedClientId && (
+            <>
+              <span className="text-gray-400">→</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700">Program:</span>
+                <select
+                  value={selectedProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
+                  disabled={loadingPrograms}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                >
+                  <option value="">Select...</option>
+                  {programs.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {program.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      
+      {/* Show message if selections not made */}
+      {!hasRequiredSelections && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <div className="text-blue-600 font-medium mb-1">
+            Please select Client and Program
+          </div>
+          <p className="text-blue-600 text-sm">
+            Projects are organized under programs. Please make all selections above to view projects.
+          </p>
+        </div>
+      )}
+      
+      {/* Show content only when all selections are made */}
+      {hasRequiredSelections && (
+        <>
+          {/* Statistics Dashboard */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600 mb-1">Total Projects</div>
           <div className="text-2xl font-bold text-gray-900">{statistics.total}</div>
@@ -304,13 +356,21 @@ export default function ProjectsPage() {
             </button>
           </div>
           <button 
-            disabled={!isAdmin}
+            onClick={() => {
+              setEditingProject(null)
+              setIsModalOpen(true)
+            }}
+            disabled={!isAdmin || !selectedProgramId}
             className={`px-6 py-2 rounded-lg transition-colors whitespace-nowrap ${
-              isAdmin 
+              isAdmin && selectedProgramId
                 ? 'bg-blue-600 text-white hover:bg-blue-700' 
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
-            title={!isAdmin ? 'Only Admin users can create projects' : ''}
+            title={
+              !isAdmin ? 'Only Admin users can create projects' : 
+              !selectedProgramId ? 'Please select Client and Program first' : 
+              'Create new project'
+            }
           >
             + New Project
           </button>
@@ -357,7 +417,7 @@ export default function ProjectsPage() {
                     <div className="text-sm font-medium text-gray-900">{project.name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{getProgramName(project.programId)}</div>
+                    <div className="text-sm text-gray-600">{project.programName || project.programId || '-'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -398,10 +458,12 @@ export default function ProjectsPage() {
         </div>
       </div>
       
-      {filteredProjects.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No projects found</p>
-        </div>
+          {filteredProjects.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No projects found for this program</p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Project Detail View Modal */}
@@ -417,6 +479,22 @@ export default function ProjectsPage() {
           }}
         />
       )}
+
+      {/* Project Modal */}
+      <ProjectModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={async () => {
+          const data = await api.getProjects()
+          setProjects(data)
+        }}
+        project={editingProject}
+        selectedClientId={selectedClientId}
+        selectedProgramId={selectedProgramId}
+        clients={clients}
+        programs={programs}
+        isAdmin={isAdmin}
+      />
     </div>
   )
 }

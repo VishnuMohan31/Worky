@@ -305,10 +305,12 @@ async def list_projects_for_program(
     current_user: User = Depends(get_current_user)
 ):
     """List projects for a specific program."""
+    from sqlalchemy.orm import selectinload
+    
     service = HierarchyService(db)
     await service._get_and_verify_program_access(program_id, current_user)
     
-    query = select(Project).where(Project.program_id == program_id, Project.is_deleted == False)
+    query = select(Project).options(selectinload(Project.program)).where(Project.program_id == program_id, Project.is_deleted == False)
     if status_filter:
         query = query.where(Project.status == status_filter)
     
@@ -317,7 +319,15 @@ async def list_projects_for_program(
     projects = result.scalars().all()
     
     logger.log_activity(action="list_projects", entity_type="project", entity_id="multiple", program_id=str(program_id))
-    return [ProjectResponse.from_orm(proj) for proj in projects]
+    
+    # Build response with program name
+    response_list = []
+    for proj in projects:
+        proj_dict = ProjectResponse.from_orm(proj).dict()
+        proj_dict["program_name"] = proj.program.name if proj.program else None
+        response_list.append(ProjectResponse(**proj_dict))
+    
+    return response_list
 
 
 @router.post("/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)

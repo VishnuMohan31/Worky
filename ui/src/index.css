@@ -1,3 +1,6 @@
+/* Hierarchy Components Styles */
+@import './components/hierarchy/hierarchy.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -38,6 +41,3 @@ button {
 a {
   cursor: var(--cursor-pointer);
 }
-
-/* Hierarchy Components Styles */
-@import './components/hierarchy/hierarchy.css';

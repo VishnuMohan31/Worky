@@ -11,7 +11,8 @@ from decimal import Decimal
 # Program Schemas
 class ProgramBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     status: Optional[str] = "Planning"
@@ -23,7 +24,8 @@ class ProgramCreate(ProgramBase):
 
 class ProgramUpdate(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     status: Optional[str] = None
@@ -42,7 +44,8 @@ class ProgramResponse(ProgramBase):
 # Usecase Schemas
 class UsecaseBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     priority: Optional[str] = "Medium"
     status: Optional[str] = "Draft"
 
@@ -53,7 +56,8 @@ class UsecaseCreate(UsecaseBase):
 
 class UsecaseUpdate(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     priority: Optional[str] = None
     status: Optional[str] = None
 
@@ -71,7 +75,8 @@ class UsecaseResponse(UsecaseBase):
 # User Story Schemas
 class UserStoryBase(BaseModel):
     title: str
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     acceptance_criteria: Optional[str] = None
     story_points: Optional[int] = None
     priority: Optional[str] = "Medium"
@@ -80,20 +85,24 @@ class UserStoryBase(BaseModel):
 
 class UserStoryCreate(UserStoryBase):
     usecase_id: str
+    phase_id: Optional[str] = None
 
 
 class UserStoryUpdate(BaseModel):
     title: Optional[str] = None
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     acceptance_criteria: Optional[str] = None
     story_points: Optional[int] = None
     priority: Optional[str] = None
     status: Optional[str] = None
+    phase_id: Optional[str] = None
 
 
 class UserStoryResponse(UserStoryBase):
     id: str
     usecase_id: str
+    phase_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -104,29 +113,39 @@ class UserStoryResponse(UserStoryBase):
 # Subtask Schemas
 class SubtaskBase(BaseModel):
     title: str
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     status: Optional[str] = "To Do"
+    estimated_hours: Optional[Decimal] = None
+    duration_days: Optional[int] = None
+    scrum_points: Optional[Decimal] = None
 
 
 class SubtaskCreate(SubtaskBase):
     task_id: str
-    phase_id: str
+    phase_id: Optional[str] = None
     assigned_to: Optional[str] = None
 
 
 class SubtaskUpdate(BaseModel):
     title: Optional[str] = None
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     status: Optional[str] = None
     phase_id: Optional[str] = None
     assigned_to: Optional[str] = None
+    estimated_hours: Optional[Decimal] = None
+    actual_hours: Optional[Decimal] = None
+    duration_days: Optional[int] = None
+    scrum_points: Optional[Decimal] = None
 
 
 class SubtaskResponse(SubtaskBase):
     id: str
     task_id: str
-    phase_id: str
+    phase_id: Optional[str] = None
     assigned_to: Optional[str] = None
+    actual_hours: Optional[Decimal] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
@@ -138,7 +157,8 @@ class SubtaskResponse(SubtaskBase):
 # Phase Schemas
 class PhaseBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     color: str = '#4A90E2'
     order: int
 
@@ -149,7 +169,8 @@ class PhaseCreate(PhaseBase):
 
 class PhaseUpdate(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
     color: Optional[str] = None
     order: Optional[int] = None
 

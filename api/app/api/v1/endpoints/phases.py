@@ -32,7 +32,7 @@ async def list_phases(
     if not include_inactive:
         query = query.where(Phase.is_active == True)
     
-    query = query.order_by(Phase.display_order, Phase.name)
+    query = query.order_by(Phase.order, Phase.name)
     result = await db.execute(query)
     phases = result.scalars().all()
     

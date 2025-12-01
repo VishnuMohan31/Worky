@@ -203,7 +203,7 @@ async def create_entity_note(
         note_text=note_data.note_text.strip()
     )
     
-    new_note = crud_entity_note.create(
+    new_note = await crud_entity_note.create(
         db=db,
         obj_in=note_create,
         created_by=str(current_user.id)

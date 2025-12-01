@@ -1,15 +1,13 @@
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Date
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Date, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import uuid
 from app.db.base import Base
 
 
 class Sprint(Base):
     __tablename__ = "sprints"
 
-    id = Column(String(20), primary_key=True, default=uuid.uuid4)
+    id = Column(String(20), primary_key=True, server_default=text("generate_sprint_id()"))
     project_id = Column(String(20), ForeignKey("projects.id"), nullable=False)
     name = Column(String(255), nullable=False)
     goal = Column(Text)
@@ -22,6 +20,7 @@ class Sprint(Base):
     # Relationships
     project = relationship("Project", back_populates="sprints")
     sprint_tasks = relationship("SprintTask", back_populates="sprint", cascade="all, delete-orphan")
+    tasks = relationship("Task", foreign_keys="Task.sprint_id", back_populates="sprint")
 
 
 class SprintTask(Base):

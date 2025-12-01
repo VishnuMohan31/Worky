@@ -95,7 +95,8 @@ class HierarchyService:
         program = Program(
             client_id=program_data.client_id,
             name=program_data.name,
-            description=program_data.description,
+            short_description=program_data.short_description,
+            long_description=program_data.long_description,
             start_date=program_data.start_date,
             end_date=program_data.end_date,
             status=program_data.status or "Planning",
@@ -138,7 +139,8 @@ class HierarchyService:
         project = Project(
             program_id=project_data.program_id,
             name=project_data.name,
-            description=project_data.description,
+            short_description=project_data.short_description,
+            long_description=project_data.long_description,
             start_date=project_data.start_date,
             end_date=project_data.end_date,
             status=project_data.status or "Planning",

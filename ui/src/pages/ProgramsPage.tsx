@@ -3,7 +3,7 @@
  * List and manage programs with client selection and statistics
  */
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useEntityList } from '../hooks/useEntity'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
@@ -11,10 +11,11 @@ import ProgramModal from '../components/programs/ProgramModal'
 
 export default function ProgramsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [selectedClientId, setSelectedClientId] = useState<string>('all')
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [clients, setClients] = useState<any[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'date'>('name')
@@ -32,6 +33,14 @@ export default function ProgramsPage() {
       try {
         const clientsData = await api.getClients()
         setClients(clientsData)
+        
+        // Check if we have a pre-selected client from navigation state
+        const state = location.state as { selectedClientId?: string; selectedClientName?: string } | null
+        if (state?.selectedClientId) {
+          setSelectedClientId(state.selectedClientId)
+          // Clear the navigation state to prevent re-selection on refresh
+          navigate(location.pathname, { replace: true, state: {} })
+        }
       } catch (err) {
         console.error('Failed to load clients:', err)
       } finally {
@@ -43,11 +52,13 @@ export default function ProgramsPage() {
   
   // Filter and sort programs
   const filteredPrograms = useMemo(() => {
+    if (!selectedClientId) return []
+    
     let filtered = programs.filter((program: any) => {
       const matchesSearch = !searchQuery || 
         program.name?.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesStatus = filterStatus === 'all' || program.status === filterStatus
-      const matchesClient = selectedClientId === 'all' || program.client_id === selectedClientId
+      const matchesClient = program.client_id === selectedClientId
       return matchesSearch && matchesStatus && matchesClient
     })
     
@@ -69,9 +80,7 @@ export default function ProgramsPage() {
   
   // Calculate statistics for selected client
   const statistics = useMemo(() => {
-    const relevantPrograms = selectedClientId === 'all' 
-      ? programs 
-      : programs.filter((p: any) => p.client_id === selectedClientId)
+    const relevantPrograms = filteredPrograms
     
     return {
       total: relevantPrograms.length,
@@ -81,7 +90,7 @@ export default function ProgramsPage() {
       completed: relevantPrograms.filter((p: any) => p.status === 'Completed').length,
       cancelled: relevantPrograms.filter((p: any) => p.status === 'Cancelled').length,
     }
-  }, [programs, selectedClientId])
+  }, [filteredPrograms])
   
   const statuses = Array.from(new Set(programs.map((p: any) => p.status).filter(Boolean)))
   
@@ -138,35 +147,70 @@ export default function ProgramsPage() {
     refetch()
   }
   
+  // Get selected client for breadcrumb
+  const selectedClient = clients.find(c => c.id === selectedClientId)
+  
+  // Check if required selection is made
+  const hasRequiredSelections = selectedClientId
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Programs</h1>
         <p className="text-gray-600 mt-1">Manage your programs and initiatives</p>
       </div>
+
+      {/* Breadcrumb Navigation */}
+      {selectedClient && (
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          <button
+            onClick={() => navigate(`/clients`)}
+            className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+          >
+            {selectedClient.name}
+          </button>
+        </div>
+      )}
       
       {/* Client Selector */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Client
-        </label>
-        <select
-          value={selectedClientId}
-          onChange={(e) => setSelectedClientId(e.target.value)}
-          disabled={loadingClients}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-        >
-          <option value="all">All Clients</option>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}
-            </option>
-          ))}
-        </select>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Client:</span>
+            <select
+              value={selectedClientId}
+              onChange={(e) => setSelectedClientId(e.target.value)}
+              disabled={loadingClients}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            >
+              <option value="">Select...</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
       
-      {/* Statistics Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      {/* Show message if selection not made */}
+      {!hasRequiredSelections && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <div className="text-blue-600 font-medium mb-1">
+            Please select a Client
+          </div>
+          <p className="text-blue-600 text-sm">
+            Programs are organized under clients. Please select a client above to view programs.
+          </p>
+        </div>
+      )}
+      
+      {/* Show content only when selection is made */}
+      {hasRequiredSelections && (
+        <>
+          {/* Statistics Dashboard */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600 mb-1">Total Programs</div>
           <div className="text-2xl font-bold text-gray-900">{statistics.total}</div>
@@ -321,7 +365,7 @@ export default function ProgramsPage() {
                     {program.end_date ? new Date(program.end_date).toLocaleDateString() : '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
-                    {program.description || '-'}
+                    {program.short_description || program.long_description || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
@@ -344,10 +388,12 @@ export default function ProgramsPage() {
         </div>
       </div>
       
-      {filteredPrograms.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No programs found</p>
-        </div>
+          {filteredPrograms.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No programs found for this client</p>
+            </div>
+          )}
+        </>
       )}
       
       {/* Program Modal */}

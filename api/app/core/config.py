@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    CORS_ORIGINS: list = ["http://localhost:3007", "http://localhost:3000", "http://localhost:8007"]
+    CORS_ORIGINS: list = ["http://localhost:3007", "http://localhost:3008", "http://localhost:3000", "http://localhost:8007"]
     
     # External Services
     GITHUB_TOKEN: Optional[str] = None
@@ -38,9 +38,39 @@ class Settings(BaseSettings):
     LOG_FILE: Optional[str] = None
     ENVIRONMENT: str = "development"
     
+    # LLM Configuration
+    LLM_PROVIDER: str = "openai"  # or "azure", "anthropic", "local"
+    LLM_API_KEY: Optional[str] = None
+    LLM_MODEL: str = "gpt-4"
+    LLM_TEMPERATURE: float = 0.3
+    LLM_MAX_TOKENS: int = 1000
+    LLM_TIMEOUT: int = 30
+    
+    # Redis Configuration
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 1
+    REDIS_PASSWORD: Optional[str] = None
+    
+    # Chat Configuration
+    CHAT_RATE_LIMIT_PER_MINUTE: int = 60
+    CHAT_RATE_LIMIT_PER_HOUR: int = 1000
+    CHAT_SESSION_TTL_MINUTES: int = 30
+    CHAT_MAX_QUERY_LENGTH: int = 2000
+    CHAT_MAX_CONTEXT_MESSAGES: int = 10
+    CHAT_ENABLE_VECTOR_SEARCH: bool = False
+    CHAT_ENABLE_ACTIONS: bool = True
+    CHAT_ENABLE_AUDIT_LOGGING: bool = True
+    
     @property
     def database_url(self) -> str:
         return f"postgresql+asyncpg://{self.DATABASE_USER}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
+    
+    @property
+    def redis_url(self) -> str:
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
     
     class Config:
         env_file = ".env"
@@ -48,3 +78,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_settings() -> Settings:
+    """Get settings instance"""
+    return settings

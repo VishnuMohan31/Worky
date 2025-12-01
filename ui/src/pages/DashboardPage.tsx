@@ -19,17 +19,22 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
+      console.log('Loading dashboard data...')
+      
+      // Load data with individual error handling
       const [projects, tasks, bugs, users] = await Promise.all([
-        api.getProjects(),
-        api.getTasks(),
-        api.getBugs(),
-        api.getUsers()
+        api.getProjects().then(data => { console.log('Projects:', data); return data }).catch(err => { console.error('Projects error:', err); return [] }),
+        api.getTasks().then(data => { console.log('Tasks:', data); return data }).catch(err => { console.error('Tasks error:', err); return [] }),
+        api.getBugs().then(data => { console.log('Bugs:', data); return data }).catch(err => { console.error('Bugs error:', err); return [] }),
+        api.getUsers().then(data => { console.log('Users:', data); return data }).catch(err => { console.error('Users error:', err); return [] })
       ])
+
+      console.log('All data loaded successfully')
 
       setStats({
         totalProjects: projects.length,
         activeTasks: tasks.filter((t: any) => t.status !== 'Done').length,
-        openBugs: bugs.filter((b: any) => b.status === 'Open').length,
+        openBugs: Array.isArray(bugs) ? bugs.filter((b: any) => b.status === 'Open').length : 0,
         teamMembers: users.length
       })
 

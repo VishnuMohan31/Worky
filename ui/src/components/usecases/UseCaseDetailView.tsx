@@ -6,12 +6,19 @@ import EntityNotes from '../hierarchy/EntityNotes'
 interface UseCaseDetail {
   id: string
   name: string
-  description: string
+  description?: string
+  short_description?: string
+  shortDescription?: string
+  long_description?: string
+  longDescription?: string
   status: string
   priority: string
-  project_id: string
-  created_at: string
-  updated_at: string
+  project_id?: string
+  projectId?: string
+  created_at?: string
+  createdAt?: string
+  updated_at?: string
+  updatedAt?: string
 }
 
 interface UseCaseStats {
@@ -45,9 +52,20 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
   const [submitting, setSubmitting] = useState(false)
   const [stats, setStats] = useState<UseCaseStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+  // Helper to get short_description from usecase
+  const getShortDescription = (uc: UseCaseDetail) => {
+    return (uc as any).shortDescription || (uc as any).short_description || ''
+  }
+
+  // Helper to get long_description from usecase
+  const getLongDescription = (uc: UseCaseDetail) => {
+    return (uc as any).longDescription || (uc as any).long_description || ''
+  }
+
   const [formData, setFormData] = useState({
     name: usecase.name,
-    description: usecase.description,
+    short_description: getShortDescription(usecase),
+    long_description: getLongDescription(usecase),
     status: usecase.status,
     priority: usecase.priority
   })
@@ -61,8 +79,12 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
       setLoadingStats(true)
       const response = await api.getEntityStatistics('usecase', usecase.id)
       setStats(response)
-    } catch (error) {
-      console.error('Failed to load use case stats:', error)
+    } catch (error: any) {
+      // Silently handle 401/404 errors - statistics are optional
+      if (error.response?.status !== 401 && error.response?.status !== 404) {
+        console.error('Failed to load use case stats:', error)
+      }
+      setStats(null)
     } finally {
       setLoadingStats(false)
     }
@@ -76,12 +98,29 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
   const handleSave = async () => {
     setSubmitting(true)
     try {
-      await api.updateEntity('usecase', usecase.id, formData)
+      // Transform form data to match API schema
+      const updateData: any = {
+        name: formData.name,
+        status: formData.status,
+        priority: formData.priority,
+        short_description: formData.short_description || null,
+        long_description: formData.long_description || null
+      }
+      
+      // Remove empty strings and convert to null
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === '') {
+          updateData[key] = null
+        }
+      })
+      
+      await api.updateEntity('usecase', usecase.id, updateData)
       setIsEditing(false)
       onUpdate()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update use case:', error)
-      alert('Failed to update use case. Please try again.')
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to update use case. Please try again.'
+      alert(errorMessage)
     } finally {
       setSubmitting(false)
     }
@@ -90,7 +129,8 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
   const handleCancel = () => {
     setFormData({
       name: usecase.name,
-      description: usecase.description,
+      short_description: getShortDescription(usecase),
+      long_description: getLongDescription(usecase),
       status: usecase.status,
       priority: usecase.priority
     })
@@ -103,7 +143,7 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
     if (programId) params.append('program', programId)
     if (projectId || usecase.project_id) params.append('project', projectId || usecase.project_id)
     params.append('usecase', usecase.id)
-    navigate(`/user-stories?${params.toString()}`)
+    navigate(`/userstories?${params.toString()}`)
     onClose()
   }
 

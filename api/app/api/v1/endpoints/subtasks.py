@@ -107,14 +107,15 @@ async def create_subtask(
     if not task:
         raise ResourceNotFoundException("Task", str(subtask_data.task_id))
     
-    # Verify phase exists
-    phase_result = await db.execute(
-        select(Phase).where(Phase.id == subtask_data.phase_id)
-    )
-    phase = phase_result.scalar_one_or_none()
-    
-    if not phase:
-        raise ResourceNotFoundException("Phase", str(subtask_data.phase_id))
+    # Verify phase exists if provided
+    if subtask_data.phase_id:
+        phase_result = await db.execute(
+            select(Phase).where(Phase.id == subtask_data.phase_id)
+        )
+        phase = phase_result.scalar_one_or_none()
+        
+        if not phase:
+            raise ResourceNotFoundException("Phase", str(subtask_data.phase_id))
     
     # Validate that subtasks cannot have subtasks (enforce max depth)
     # This is enforced by the database schema, but we check here for better error messages

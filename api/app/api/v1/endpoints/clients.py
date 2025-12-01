@@ -9,7 +9,7 @@ from uuid import UUID
 
 from app.db.base import get_db
 from app.models.client import Client
-from app.models.hierarchy import Project
+from app.models.hierarchy import Project, Program
 from app.models.user import User
 from app.schemas.client import ClientCreate, ClientUpdate, ClientResponse, ClientList
 from app.core.security import get_current_user, require_role
@@ -95,7 +95,13 @@ async def create_client(
 ):
     """Create a new client (Admin only)."""
     
+    # Generate client ID
+    result = await db.execute(select(func.count(Client.id)))
+    count = result.scalar() or 0
+    client_id = f"CLI-{str(count + 1).zfill(3)}"
+    
     client = Client(
+        id=client_id,
         **client_data.dict(),
         created_by=str(current_user.id),
         updated_by=str(current_user.id)
@@ -220,22 +226,28 @@ async def get_client_statistics(
     client_details = []
     
     for client in clients:
-        # Count projects for this client
-        project_query = select(func.count(distinct(Project.id))).where(
+        # Count projects for this client (through programs)
+        project_query = select(func.count(distinct(Project.id))).select_from(Project).join(
+            Program, Project.program_id == Program.id
+        ).where(
             and_(
-                Project.client_id == client.id,
-                Project.is_deleted == False
+                Program.client_id == client.id,
+                Project.is_deleted == False,
+                Program.is_deleted == False
             )
         )
         total_projects_result = await db.execute(project_query)
         total_projects = total_projects_result.scalar()
         
         # Count ongoing projects
-        ongoing_query = select(func.count(distinct(Project.id))).where(
+        ongoing_query = select(func.count(distinct(Project.id))).select_from(Project).join(
+            Program, Project.program_id == Program.id
+        ).where(
             and_(
-                Project.client_id == client.id,
+                Program.client_id == client.id,
                 Project.status.in_(ongoing_statuses),
-                Project.is_deleted == False
+                Project.is_deleted == False,
+                Program.is_deleted == False
             )
         )
         ongoing_result = await db.execute(ongoing_query)
@@ -244,11 +256,14 @@ async def get_client_statistics(
         if ongoing_projects > 0:
             clients_with_ongoing.add(client.id)
         
-        # Get latest project for this client
-        latest_project_query = select(Project).where(
+        # Get latest project for this client (through programs)
+        latest_project_query = select(Project).join(
+            Program, Project.program_id == Program.id
+        ).where(
             and_(
-                Project.client_id == client.id,
-                Project.is_deleted == False
+                Program.client_id == client.id,
+                Project.is_deleted == False,
+                Program.is_deleted == False
             )
         ).order_by(Project.created_at.desc()).limit(1)
         latest_project_result = await db.execute(latest_project_query)
@@ -257,10 +272,10 @@ async def get_client_statistics(
         client_details.append({
             "id": str(client.id),
             "name": client.name,
-            "description": client.description,
-            "industry": client.industry,
-            "contact_email": client.contact_email,
-            "contact_phone": client.contact_phone,
+            "description": client.short_description or "",
+            "industry": "",  # Not in model
+            "contact_email": "",  # Not in model
+            "contact_phone": "",  # Not in model
             "is_active": client.is_active,
             "total_projects": total_projects,
             "ongoing_projects": ongoing_projects,

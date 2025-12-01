@@ -58,7 +58,7 @@ export default function Modal({
   if (!isOpen) return null
   
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black bg-opacity-50 transition-opacity"
@@ -68,24 +68,24 @@ export default function Modal({
       
       {/* Modal */}
       <div
-        className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col animate-modal-in`}
+        className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] flex flex-col animate-modal-in`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 id="modal-title" className="text-xl font-semibold">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b">
+          <h2 id="modal-title" className="text-lg sm:text-xl font-semibold text-gray-900">
             {title}
           </h2>
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
               aria-label="Close modal"
             >
               <svg
-                className="w-6 h-6"
+                className="w-5 h-5 sm:w-6 sm:h-6"
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -100,7 +100,7 @@ export default function Modal({
         </div>
         
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4">
           {children}
         </div>
       </div>

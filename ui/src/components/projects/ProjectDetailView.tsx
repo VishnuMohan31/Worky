@@ -39,12 +39,43 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
   const [submitting, setSubmitting] = useState(false)
   const [stats, setStats] = useState<ProjectStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+  // Helper to convert date from MM/DD/YYYY or other formats to YYYY-MM-DD for API
+  const convertDateToAPIFormat = (dateStr?: string) => {
+    if (!dateStr) return ''
+    // If already in YYYY-MM-DD format, return as is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+    // Try to parse and convert
+    try {
+      const date = new Date(dateStr)
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+    } catch (e) {
+      console.warn('Failed to parse date:', dateStr)
+    }
+    return dateStr
+  }
+
+  // Helper to get short_description from project
+  const getShortDescription = (proj: ProjectDetail) => {
+    return (proj as any).shortDescription || (proj as any).short_description || ''
+  }
+
+  // Helper to get long_description from project
+  const getLongDescription = (proj: ProjectDetail) => {
+    return (proj as any).longDescription || (proj as any).long_description || ''
+  }
+
   const [formData, setFormData] = useState({
     name: project.name,
-    description: project.description,
+    short_description: getShortDescription(project),
+    long_description: getLongDescription(project),
     status: project.status,
-    start_date: project.start_date || '',
-    end_date: project.end_date || ''
+    start_date: convertDateToAPIFormat(project.start_date || (project as any).startDate),
+    end_date: convertDateToAPIFormat(project.end_date || (project as any).endDate)
   })
 
   useEffect(() => {
@@ -71,12 +102,31 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
   const handleSave = async () => {
     setSubmitting(true)
     try {
-      await api.updateProject(project.id, formData)
+      // Transform form data to match API schema
+      const updateData: any = {
+        name: formData.name,
+        status: formData.status,
+        short_description: formData.short_description || null,
+        long_description: formData.long_description || null,
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null
+      }
+      
+      // Remove empty strings and convert to null
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === '') {
+          updateData[key] = null
+        }
+      })
+      
+      console.log('Updating project with data:', updateData)
+      await api.updateProject(project.id, updateData)
       setIsEditing(false)
       onUpdate()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update project:', error)
-      alert('Failed to update project. Please try again.')
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to update project. Please try again.'
+      alert(errorMessage)
     } finally {
       setSubmitting(false)
     }
@@ -85,10 +135,11 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
   const handleCancel = () => {
     setFormData({
       name: project.name,
-      description: project.description,
+      short_description: getShortDescription(project),
+      long_description: getLongDescription(project),
       status: project.status,
-      start_date: project.start_date || '',
-      end_date: project.end_date || ''
+      start_date: convertDateToAPIFormat(project.start_date || (project as any).startDate),
+      end_date: convertDateToAPIFormat(project.end_date || (project as any).endDate)
     })
     setIsEditing(false)
   }
@@ -240,14 +291,15 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
 
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                      Description
+                      Short Description <span className="text-xs text-gray-500">(Search keywords, summary)</span>
                     </label>
                     {isEditing ? (
                       <textarea
-                        name="description"
-                        value={formData.description}
+                        name="short_description"
+                        value={formData.short_description || ''}
                         onChange={handleInputChange}
-                        rows={4}
+                        rows={3}
+                        placeholder="Brief summary with key search terms..."
                         className="w-full px-4 py-2 rounded-md border"
                         style={{ 
                           backgroundColor: 'var(--surface-color)',
@@ -257,7 +309,32 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       />
                     ) : (
                       <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                        {project.description || 'No description provided'}
+                        {getShortDescription(project) || 'No short description provided'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                      Long Description <span className="text-xs text-gray-500">(Detailed explanation)</span>
+                    </label>
+                    {isEditing ? (
+                      <textarea
+                        name="long_description"
+                        value={formData.long_description || ''}
+                        onChange={handleInputChange}
+                        rows={6}
+                        placeholder="Detailed explanation of the project..."
+                        className="w-full px-4 py-2 rounded-md border"
+                        style={{ 
+                          backgroundColor: 'var(--surface-color)',
+                          borderColor: 'var(--border-color)',
+                          color: 'var(--text-color)'
+                        }}
+                      />
+                    ) : (
+                      <p className="text-base whitespace-pre-wrap" style={{ color: 'var(--text-color)' }}>
+                        {getLongDescription(project) || 'No detailed description provided'}
                       </p>
                     )}
                   </div>
@@ -271,7 +348,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                         <input
                           type="date"
                           name="start_date"
-                          value={formData.start_date}
+                          value={formData.start_date || ''}
                           onChange={handleInputChange}
                           className="w-full px-4 py-2 rounded-md border"
                           style={{ 
@@ -282,7 +359,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                         />
                       ) : (
                         <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                          {formatDate(project.start_date)}
+                          {formatDate(project.start_date || (project as any).startDate)}
                         </p>
                       )}
                     </div>
@@ -295,7 +372,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                         <input
                           type="date"
                           name="end_date"
-                          value={formData.end_date}
+                          value={formData.end_date || ''}
                           onChange={handleInputChange}
                           className="w-full px-4 py-2 rounded-md border"
                           style={{ 
@@ -306,7 +383,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                         />
                       ) : (
                         <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                          {formatDate(project.end_date)}
+                          {formatDate(project.end_date || (project as any).endDate)}
                         </p>
                       )}
                     </div>

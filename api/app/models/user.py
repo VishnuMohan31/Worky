@@ -25,3 +25,8 @@ class User(Base):
     client = relationship("Client", back_populates="users")
     assigned_tasks = relationship("Task", back_populates="assignee", foreign_keys="Task.assigned_to")
     reported_bugs = relationship("Bug", back_populates="reporter", foreign_keys="Bug.reported_by")
+    todo_items = relationship("TodoItem", back_populates="user")
+    adhoc_notes = relationship("AdhocNote", back_populates="user")
+    chat_messages = relationship("ChatMessage", back_populates="user")
+    chat_audit_logs = relationship("ChatAuditLog", back_populates="user")
+    reminders = relationship("Reminder", back_populates="user")

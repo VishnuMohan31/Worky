@@ -2,11 +2,12 @@
  * Use Cases Page
  * List and manage use cases with client, program, and project selection
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import UseCaseDetailView from '../components/usecases/UseCaseDetailView'
+import UseCaseModal from '../components/usecases/UseCaseModal'
 
 export default function UseCasesPage() {
   const navigate = useNavigate()
@@ -29,6 +30,8 @@ export default function UseCasesPage() {
   const [loadingUseCases, setLoadingUseCases] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'priority'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingUseCase, setEditingUseCase] = useState<any>(null)
   
   const isAdmin = user?.role === 'Admin'
   
@@ -44,6 +47,35 @@ export default function UseCasesPage() {
         const programParam = searchParams.get('program')
         const projectParam = searchParams.get('project')
         
+        // If project is passed but program/client aren't, load project first to get its hierarchy
+        if (projectParam && (!clientParam || !programParam)) {
+          try {
+            const allProjects = await api.getProjects()
+            const project = allProjects.find((p: any) => p.id === projectParam)
+            if (project) {
+              const projectProgramId = project.programId || project.program_id
+              if (projectProgramId) {
+                // Find the program to get the client
+                const allPrograms = await api.getEntityList('program')
+                const program = allPrograms.find((p: any) => p.id === projectProgramId)
+                if (program) {
+                  const programClientId = program.client_id || program.clientId
+                  if (programClientId) {
+                    // Set all hierarchy values - they will trigger dependent useEffects
+                    setSelectedClientId(programClientId)
+                    setSelectedProgramId(projectProgramId)
+                    setSelectedProjectId(projectParam)
+                    return
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Failed to load project hierarchy:', err)
+          }
+        }
+        
+        // Set parameters if they exist
         if (clientParam) setSelectedClientId(clientParam)
         if (programParam) setSelectedProgramId(programParam)
         if (projectParam) setSelectedProjectId(projectParam)
@@ -61,14 +93,21 @@ export default function UseCasesPage() {
     const loadPrograms = async () => {
       if (!selectedClientId) {
         setPrograms([])
-        setSelectedProgramId('')
+        // Don't clear selectedProgramId if it came from URL params
+        const programParam = searchParams.get('program')
+        if (!programParam) {
+          setSelectedProgramId('')
+        }
         return
       }
       
       setLoadingPrograms(true)
       try {
         const allPrograms = await api.getEntityList('program')
-        const filteredPrograms = allPrograms.filter((p: any) => p.client_id === selectedClientId)
+        // Check both camelCase and snake_case for client_id
+        const filteredPrograms = allPrograms.filter((p: any) => 
+          (p.clientId === selectedClientId || p.client_id === selectedClientId)
+        )
         setPrograms(filteredPrograms)
       } catch (err) {
         console.error('Failed to load programs:', err)
@@ -77,22 +116,41 @@ export default function UseCasesPage() {
       }
     }
     loadPrograms()
-  }, [selectedClientId])
+  }, [selectedClientId, searchParams])
 
   // Load projects when program changes
   useEffect(() => {
     const loadProjects = async () => {
       if (!selectedProgramId) {
         setProjects([])
-        setSelectedProjectId('')
+        // Don't clear selectedProjectId if it came from URL params
+        const projectParam = searchParams.get('project')
+        if (!projectParam) {
+          setSelectedProjectId('')
+        }
         return
       }
       
       setLoadingProjects(true)
       try {
         const allProjects = await api.getProjects()
-        const filteredProjects = allProjects.filter((p: any) => p.programId === selectedProgramId)
+        // Check both camelCase and snake_case for program_id
+        const filteredProjects = allProjects.filter((p: any) => 
+          (p.programId === selectedProgramId || p.program_id === selectedProgramId)
+        )
         setProjects(filteredProjects)
+        
+        // If project was passed via URL but not in filtered list, try to find it
+        const projectParam = searchParams.get('project')
+        if (projectParam && !filteredProjects.find((p: any) => p.id === projectParam)) {
+          // Project might be in all projects but filtered out - find it and check its program
+          const project = allProjects.find((p: any) => p.id === projectParam)
+          if (project) {
+            // The project exists but doesn't match the selected program
+            // This shouldn't happen, but let's add it to the list anyway
+            console.warn('Project found but program mismatch:', project)
+          }
+        }
       } catch (err) {
         console.error('Failed to load projects:', err)
       } finally {
@@ -100,29 +158,34 @@ export default function UseCasesPage() {
       }
     }
     loadProjects()
-  }, [selectedProgramId])
+  }, [selectedProgramId, searchParams])
+
+  // Load use cases function - reusable and memoized
+  const loadUseCases = useCallback(async () => {
+    if (!selectedProjectId) {
+      setUsecases([])
+      return
+    }
+    
+    setLoadingUseCases(true)
+    try {
+      const allUseCases = await api.getEntityList('usecase')
+      // Check both camelCase and snake_case for project_id
+      const filteredUseCases = allUseCases.filter((uc: any) => 
+        (uc.projectId === selectedProjectId || uc.project_id === selectedProjectId)
+      )
+      setUsecases(filteredUseCases)
+    } catch (err) {
+      console.error('Failed to load use cases:', err)
+    } finally {
+      setLoadingUseCases(false)
+    }
+  }, [selectedProjectId])
 
   // Load use cases when project changes
   useEffect(() => {
-    const loadUseCases = async () => {
-      if (!selectedProjectId) {
-        setUsecases([])
-        return
-      }
-      
-      setLoadingUseCases(true)
-      try {
-        const allUseCases = await api.getEntityList('usecase')
-        const filteredUseCases = allUseCases.filter((uc: any) => uc.project_id === selectedProjectId)
-        setUsecases(filteredUseCases)
-      } catch (err) {
-        console.error('Failed to load use cases:', err)
-      } finally {
-        setLoadingUseCases(false)
-      }
-    }
     loadUseCases()
-  }, [selectedProjectId])
+  }, [loadUseCases])
 
   // Filter and sort use cases
   const filteredUseCases = useMemo(() => {
@@ -197,12 +260,53 @@ export default function UseCasesPage() {
   // Check if all required selections are made
   const hasRequiredSelections = selectedClientId && selectedProgramId && selectedProjectId
 
+  // Get selected entity names for breadcrumb
+  const selectedClient = clients.find(c => c.id === selectedClientId)
+  const selectedProgram = programs.find(p => p.id === selectedProgramId)
+  const selectedProject = projects.find(p => p.id === selectedProjectId)
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Use Cases</h1>
         <p className="text-gray-600 mt-1">Manage functional requirements and scenarios</p>
       </div>
+
+      {/* Breadcrumb Navigation */}
+      {(selectedClient || selectedProgram || selectedProject) && (
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          {selectedClient && (
+            <>
+              <button
+                onClick={() => navigate(`/clients`)}
+                className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+              >
+                {selectedClient.name}
+              </button>
+              {selectedProgram && <span className="text-gray-400">→</span>}
+            </>
+          )}
+          {selectedProgram && (
+            <>
+              <button
+                onClick={() => navigate(`/programs/${selectedProgramId}`)}
+                className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+              >
+                {selectedProgram.name}
+              </button>
+              {selectedProject && <span className="text-gray-400">→</span>}
+            </>
+          )}
+          {selectedProject && (
+            <button
+              onClick={() => navigate(`/projects/${selectedProjectId}`)}
+              className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+            >
+              {selectedProject.name}
+            </button>
+          )}
+        </div>
+      )}
       
       {/* Compact Hierarchy Filter Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -365,13 +469,21 @@ export default function UseCasesPage() {
                 </button>
               </div>
               <button 
-                disabled={!isAdmin}
+                onClick={() => {
+                  setEditingUseCase(null)
+                  setIsModalOpen(true)
+                }}
+                disabled={!isAdmin || !selectedProjectId}
                 className={`px-6 py-2 rounded-lg transition-colors whitespace-nowrap ${
-                  isAdmin 
+                  isAdmin && selectedProjectId
                     ? 'bg-blue-600 text-white hover:bg-blue-700' 
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
-                title={!isAdmin ? 'Only Admin users can create use cases' : ''}
+                title={
+                  !isAdmin ? 'Only Admin users can create use cases' : 
+                  !selectedProjectId ? 'Please select a project first' : 
+                  'Create new use case'
+                }
               >
                 + New Use Case
               </button>
@@ -394,7 +506,7 @@ export default function UseCasesPage() {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
+                      Short Description
                     </th>
                   </tr>
                 </thead>
@@ -428,7 +540,7 @@ export default function UseCasesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 max-w-md truncate">
-                        {usecase.description || '-'}
+                        {usecase.shortDescription || usecase.short_description || '-'}
                       </td>
                     </tr>
                   ))}
@@ -459,6 +571,27 @@ export default function UseCasesPage() {
           }}
         />
       )}
+
+      {/* Use Case Modal */}
+      <UseCaseModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setEditingUseCase(null)
+        }}
+        onSuccess={async () => {
+          // Reload use cases after successful creation/update
+          await loadUseCases()
+        }}
+        useCase={editingUseCase}
+        selectedClientId={selectedClientId}
+        selectedProgramId={selectedProgramId}
+        selectedProjectId={selectedProjectId}
+        clients={clients}
+        programs={programs}
+        projects={projects}
+        isAdmin={isAdmin}
+      />
     </div>
   )
 }

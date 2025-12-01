@@ -27,7 +27,8 @@ export default function ProgramModal({
 }: ProgramModalProps) {
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
+    short_description: '',
+    long_description: '',
     client_id: selectedClientId || '',
     status: 'Planning',
     start_date: '',
@@ -42,7 +43,8 @@ export default function ProgramModal({
     if (program) {
       setFormData({
         name: program.name || '',
-        description: program.description || '',
+        short_description: program.short_description || '',
+        long_description: program.long_description || '',
         client_id: program.client_id || '',
         status: program.status || 'Planning',
         start_date: program.start_date || '',
@@ -51,7 +53,8 @@ export default function ProgramModal({
     } else {
       setFormData({
         name: '',
-        description: '',
+        short_description: '',
+        long_description: '',
         client_id: selectedClientId || '',
         status: 'Planning',
         start_date: '',
@@ -178,17 +181,33 @@ export default function ProgramModal({
             />
           </div>
 
-          {/* Description */}
+          {/* Short Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
+              Short Description
             </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
+            <input
+              type="text"
+              value={formData.short_description}
+              onChange={(e) => handleChange('short_description', e.target.value)}
               disabled={!isAdmin}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-              placeholder="Enter program description"
+              placeholder="Brief description (max 500 characters)"
+              maxLength={500}
+            />
+          </div>
+
+          {/* Long Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Long Description
+            </label>
+            <textarea
+              value={formData.long_description}
+              onChange={(e) => handleChange('long_description', e.target.value)}
+              disabled={!isAdmin}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              placeholder="Detailed program description"
               rows={4}
             />
           </div>

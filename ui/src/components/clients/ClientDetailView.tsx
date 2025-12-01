@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
 
@@ -30,6 +31,7 @@ interface ClientDetailViewProps {
 }
 
 const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, onUpdate }) => {
+  const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -397,6 +399,22 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                     </span>
                   </div>
                 </div>
+
+                {/* Show All Programs Button */}
+                <button
+                  onClick={() => {
+                    navigate('/programs', { state: { selectedClientId: client.id, selectedClientName: client.name } })
+                    onClose()
+                  }}
+                  className="w-full mt-4 px-4 py-2 rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                  style={{ 
+                    backgroundColor: 'var(--primary-color)',
+                    color: 'white'
+                  }}
+                >
+                  <span>📊</span>
+                  <span>Show All Programs</span>
+                </button>
               </div>
 
               {/* Latest Project */}

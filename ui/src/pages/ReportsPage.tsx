@@ -45,11 +45,33 @@ export default function ReportsPage() {
       description: 'Overall project status and risk assessment',
       icon: '💚',
       color: 'var(--success-color)'
+    },
+    {
+      id: 7,
+      title: 'Project Tree',
+      description: 'Hierarchical view of project structure (Use Cases, User Stories, Tasks)',
+      icon: '🌳',
+      color: 'var(--primary-color)',
+      isProjectTree: true
     }
   ]
 
-  const handleGenerateReport = (reportTitle: string) => {
-    alert(`Generating ${reportTitle}... This would call the API to generate the report with export options (PDF/CSV)`)
+  const handleGenerateReport = (report: typeof reports[0]) => {
+    // Navigate to dedicated report page
+    const routeMap: Record<number, string> = {
+      1: 'utilization',
+      2: 'engagement',
+      3: 'occupancy-forecast',
+      4: 'bug-density',
+      5: 'sprint-velocity',
+      6: 'project-health',
+      7: 'project-tree'
+    }
+    
+    const route = routeMap[report.id]
+    if (route) {
+      window.location.href = `/reports/${route}`
+    }
   }
 
   return (
@@ -62,7 +84,7 @@ export default function ReportsPage() {
         {reports.map(report => (
           <div key={report.id}
                className="rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-               onClick={() => handleGenerateReport(report.title)}
+               onClick={() => handleGenerateReport(report)}
                style={{ 
                  backgroundColor: 'var(--surface-color)',
                  border: '1px solid var(--border-color)'
@@ -71,12 +93,17 @@ export default function ReportsPage() {
               <div className="text-4xl" style={{ color: report.color }}>
                 {report.icon}
               </div>
-              <button className="px-3 py-1 text-sm rounded"
-                      style={{ 
-                        backgroundColor: 'var(--secondary-color)',
-                        color: 'var(--text-color)'
-                      }}>
-                Generate
+              <button 
+                className="px-3 py-1 text-sm rounded hover:opacity-80 transition-opacity"
+                style={{ 
+                  backgroundColor: 'var(--secondary-color)',
+                  color: 'var(--text-color)'
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleGenerateReport(report)
+                }}>
+                View Report →
               </button>
             </div>
             <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-color)' }}>

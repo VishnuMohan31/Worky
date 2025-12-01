@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import api from '../services/api'
 
@@ -12,29 +12,104 @@ interface Task {
   assignedToName: string
   dueDate: string
   progress: number
+  sprint_id?: string
+}
+
+interface Sprint {
+  id: string
+  name: string
+  start_date: string
+  end_date: string
+  status: string
 }
 
 export default function KanbanPage() {
   const { t } = useLanguage()
+  const [projects, setProjects] = useState<any[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
+  const [sprints, setSprints] = useState<Sprint[]>([])
+  const [selectedSprintId, setSelectedSprintId] = useState<string>('')
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingSprints, setLoadingSprints] = useState(false)
+  const [loadingTasks, setLoadingTasks] = useState(false)
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
 
   useEffect(() => {
-    loadTasks()
+    loadProjects()
   }, [])
 
-  const loadTasks = async () => {
+  useEffect(() => {
+    if (selectedProjectId) {
+      loadSprints()
+    } else {
+      setSprints([])
+      setSelectedSprintId('')
+      setTasks([])
+    }
+  }, [selectedProjectId])
+
+  useEffect(() => {
+    if (selectedSprintId) {
+      loadTasks()
+    } else {
+      setTasks([])
+    }
+  }, [selectedSprintId])
+
+  const loadProjects = async () => {
     try {
-      const data = await api.getTasks()
-      setTasks(data)
+      const data = await api.getProjects()
+      setProjects(data)
     } catch (error) {
-      console.error('Failed to load tasks:', error)
+      console.error('Failed to load projects:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  const loadSprints = async () => {
+    if (!selectedProjectId) return
+    setLoadingSprints(true)
+    try {
+      const data = await api.getProjectSprints(selectedProjectId, false)
+      setSprints(data)
+      if (data.length > 0 && !selectedSprintId) {
+        setSelectedSprintId(data[0].id)
+      }
+    } catch (error) {
+      console.error('Failed to load sprints:', error)
+    } finally {
+      setLoadingSprints(false)
+    }
+  }
+
+  const loadTasks = useCallback(async () => {
+    if (!selectedSprintId) return
+    setLoadingTasks(true)
+    try {
+      const data = await api.getSprintTasks(selectedSprintId)
+      // Transform tasks to match the expected format
+      const transformedTasks = data.map((task: any) => ({
+        id: task.id,
+        title: task.title || task.name,
+        description: task.description || '',
+        status: task.status || 'To Do',
+        priority: task.priority || 'Medium',
+        projectId: task.project_id || task.projectId || '',
+        assignedToName: task.assigned_to_name || task.assignedToName || 'Unassigned',
+        dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString() : '',
+        progress: task.progress || 0,
+        sprint_id: task.sprint_id || selectedSprintId
+      }))
+      setTasks(transformedTasks)
+    } catch (error) {
+      console.error('Failed to load tasks:', error)
+    } finally {
+      setLoadingTasks(false)
+    }
+  }, [selectedSprintId])
 
   const columns = ['To Do', 'In Progress', 'Done']
 
@@ -88,6 +163,20 @@ export default function KanbanPage() {
     setSelectedTask(null)
   }
 
+  const formatSprintDisplay = (sprint: Sprint) => {
+    const startDate = new Date(sprint.start_date).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).toUpperCase()
+    const endDate = new Date(sprint.end_date).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).toUpperCase()
+    return `${sprint.id} (${startDate} to ${endDate})`
+  }
+
   if (loading) {
     return <div style={{ color: 'var(--text-color)' }}>{t('loading')}</div>
   }
@@ -97,6 +186,77 @@ export default function KanbanPage() {
       <h1 className="text-3xl font-bold mb-6" style={{ color: 'var(--text-color)' }}>
         {t('kanban')} 📋
       </h1>
+
+      {/* Project and Sprint Selection */}
+      <div className="mb-6 flex gap-4 items-end">
+        <div className="flex-1">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
+            Select Project:
+          </label>
+          <select
+            value={selectedProjectId}
+            onChange={(e) => {
+              setSelectedProjectId(e.target.value)
+              setSelectedSprintId('')
+              setTasks([])
+            }}
+            className="w-full p-2 rounded border"
+            style={{
+              backgroundColor: 'var(--background-color)',
+              color: 'var(--text-color)',
+              borderColor: 'var(--border-color)'
+            }}
+          >
+            <option value="">Select a project...</option>
+            {projects.map(project => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex-1">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
+            Select Sprint:
+          </label>
+          <select
+            value={selectedSprintId}
+            onChange={(e) => setSelectedSprintId(e.target.value)}
+            disabled={!selectedProjectId || loadingSprints}
+            className="w-full p-2 rounded border"
+            style={{
+              backgroundColor: 'var(--background-color)',
+              color: 'var(--text-color)',
+              borderColor: 'var(--border-color)',
+              opacity: !selectedProjectId || loadingSprints ? 0.6 : 1
+            }}
+          >
+            <option value="">Select a sprint...</option>
+            {sprints.map(sprint => (
+              <option key={sprint.id} value={sprint.id}>
+                {formatSprintDisplay(sprint)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {loadingTasks && (
+        <div className="mb-4 text-center" style={{ color: 'var(--text-color)' }}>
+          Loading tasks...
+        </div>
+      )}
+
+      {!selectedSprintId && (
+        <div className="mb-4 p-4 rounded text-center" style={{ 
+          backgroundColor: 'var(--surface-color)',
+          border: '1px solid var(--border-color)',
+          color: 'var(--text-secondary)'
+        }}>
+          Please select a project and sprint to view tasks
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {columns.map(column => (

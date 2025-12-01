@@ -51,12 +51,21 @@ export default function HierarchyNavigator({
   // Update store when data is fetched
   useEffect(() => {
     if (contextData) {
-      setCurrentEntity(contextData.entity, entityType)
-      setParentEntity(contextData.parent, getParentType(entityType))
-      setChildEntities(contextData.children || [], getChildType(entityType))
-      setBreadcrumb(contextData.breadcrumb || [])
+      try {
+        // Ensure we have valid data before updating store
+        if (contextData.entity) {
+          setCurrentEntity(contextData.entity, entityType)
+          setParentEntity(contextData.parent, getParentType(entityType))
+          setChildEntities(contextData.children || [], getChildType(entityType))
+          setBreadcrumb(contextData.breadcrumb || [])
+        } else {
+          console.error('Context data missing entity:', contextData)
+        }
+      } catch (err) {
+        console.error('Error updating hierarchy store:', err)
+      }
     }
-  }, [contextData, entityType])
+  }, [contextData, entityType, setCurrentEntity, setParentEntity, setChildEntities, setBreadcrumb])
   
   // Reset to current tab when entity changes
   useEffect(() => {
@@ -99,18 +108,34 @@ export default function HierarchyNavigator({
   }
   
   if (error) {
+    const errorMessage = (error as any)?.response?.data?.detail || 
+                        (error as any)?.message || 
+                        'Failed to load entity'
+    
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center p-6">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
           <div className="text-red-600 text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Error Loading Entity</h2>
-          <p className="text-gray-600 mb-4">{(error as any).message}</p>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go to Dashboard
-          </button>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Error Loading {entityType}</h2>
+          <p className="text-gray-600 mb-4">{errorMessage}</p>
+          <div className="text-sm text-gray-500 mb-6">
+            Entity Type: <span className="font-mono">{entityType}</span><br />
+            Entity ID: <span className="font-mono">{entityId}</span>
+          </div>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => navigate(-1)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     )

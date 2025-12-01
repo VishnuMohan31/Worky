@@ -2,16 +2,18 @@
  * Generic Entity Form Component
  * Reusable form for creating/editing entities with common fields
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export interface EntityFormData {
-  name: string
+  name?: string
+  title?: string
   short_description?: string
   long_description?: string
   status?: string
   start_date?: string
   end_date?: string
+  due_date?: string
   [key: string]: any
 }
 
@@ -42,29 +44,38 @@ export default function EntityForm({
   
   const [formData, setFormData] = useState<EntityFormData>({
     name: '',
+    title: '',
     short_description: '',
     long_description: '',
     status: statusOptions[0],
     start_date: '',
     end_date: '',
+    due_date: '',
     ...initialData
   })
   
   const [errors, setErrors] = useState<Record<string, string>>({})
   
+  // Use a ref to track if initialData has actually changed
+  const prevInitialDataRef = useRef<string>('')
+  
   useEffect(() => {
-    if (initialData) {
+    const currentInitialDataStr = JSON.stringify(initialData || {})
+    if (currentInitialDataStr !== prevInitialDataRef.current && initialData && Object.keys(initialData).length > 0) {
       setFormData(prev => ({ ...prev, ...initialData }))
+      prevInitialDataRef.current = currentInitialDataStr
     }
   }, [initialData])
   
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
     
-    if (!formData.name || formData.name.trim().length === 0) {
-      newErrors.name = 'Name is required'
-    } else if (formData.name.length > 255) {
-      newErrors.name = 'Name must be less than 255 characters'
+    // Check either name or title (depending on entity type)
+    const displayName = formData.title || formData.name || ''
+    if (!displayName || displayName.trim().length === 0) {
+      newErrors.name = formData.title ? 'Title is required' : 'Name is required'
+    } else if (displayName.length > 255) {
+      newErrors.name = formData.title ? 'Title must be less than 255 characters' : 'Name must be less than 255 characters'
     }
     
     if (formData.short_description && formData.short_description.length > 500) {
@@ -109,22 +120,28 @@ export default function EntityForm({
   
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Name Field */}
+      {/* Name/Title Field */}
       <div>
-        <label htmlFor="name" className="block text-sm font-medium mb-2">
-          Name <span className="text-red-500">*</span>
+        <label htmlFor={formData.title !== undefined ? 'title' : 'name'} className="block text-sm font-medium mb-2">
+          {formData.title !== undefined ? 'Title' : 'Name'} <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
-          id="name"
-          value={formData.name}
-          onChange={(e) => handleChange('name', e.target.value)}
+          id={formData.title !== undefined ? 'title' : 'name'}
+          value={formData.title || formData.name || ''}
+          onChange={(e) => {
+            if (formData.title !== undefined) {
+              handleChange('title', e.target.value)
+            } else {
+              handleChange('name', e.target.value)
+            }
+          }}
           className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
             errors.name 
               ? 'border-red-500 focus:ring-red-500' 
               : 'border-gray-300 focus:ring-blue-500'
           }`}
-          placeholder={`Enter ${entityType.toLowerCase()} name`}
+          placeholder={`Enter ${entityType.toLowerCase()} ${formData.title !== undefined ? 'title' : 'name'}`}
           disabled={isLoading}
         />
         {errors.name && (

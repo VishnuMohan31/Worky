@@ -1,0 +1,140 @@
+/Users/ravikiranponduri/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Testing import with file: /Users/ravikiranponduri/Desktop/WIP/worky/Data_upload/data/Project Tracking Automation.xlsx
+File exists: True
+File size: 237.42 KB
+
+Sending POST request to http://localhost:8001/api/import...
+
+Response Status Code: 500
+
+================================================================================
+IMPORT RESULTS
+================================================================================
+
+Success: False
+Message: Import completed with 10 errors. Rolling back transaction.
+Duration: 0.73 seconds
+
+Summary of Imported Records:
+----------------------------------------
+  clients: 0
+  programs: 0
+  projects: 24
+  usecases: 33
+  user_stories: 11
+  tasks: 0
+  subtasks: 0
+
+Total Records: 68
+
+Warnings (210):
+----------------------------------------
+  1. Usecase row 28: Missing project_id, skipping
+  2. Usecase row 30: Missing project_id, skipping
+  3. Usecase row 31: Missing project_id, skipping
+  4. Usecase row 32: Missing project_id, skipping
+  5. Usecase row 33: Missing project_id, skipping
+  6. Usecase row 34: Missing project_id, skipping
+  7. Usecase row 35: Missing project_id, skipping
+  8. Usecase row 36: Missing project_id, skipping
+  9. Usecase row 37: Missing project_id, skipping
+  10. Usecase row 38: Missing project_id, skipping
+  11. Usecase row 39: Missing project_id, skipping
+  12. Usecase row 40: Missing project_id, skipping
+  13. Usecase row 41: Missing project_id, skipping
+  14. Usecase row 42: Missing project_id, skipping
+  15. Usecase row 43: Missing project_id, skipping
+  16. Usecase row 44: Missing project_id, skipping
+  17. Usecase row 46: Missing project_id, skipping
+  18. User story row 5: Missing usecase_id, skipping
+  19. User story row 6: Missing usecase_id, skipping
+  20. User story row 7: Missing usecase_id, skipping
+  ... and 190 more warnings
+
+Errors (10):
+----------------------------------------
+  1. Error importing task row 1: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('adding a feature to upload multiple input formats.', None, '', None, None, None, None, 'UST-000049', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 21430), datetime.datetime(2025, 11, 30, 17, 20, 50, 21431))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  2. Error importing task row 2: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('Adding LLM to the application to generate report summary to the surveyor..', None, '', None, None, None, None, 'UST-000049', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 25628), datetime.datetime(2025, 11, 30, 17, 20, 50, 25630))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  3. Error importing task row 3: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('enabling the users to see the changes in the visually through the images', 'need to do analysis youtube, claude, kiro....\n\nNeed to do analysis on retrieving the geographical images from the satillite using different apis and see how can we get the images just need to watch the videos..', '', None, None, None, None, 'UST-000049', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 29496), datetime.datetime(2025, 11, 30, 17, 20, 50, 29497))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  4. Error importing task row 4: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('boosting the performance and computing efficiency by caching storage..', None, '', None, None, None, None, 'UST-000049', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 34288), datetime.datetime(2025, 11, 30, 17, 20, 50, 34288))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  5. Error importing task row 10: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('Test Admin Login', 'Admin has power to create organization, admins, user, subscription, thresholds', '', 'COMPLETED', 'HIGH', datetime.date(2025, 9, 22), None, 'UST-000053', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 38472), datetime.datetime(2025, 11, 30, 17, 20, 50, 38473))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  6. Error importing task row 11: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('Test Surveyor Login', 'User can upload and generate reports of that land with the required indicator and threshold', '', 'COMPLETED', 'HIGH', datetime.date(2025, 9, 22), None, 'UST-000053', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 42051), datetime.datetime(2025, 11, 30, 17, 20, 50, 42052))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  7. Error importing task row 26: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('Threshold Accuracy Testing', 'Based on the thresholds the results will be different so need to check the different type of approches and get the highest', '', 'IN_PROGRESS', 'HIGH', datetime.date(2025, 10, 23), datetime.date(2025, 10, 28), 'UST-000054', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 45718), datetime.datetime(2025, 11, 30, 17, 20, 50, 45719))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  8. Error importing task row 27: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('creating sheet', 'creating sheet for the project hirarchy', '', 'COMPLETED', 'HIGH', datetime.date(2025, 9, 8), datetime.date(2025, 9, 30), 'UST-000055', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 49335), datetime.datetime(2025, 11, 30, 17, 20, 50, 49335))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  9. Error importing task row 28: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('creating automation on project tracking', 'the automation has to be track the and update the changes', '', 'IN_PROGRESS', 'HIGH', datetime.date(2025, 9, 15), datetime.date(2025, 10, 31), 'UST-000055', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 52919), datetime.datetime(2025, 11, 30, 17, 20, 50, 52920))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+  10. Error importing task row 33: Database error inserting tasks: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: 
+                INSERT INTO tasks (title, short_description, long_description, status, priority, start_date, due_date, user_story_id, is_deleted, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+            ]
+[parameters: ('UiPath Automation for Patient Eligibility Verification', None, '', 'COMPLETED', 'HIGH', datetime.date(2025, 11, 8), datetime.date(2025, 11, 11), 'UST-000057', False, datetime.datetime(2025, 11, 30, 17, 20, 50, 56245), datetime.datetime(2025, 11, 30, 17, 20, 50, 56246))]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+
+================================================================================
+
+Full results saved to: /Users/ravikiranponduri/Desktop/WIP/worky/Data_upload/scripts/import_test_results.json

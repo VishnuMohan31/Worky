@@ -1,0 +1,593 @@
+/**
+ * Rich Components Styles
+ * Styling for MessageCard, ActionButton, DataTable, and ChartVisualization
+ */
+
+/* ============================================================================
+   MessageCard Styles
+   ============================================================================ */
+
+.message-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s ease;
+  margin: 8px 0;
+}
+
+.message-card:hover {
+  border-color: #d1d5db;
+}
+
+.message-card.cursor-pointer:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.message-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.message-card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.message-card-type {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+}
+
+.message-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.message-card-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.message-card-badge {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.message-card-priority {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.message-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.message-card-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.message-card-metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+  margin-top: 4px;
+}
+
+.message-card-metadata-item {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.message-card-metadata-key {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.message-card-metadata-value {
+  color: #1f2937;
+}
+
+.message-card-footer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.message-card-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+/* ============================================================================
+   ActionButton Styles
+   ============================================================================ */
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:active {
+  transform: translateY(0);
+}
+
+.action-button-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.action-button-primary:hover {
+  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.4);
+}
+
+.action-button-secondary {
+  background: white;
+  color: #4b5563;
+  border-color: #d1d5db;
+}
+
+.action-button-secondary:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.action-button-success {
+  background: #10b981;
+  color: white;
+  border-color: transparent;
+}
+
+.action-button-success:hover {
+  background: #059669;
+}
+
+.action-button-info {
+  background: #3b82f6;
+  color: white;
+  border-color: transparent;
+}
+
+.action-button-info:hover {
+  background: #2563eb;
+}
+
+.action-button-warning {
+  background: #f59e0b;
+  color: white;
+  border-color: transparent;
+}
+
+.action-button-warning:hover {
+  background: #d97706;
+}
+
+.action-button-default {
+  background: #6b7280;
+  color: white;
+  border-color: transparent;
+}
+
+.action-button-default:hover {
+  background: #4b5563;
+}
+
+/* ============================================================================
+   DataTable Styles
+   ============================================================================ */
+
+.data-table-container {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.data-table-wrapper {
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table-header {
+  background: #f9fafb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.data-table-header-cell {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 2px solid #e5e7eb;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.data-table-header-cell:hover {
+  background: #f3f4f6;
+}
+
+.data-table-header-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.data-table-body {
+  background: white;
+}
+
+.data-table-row {
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.15s ease;
+}
+
+.data-table-row:hover {
+  background: #f9fafb;
+}
+
+.data-table-row:last-child {
+  border-bottom: none;
+}
+
+.data-table-cell {
+  padding: 10px 12px;
+  color: #1f2937;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-table-cell-success {
+  color: #059669;
+  font-weight: 500;
+}
+
+.data-table-cell-info {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.data-table-cell-warning {
+  color: #d97706;
+  font-weight: 500;
+}
+
+.data-table-cell-danger {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.data-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+.data-table-count {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.data-table-load-more {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.data-table-load-more:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.data-table-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.data-table-empty p {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+/* ============================================================================
+   ChartVisualization Styles
+   ============================================================================ */
+
+.chart-container {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 8px 0;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.chart-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.chart-type-selector {
+  display: flex;
+  gap: 4px;
+  background: #f3f4f6;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.chart-type-button {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chart-type-button:hover {
+  color: #1f2937;
+}
+
+.chart-type-button.active {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.chart-body {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.chart-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.chart-empty p {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+/* ============================================================================
+   Dark Mode Support
+   ============================================================================ */
+
+@media (prefers-color-scheme: dark) {
+  .message-card,
+  .data-table-container,
+  .chart-container {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .message-card-title,
+  .message-card-metadata-value,
+  .data-table-cell,
+  .chart-title {
+    color: #f3f4f6;
+  }
+
+  .message-card-type,
+  .message-card-meta-item,
+  .message-card-metadata-key,
+  .data-table-count,
+  .chart-legend-item {
+    color: #9ca3af;
+  }
+
+  .data-table-header,
+  .data-table-footer {
+    background: #1f2937;
+  }
+
+  .data-table-header-cell {
+    color: #d1d5db;
+    border-bottom-color: #4b5563;
+  }
+
+  .data-table-header-cell:hover {
+    background: #374151;
+  }
+
+  .data-table-row {
+    border-bottom-color: #374151;
+  }
+
+  .data-table-row:hover {
+    background: #1f2937;
+  }
+
+  .data-table-body {
+    background: #374151;
+  }
+
+  .action-button-secondary {
+    background: #4b5563;
+    color: #d1d5db;
+    border-color: #6b7280;
+  }
+
+  .action-button-secondary:hover {
+    background: #374151;
+  }
+
+  .data-table-load-more {
+    background: #4b5563;
+    color: #d1d5db;
+    border-color: #6b7280;
+  }
+
+  .data-table-load-more:hover {
+    background: #374151;
+  }
+
+  .chart-type-selector {
+    background: #1f2937;
+  }
+
+  .chart-type-button.active {
+    background: #4b5563;
+  }
+}
+
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  .message-card {
+    padding: 10px;
+  }
+
+  .message-card-title {
+    font-size: 13px;
+  }
+
+  .data-table-wrapper {
+    max-height: 300px;
+  }
+
+  .data-table {
+    font-size: 12px;
+  }
+
+  .data-table-header-cell,
+  .data-table-cell {
+    padding: 8px 10px;
+  }
+
+  .chart-container {
+    padding: 12px;
+  }
+
+  .chart-body {
+    min-height: 150px;
+  }
+}

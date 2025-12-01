@@ -19,6 +19,78 @@ const transformUser = (user: any) => {
   }
 }
 
+// Helper function to transform use case from snake_case to camelCase
+const transformUseCase = (usecase: any) => {
+  if (!usecase || typeof usecase !== 'object') {
+    console.warn('transformUseCase: Invalid usecase data', usecase)
+    return null
+  }
+  
+  try {
+    return {
+      id: usecase.id || null,
+      name: usecase.name || '',
+      projectId: usecase.project_id || usecase.projectId || null,
+      status: usecase.status || 'Draft',
+      priority: usecase.priority || 'Medium',
+      shortDescription: usecase.short_description || usecase.shortDescription || null,
+      longDescription: usecase.long_description || usecase.longDescription || null,
+      description: usecase.short_description || usecase.shortDescription || usecase.description || null, // For backward compatibility
+      createdAt: usecase.created_at || usecase.createdAt || null,
+      updatedAt: usecase.updated_at || usecase.updatedAt || null
+    }
+  } catch (error) {
+    console.error('Error transforming usecase:', error, usecase)
+    return null
+  }
+}
+
+// Helper function to transform project from snake_case to camelCase
+const transformProject = (project: any) => {
+  if (!project || typeof project !== 'object') {
+    console.warn('transformProject: Invalid project data', project)
+    return null
+  }
+  // Format date from YYYY-MM-DD to MM/DD/YYYY
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return null
+    try {
+      const date = new Date(dateStr)
+      if (isNaN(date.getTime())) return dateStr
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${month}/${day}/${year}`
+    } catch {
+      return dateStr
+    }
+  }
+  
+  try {
+    return {
+      id: project.id || null,
+      name: project.name || '',
+      programId: project.program_id || project.programId || null,
+      programName: project.program_name || project.programName || null,
+      startDate: formatDate(project.start_date || project.startDate),
+      endDate: formatDate(project.end_date || project.endDate),
+      status: project.status || 'Planning',
+      description: project.short_description || project.long_description || project.description || null,
+      shortDescription: project.short_description || project.shortDescription || null,
+      longDescription: project.long_description || project.longDescription || null,
+      repositoryUrl: project.repository_url || project.repositoryUrl || null,
+      createdAt: project.created_at || project.createdAt || null,
+      updatedAt: project.updated_at || project.updatedAt || null,
+      progress: project.progress || 0,
+      sprint_length_weeks: project.sprint_length_weeks || project.sprintLengthWeeks || '2',
+      sprint_starting_day: project.sprint_starting_day || project.sprintStartingDay || 'Monday'
+    }
+  } catch (error) {
+    console.error('Error transforming project:', error, project)
+    return null
+  }
+}
+
 // Axios instance with config - no dummy data, all real API calls
 const apiClient = axios.create(apiConfig)
 
@@ -41,15 +113,19 @@ apiClient.interceptors.response.use(
   error => {
     console.log('API Error:', error.config?.url, 'Status:', error.response?.status, 'Message:', error.response?.data)
     
-    // Only redirect to login for actual 401 responses (not network errors)
-    // But skip redirect for notes endpoints to prevent disruption
+    // Only redirect to login for 401 on auth endpoints
+    // For other endpoints, let the component handle the error
     if (error.response?.status === 401) {
       const url = error.config?.url || ''
       console.log('401 Unauthorized for:', url)
-      if (!url.includes('/notes')) {
-        console.log('Redirecting to login and clearing token')
+      
+      // Only redirect if it's an auth-related endpoint
+      if (url.includes('/auth/me') || url.includes('/auth/login')) {
+        console.log('Auth endpoint failed - redirecting to login and clearing token')
         localStorage.removeItem('token')
         window.location.href = '/login'
+      } else {
+        console.log('Non-auth endpoint failed with 401 - not redirecting, letting component handle it')
       }
     }
     
@@ -106,8 +182,25 @@ const api = {
       }
       return dummyData[type]?.find((item: any) => item.id === id) || null
     }
-    const response = await apiClient.get(`/${type}s/${id}`)
+    const endpoint = this.getEntityEndpoint(type)
+    const response = await apiClient.get(`${endpoint}/${id}`)
     return response.data
+  },
+
+  // Helper function to get the correct endpoint path for entity types
+  getEntityEndpoint(type: string): string {
+    // Special cases for entity types that don't follow standard pluralization
+    const endpointMap: Record<string, string> = {
+      'userstory': '/user-stories',
+      'user_story': '/user-stories'
+    }
+    
+    if (endpointMap[type]) {
+      return endpointMap[type]
+    }
+    
+    // Standard pluralization: add 's' to the end
+    return `/${type}s`
   },
 
   async getEntityList(type: string, filters?: Record<string, any>) {
@@ -124,7 +217,15 @@ const api = {
       }
       return dummyData[type] || []
     }
-    const response = await apiClient.get(`/${type}s`, { params: filters })
+    const endpoint = this.getEntityEndpoint(type)
+    const response = await apiClient.get(`${endpoint}/`, { params: filters })
+    if (!Array.isArray(response.data)) {
+      return []
+    }
+    // Transform usecases to camelCase
+    if (type === 'usecase') {
+      return response.data.map((uc: any) => transformUseCase(uc)).filter((uc: any) => uc !== null)
+    }
     return response.data
   },
 
@@ -152,7 +253,8 @@ const api = {
       
       return newEntity
     }
-    const response = await apiClient.post(`/${type}s`, data)
+    const endpoint = this.getEntityEndpoint(type)
+    const response = await apiClient.post(`${endpoint}/`, data)
     return response.data
   },
 
@@ -176,7 +278,8 @@ const api = {
       
       return { id, ...data }
     }
-    const response = await apiClient.put(`/${type}s/${id}`, data)
+    const endpoint = this.getEntityEndpoint(type)
+    const response = await apiClient.put(`${endpoint}/${id}`, data)
     return response.data
   },
 
@@ -185,7 +288,8 @@ const api = {
       await delay(500)
       return { success: true }
     }
-    const response = await apiClient.delete(`/${type}s/${id}`)
+    const endpoint = this.getEntityEndpoint(type)
+    const response = await apiClient.delete(`${endpoint}/${id}`)
     return response.data
   },
 
@@ -216,8 +320,31 @@ const api = {
         breadcrumb
       }
     }
-    const response = await apiClient.get(`/hierarchy/${type}/${id}`)
-    return response.data
+    
+    try {
+      const response = await apiClient.get(`/hierarchy/${type}/${id}`)
+      return response.data
+    } catch (error: any) {
+      // If the hierarchy endpoint fails, fall back to basic entity fetch
+      console.warn(`Hierarchy endpoint failed for ${type}/${id}, falling back to basic fetch`, error)
+      
+      try {
+        const entity = await api.getEntity(type, id)
+        
+        // Build basic context without parent/children
+        return {
+          entity,
+          parent: null,
+          children: [],
+          breadcrumb: [
+            { id: entity.id, name: entity.name || entity.title, type }
+          ]
+        }
+      } catch (fallbackError) {
+        console.error(`Failed to fetch entity ${type}/${id}:`, fallbackError)
+        throw fallbackError
+      }
+    }
   },
 
   async getEntityStatistics(type: string, id: string) {
@@ -264,7 +391,7 @@ const api = {
         }
       }
     }
-    const response = await apiClient.get(`/${type}s/${id}/statistics`)
+    const response = await apiClient.get(`/hierarchy/${type}/${id}/statistics`)
     return response.data
   },
 
@@ -292,8 +419,9 @@ const api = {
       await delay(400)
       return dummyClients
     }
-    const response = await apiClient.get('/clients')
-    return response.data
+    const response = await apiClient.get('/clients/')
+    // The clients endpoint returns paginated data with a 'clients' property
+    return response.data.clients || response.data
   },
 
   async getClient(id: string) {
@@ -387,7 +515,7 @@ const api = {
       await delay(500)
       return { id: 'client-' + Date.now(), ...data, isActive: true }
     }
-    const response = await apiClient.post('/clients', data)
+    const response = await apiClient.post('/clients/', data)
     return response.data
   },
 
@@ -407,7 +535,12 @@ const api = {
       return dummyProjects
     }
     const response = await apiClient.get('/projects/')
-    return response.data
+    if (!Array.isArray(response.data)) {
+      console.error('Projects API returned non-array response:', response.data)
+      return []
+    }
+    const transformed = response.data.map((p: any) => transformProject(p)).filter((p: any) => p !== null)
+    return transformed
   },
 
   async getProject(id: string) {
@@ -416,7 +549,7 @@ const api = {
       return dummyProjects.find(p => p.id === id)
     }
     const response = await apiClient.get(`/projects/${id}`)
-    return response.data
+    return transformProject(response.data)
   },
 
   async createProject(data: any) {
@@ -424,7 +557,7 @@ const api = {
       await delay(500)
       return { id: 'proj-' + Date.now(), ...data }
     }
-    const response = await apiClient.post('/projects', data)
+    const response = await apiClient.post('/projects/', data)
     return response.data
   },
 
@@ -434,7 +567,7 @@ const api = {
       return { id, ...data }
     }
     const response = await apiClient.put(`/projects/${id}`, data)
-    return response.data
+    return transformProject(response.data)
   },
 
   // Tasks
@@ -463,7 +596,7 @@ const api = {
       await delay(500)
       return { id: 'task-' + Date.now(), ...data, progress: 0 }
     }
-    const response = await apiClient.post('/tasks', data)
+    const response = await apiClient.post('/tasks/', data)
     return response.data
   },
 
@@ -493,7 +626,7 @@ const api = {
       await delay(500)
       return { id: 'bug-' + Date.now(), ...data, createdAt: new Date().toISOString() }
     }
-    const response = await apiClient.post('/bugs', data)
+    const response = await apiClient.post('/bugs/', data)
     return response.data
   },
 
@@ -528,8 +661,16 @@ const api = {
       ]
       return includeInactive ? phases : phases.filter(p => p.isActive)
     }
-    const response = await apiClient.get('/phases', { params: { include_inactive: includeInactive } })
-    return response.data
+    const response = await apiClient.get('/phases/', { params: { include_inactive: includeInactive } })
+    // Transform snake_case to camelCase
+    return response.data.map((phase: any) => ({
+      id: phase.id,
+      name: phase.name,
+      description: phase.short_description || phase.description || '',
+      color: phase.color,
+      isActive: phase.is_active,
+      displayOrder: phase.order
+    }))
   },
 
   async getPhase(id: string) {
@@ -547,7 +688,15 @@ const api = {
       await delay(500)
       return { id: 'phase-' + Date.now(), ...data, isActive: true }
     }
-    const response = await apiClient.post('/phases', data)
+    // Transform camelCase to snake_case for API
+    const apiData = {
+      name: data.name,
+      short_description: data.description,
+      color: data.color,
+      is_active: data.isActive,
+      order: data.displayOrder
+    }
+    const response = await apiClient.post('/phases/', apiData)
     return response.data
   },
 
@@ -556,7 +705,15 @@ const api = {
       await delay(500)
       return { id, ...data }
     }
-    const response = await apiClient.put(`/phases/${id}`, data)
+    // Transform camelCase to snake_case for API
+    const apiData = {
+      name: data.name,
+      short_description: data.description,
+      color: data.color,
+      is_active: data.isActive,
+      order: data.displayOrder
+    }
+    const response = await apiClient.put(`/phases/${id}`, apiData)
     return response.data
   },
 
@@ -589,7 +746,15 @@ const api = {
       }
     }
     const response = await apiClient.get(`/phases/${id}/usage`)
-    return response.data
+    // Transform the response
+    const data = response.data
+    return {
+      totalCount: data.usage?.total_count || 0,
+      taskCount: data.usage?.task_count || 0,
+      subtaskCount: data.usage?.subtask_count || 0,
+      taskStatusBreakdown: data.usage?.task_status_breakdown || {},
+      subtaskStatusBreakdown: data.usage?.subtask_status_breakdown || {}
+    }
   },
 
   // Programs
@@ -625,7 +790,11 @@ const api = {
       ]
     }
     const response = await apiClient.get('/usecases', { params: { project_id: projectId } })
-    return response.data
+    if (!Array.isArray(response.data)) {
+      console.error('UseCases API returned non-array response:', response.data)
+      return []
+    }
+    return response.data.map((uc: any) => transformUseCase(uc)).filter((uc: any) => uc !== null)
   },
 
   // User Stories
@@ -697,6 +866,53 @@ const api = {
       })
     }
     const response = await apiClient.post(`/bugs/${id}/resolve`, { resolution_notes: resolutionNotes })
+    return response.data
+  },
+
+  // Sprint Operations
+  async getProjectSprints(projectId: string, includePast: boolean = false) {
+    const response = await apiClient.get(`/projects/${projectId}/sprints`, {
+      params: { include_past: includePast }
+    })
+    return response.data
+  },
+
+  async getSprint(sprintId: string) {
+    const response = await apiClient.get(`/sprints/${sprintId}`)
+    return response.data
+  },
+
+  async getSprintTasks(sprintId: string) {
+    const response = await apiClient.get(`/sprints/${sprintId}/tasks`)
+    return response.data
+  },
+
+  async assignTaskToSprint(sprintId: string, taskId: string) {
+    const response = await apiClient.post(`/sprints/${sprintId}/assign-task/${taskId}`)
+    return response.data
+  },
+
+  async unassignTaskFromSprint(sprintId: string, taskId: string) {
+    const response = await apiClient.delete(`/sprints/${sprintId}/unassign-task/${taskId}`)
+    return response.data
+  },
+
+  async createSprint(data: any) {
+    const response = await apiClient.post('/sprints', data)
+    return response.data
+  },
+
+  async updateSprint(sprintId: string, data: any) {
+    const response = await apiClient.put(`/sprints/${sprintId}`, data)
+    return response.data
+  },
+
+  async deleteSprint(sprintId: string) {
+    await apiClient.delete(`/sprints/${sprintId}`)
+  },
+
+  async getDefaultSprintDates(projectId: string) {
+    const response = await apiClient.get(`/projects/${projectId}/sprint-default-dates`)
     return response.data
   },
 
@@ -878,6 +1094,137 @@ const api = {
 
   async delete(url: string, config?: any) {
     const response = await apiClient.delete(url, config)
+    return response.data
+  },
+
+  // QA Metrics
+  async getBugSummaryMetrics(hierarchyFilter?: any) {
+    if (USE_DUMMY_DATA) {
+      await delay(400)
+      return {
+        total_bugs: 127,
+        open_bugs: 45,
+        closed_bugs: 82,
+        resolution_rate: 64.6,
+        average_resolution_time: 5.2,
+        by_severity: {
+          'Blocker': 3,
+          'Critical': 12,
+          'Major': 35,
+          'Minor': 52,
+          'Trivial': 25
+        },
+        by_priority: {
+          'P0 (Critical)': 8,
+          'P1 (High)': 28,
+          'P2 (Medium)': 61,
+          'P3 (Low)': 30
+        },
+        by_status: {
+          'New': 12,
+          'Open': 15,
+          'In Progress': 18,
+          'Fixed': 25,
+          'Verified': 20,
+          'Closed': 37
+        }
+      }
+    }
+    const response = await apiClient.get('/qa-metrics/bugs/summary', { params: hierarchyFilter })
+    return response.data
+  },
+
+  async getBugTrends(startDate?: string, endDate?: string, hierarchyFilter?: any) {
+    if (USE_DUMMY_DATA) {
+      await delay(400)
+      const dates = []
+      const created = []
+      const resolved = []
+      const today = new Date()
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today)
+        date.setDate(date.getDate() - i)
+        dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+        created.push(Math.floor(Math.random() * 10) + 5)
+        resolved.push(Math.floor(Math.random() * 8) + 3)
+      }
+      
+      return { dates, created, resolved }
+    }
+    const params = { ...hierarchyFilter, start_date: startDate, end_date: endDate }
+    const response = await apiClient.get('/qa-metrics/bugs/trends', { params })
+    return response.data
+  },
+
+  async getBugAgingReport(hierarchyFilter?: any) {
+    if (USE_DUMMY_DATA) {
+      await delay(400)
+      return {
+        age_ranges: [
+          { range: '0-7 days', count: 28, percentage: 22.0 },
+          { range: '8-30 days', count: 45, percentage: 35.4 },
+          { range: '31-90 days', count: 38, percentage: 29.9 },
+          { range: '90+ days', count: 16, percentage: 12.6 }
+        ],
+        average_age_by_severity: {
+          'Blocker': 2.5,
+          'Critical': 8.3,
+          'Major': 25.7,
+          'Minor': 42.1,
+          'Trivial': 58.9
+        }
+      }
+    }
+    const response = await apiClient.get('/qa-metrics/bugs/aging', { params: hierarchyFilter })
+    return response.data
+  },
+
+  async getTestExecutionMetrics(testRunId?: string, hierarchyFilter?: any) {
+    if (USE_DUMMY_DATA) {
+      await delay(400)
+      return {
+        total_executions: 245,
+        passed: 180,
+        failed: 45,
+        blocked: 12,
+        skipped: 8,
+        pass_rate: 73.5,
+        fail_rate: 18.4,
+        execution_coverage: 82.3,
+        total_test_cases: 150,
+        executed_test_cases: 123
+      }
+    }
+    const params = { ...hierarchyFilter, test_run_id: testRunId }
+    const response = await apiClient.get('/qa-metrics/test-execution/summary', { params })
+    return response.data
+  },
+
+  // Organization Operations
+  async getOrganizations(isActive?: boolean) {
+    const params = isActive !== undefined ? { is_active: isActive } : {}
+    const response = await apiClient.get('/organizations/', { params })
+    return response.data.organizations || []
+  },
+
+  async getOrganization(id: string) {
+    const response = await apiClient.get(`/organizations/${id}`)
+    return response.data
+  },
+
+  async createOrganization(data: any) {
+    const response = await apiClient.post('/organizations/', data)
+    return response.data
+  },
+
+  async updateOrganization(id: string, data: any) {
+    const response = await apiClient.put(`/organizations/${id}`, data)
+    return response.data
+  },
+
+  async deleteOrganization(id: string) {
+    const response = await apiClient.delete(`/organizations/${id}`)
     return response.data
   }
 }

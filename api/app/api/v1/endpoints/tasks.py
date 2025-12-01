@@ -22,8 +22,8 @@ logger = StructuredLogger(__name__)
 
 @router.get("/", response_model=List[TaskResponse])
 async def list_tasks(
-    user_story_id: Optional[UUID] = Query(None),
-    assigned_to: Optional[UUID] = Query(None),
+    user_story_id: Optional[str] = Query(None),
+    assigned_to: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
@@ -33,6 +33,8 @@ async def list_tasks(
 ):
     """List tasks with optional filters."""
     
+    # Select only columns that exist in the database
+    # Note: sprint_id may not exist yet, so we handle it in serialization
     query = select(Task).where(Task.is_deleted == False)
     
     # Apply filters
@@ -47,15 +49,32 @@ async def list_tasks(
     
     # Apply client-level filtering for non-admin users
     if current_user.role != "Admin":
-        query = query.join(UserStory).join(Usecase).join(Project).join(Program).where(
-            Program.client_id == current_user.client_id
-        )
+        query = query.join(UserStory, Task.user_story_id == UserStory.id)\
+                     .join(Usecase, UserStory.usecase_id == Usecase.id)\
+                     .join(Project, Usecase.project_id == Project.id)\
+                     .join(Program, Project.program_id == Program.id)\
+                     .where(Program.client_id == current_user.client_id)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     tasks = result.scalars().all()
     
-    return [TaskResponse.from_orm(task) for task in tasks]
+    # Convert tasks to response
+    # Note: sprint_id column may not exist in database yet, so we handle it gracefully
+    response_list = []
+    for task in tasks:
+        try:
+            # Use from_orm - it will handle missing sprint_id by using None
+            task_response = TaskResponse.from_orm(task)
+            # Ensure sprint_id is set to None if column doesn't exist
+            if not hasattr(task, 'sprint_id'):
+                task_response.sprint_id = None
+            response_list.append(task_response)
+        except Exception as e:
+            logger.error(f"Error serializing task {task.id}: {str(e)}", exc_info=True)
+            raise  # Re-raise to see the actual error
+    
+    return response_list
 
 
 @router.get("/{task_id}", response_model=TaskResponse)

@@ -43,10 +43,8 @@ export default function ClientsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    industry: '',
-    contact_email: '',
-    contact_phone: '',
+    short_description: '',
+    long_description: '',
     is_active: true
   })
 
@@ -77,10 +75,8 @@ export default function ClientsPage() {
     setEditingClient(null)
     setFormData({
       name: '',
-      description: '',
-      industry: '',
-      contact_email: '',
-      contact_phone: '',
+      short_description: '',
+      long_description: '',
       is_active: true
     })
     setShowModal(true)
@@ -95,10 +91,8 @@ export default function ClientsPage() {
     setEditingClient(client)
     setFormData({
       name: client.name,
-      description: client.description,
-      industry: client.industry,
-      contact_email: client.contact_email,
-      contact_phone: client.contact_phone,
+      short_description: client.description || '',
+      long_description: '',
       is_active: client.is_active
     })
     setShowModal(true)
@@ -121,10 +115,8 @@ export default function ClientsPage() {
       setEditingClient(null)
       setFormData({
         name: '',
-        description: '',
-        industry: '',
-        contact_email: '',
-        contact_phone: '',
+        short_description: '',
+        long_description: '',
         is_active: true
       })
       // Reload statistics to show the updated/new client
@@ -326,86 +318,44 @@ export default function ClientsPage() {
                   />
                 </div>
 
-                {/* Industry */}
+                {/* Short Description */}
                 <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
-                    Industry <span className="text-red-500">*</span>
+                    Short Description
                   </label>
                   <input
                     type="text"
-                    name="industry"
-                    value={formData.industry}
+                    name="short_description"
+                    value={formData.short_description}
                     onChange={handleInputChange}
-                    required
                     className="w-full px-4 py-2 rounded-md border"
                     style={{ 
                       backgroundColor: 'var(--background-color)',
                       borderColor: 'var(--border-color)',
                       color: 'var(--text-color)'
                     }}
-                    placeholder="e.g., Technology, Healthcare, Finance"
+                    placeholder="Brief description (max 500 characters)"
+                    maxLength={500}
                   />
                 </div>
 
-                {/* Description */}
+                {/* Long Description */}
                 <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
-                    Description
+                    Long Description
                   </label>
                   <textarea
-                    name="description"
-                    value={formData.description}
+                    name="long_description"
+                    value={formData.long_description}
                     onChange={handleInputChange}
-                    rows={3}
+                    rows={4}
                     className="w-full px-4 py-2 rounded-md border"
                     style={{ 
                       backgroundColor: 'var(--background-color)',
                       borderColor: 'var(--border-color)',
                       color: 'var(--text-color)'
                     }}
-                    placeholder="Brief description of the client"
-                  />
-                </div>
-
-                {/* Contact Email */}
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
-                    Contact Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="contact_email"
-                    value={formData.contact_email}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 rounded-md border"
-                    style={{ 
-                      backgroundColor: 'var(--background-color)',
-                      borderColor: 'var(--border-color)',
-                      color: 'var(--text-color)'
-                    }}
-                    placeholder="contact@example.com"
-                  />
-                </div>
-
-                {/* Contact Phone */}
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
-                    Contact Phone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="contact_phone"
-                    value={formData.contact_phone}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 rounded-md border"
-                    style={{ 
-                      backgroundColor: 'var(--background-color)',
-                      borderColor: 'var(--border-color)',
-                      color: 'var(--text-color)'
-                    }}
-                    placeholder="+1-555-0100"
+                    placeholder="Detailed description of the client"
                   />
                 </div>
 

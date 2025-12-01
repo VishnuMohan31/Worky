@@ -85,7 +85,7 @@ export interface Task extends BaseEntity {
 // Subtask
 export interface Subtask extends BaseEntity {
   task_id: string
-  phase_id: string
+  phase_id?: string
   name: string
   short_description?: string
   long_description?: string
@@ -93,6 +93,8 @@ export interface Subtask extends BaseEntity {
   assigned_to?: string
   estimated_hours?: number
   actual_hours?: number
+  duration_days?: number
+  scrum_points?: number
   completed_at?: string
 }
 
@@ -200,11 +202,17 @@ export interface TaskFormData extends EntityFormData {
   due_date?: string
 }
 
-export interface SubtaskFormData extends EntityFormData {
+export interface SubtaskFormData {
+  title: string
   task_id: string
-  phase_id: string
+  short_description?: string
+  long_description?: string
+  status: string
+  phase_id?: string
   assigned_to?: string
-  estimated_hours?: number
+  estimated_hours: number
+  duration_days: number
+  scrum_points?: number
 }
 
 export interface BugFormData {
@@ -286,3 +294,131 @@ export const SEVERITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low'] as const
 
 // Role options
 export const ROLE_OPTIONS = ['Admin', 'Architect', 'Designer', 'Developer', 'Tester'] as const
+
+// Test Case
+export interface TestCase extends BaseEntity {
+  // Belongs to a Test Run
+  test_run_id: string
+  
+  // Test case details
+  test_case_name: string
+  test_case_description?: string
+  test_case_steps: string // JSON array of numbered steps
+  expected_result: string
+  actual_result?: string // Filled during execution
+  inference?: string // Conclusion/analysis after execution
+  component_attached_to?: string
+  remarks?: string
+  
+  // Classification
+  priority: 'P0' | 'P1' | 'P2' | 'P3'
+  status: 'Not Executed' | 'Passed' | 'Failed' | 'Blocked' | 'Skipped'
+  
+  // Execution tracking
+  executed_by?: string
+  executed_at?: string
+}
+
+export interface TestCaseFormData {
+  project_id?: string
+  usecase_id?: string
+  user_story_id?: string
+  task_id?: string
+  title: string
+  description?: string
+  preconditions?: string
+  test_steps: Array<{ step: number; description: string }>
+  expected_result: string
+  test_data?: string
+  test_type: string
+  priority: string
+  status?: string
+  tags?: string[]
+}
+
+// Test case type options
+export const TEST_TYPE_OPTIONS = [
+  'Functional',
+  'Integration',
+  'Regression',
+  'Smoke',
+  'Sanity',
+  'Performance',
+  'Security',
+  'Usability',
+  'Acceptance'
+] as const
+
+// Test case status options
+export const TEST_CASE_STATUS_OPTIONS = [
+  'Draft',
+  'Ready for Review',
+  'Approved',
+  'Active',
+  'Deprecated',
+  'Obsolete'
+] as const
+
+// Test case priority options
+export const TEST_CASE_PRIORITY_OPTIONS = [
+  'P0 (Critical)',
+  'P1 (High)',
+  'P2 (Medium)',
+  'P3 (Low)'
+] as const
+
+// Test Run
+export interface TestRun extends BaseEntity {
+  // Hierarchy associations (only one should be set)
+  project_id?: string
+  usecase_id?: string
+  user_story_id?: string
+  task_id?: string
+  subtask_id?: string
+  
+  // Test run details
+  name: string
+  purpose?: string
+  short_description?: string
+  long_description?: string
+  component_attached_to?: string
+  
+  // Classification
+  run_type: 'Misc' | 'One-Timer'
+  status: 'In Progress' | 'Completed' | 'Aborted'
+  
+  // Dates
+  start_date?: string
+  end_date?: string
+  
+  // Metrics (calculated)
+  total_test_cases: number
+  passed_test_cases: number
+  failed_test_cases: number
+  blocked_test_cases: number
+}
+
+export interface TestRunFormData {
+  // Hierarchy (only one should be set)
+  project_id?: string
+  usecase_id?: string
+  user_story_id?: string
+  task_id?: string
+  subtask_id?: string
+  
+  name: string
+  purpose?: string
+  short_description?: string
+  long_description?: string
+  component_attached_to?: string
+  run_type: 'Misc' | 'One-Timer'
+  status?: 'In Progress' | 'Completed' | 'Aborted'
+  start_date?: string
+  end_date?: string
+}
+
+// Test run type options
+export const TEST_RUN_TYPE_OPTIONS = ['Misc', 'One-Timer'] as const
+
+// Test run status options
+export const TEST_RUN_STATUS_OPTIONS = ['In Progress', 'Completed', 'Aborted'] as const

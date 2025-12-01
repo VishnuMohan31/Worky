@@ -1,0 +1,2343 @@
+/**
+ * TODO Feature Component Styles
+ * Requirements: 6.1, 6.2, 6.3, 6.4
+ * 
+ * Design System Color Palette:
+ * - Primary: #6366F1 (Indigo) - Main actions, links
+ * - Secondary: #8B5CF6 (Purple) - Secondary actions
+ * - Success: #10B981 (Green) - Public visibility, completed items
+ * - Info: #3B82F6 (Blue) - Private visibility, informational
+ * - Warning: #F59E0B (Amber) - Warnings, overdue items
+ * - Danger: #EF4444 (Red) - Delete actions, errors
+ * - Background: #F9FAFB (Light gray) - Page background
+ * - Card: #FFFFFF (White) - Card backgrounds
+ * - Sticky Note: #FFEB3B (Yellow) - ADHOC notes default
+ */
+
+:root {
+  --primary-color: #6366F1;
+  --secondary-color: #8B5CF6;
+  --success-color: #10B981;
+  --info-color: #3B82F6;
+  --warning-color: #F59E0B;
+  --danger-color: #EF4444;
+  --background-color: #F9FAFB;
+  --surface-color: #FFFFFF;
+  --border-color: #E5E7EB;
+  --text-color: #1F2937;
+  --text-secondary: #6B7280;
+  --sticky-note-color: #FFEB3B;
+  
+  /* Spacing (base unit: 4px) */
+  --spacing-xs: 0.25rem;  /* 4px */
+  --spacing-sm: 0.5rem;   /* 8px */
+  --spacing-md: 0.75rem;  /* 12px */
+  --spacing-lg: 1rem;     /* 16px */
+  --spacing-xl: 1.5rem;   /* 24px */
+  --spacing-2xl: 2rem;    /* 32px */
+  
+  /* Card padding: 16px */
+  --card-padding: 1rem;
+  
+  /* Section gap: 24px */
+  --section-gap: 1.5rem;
+  
+  /* Pane gap: 16px */
+  --pane-gap: 1rem;
+  
+  /* Animation durations */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  
+  /* Animation easings */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Time Panes Container */
+.time-panes-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--pane-gap);
+  padding: var(--spacing-lg);
+  height: 100%;
+  overflow-x: auto;
+}
+
+/* Tablet: 2 columns */
+@media (max-width: 1024px) {
+  .time-panes-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile: 1 column with horizontal scroll */
+@media (max-width: 768px) {
+  .time-panes-container {
+    grid-template-columns: repeat(4, minmax(280px, 1fr));
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Individual Time Pane */
+.time-pane {
+  background-color: var(--surface-color);
+  border: 2px solid;
+  border-radius: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
+  transition: all var(--duration-normal) var(--ease-out);
+  scroll-snap-align: start;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.time-pane:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.time-pane.drag-over {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transform: scale(1.02);
+  animation: pulse 1s var(--ease-in-out) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Pane Header */
+.time-pane-header {
+  padding: var(--card-padding);
+  border-bottom: 2px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color var(--duration-normal) var(--ease-out);
+}
+
+.time-pane-label {
+  flex: 1;
+}
+
+.time-pane-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0 0 var(--spacing-xs) 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.time-pane-date {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.time-pane-count {
+  display: flex;
+  align-items: center;
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 var(--spacing-sm);
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.count-badge:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Pane Content */
+.time-pane-content {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+.time-pane-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Empty State */
+.time-pane-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-secondary, #6b7280);
+}
+
+.empty-icon {
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* Drop Indicator */
+.drop-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2xl);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 3px dashed var(--primary-color);
+  border-radius: 1rem;
+  pointer-events: none;
+  z-index: 10;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.drop-icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-sm);
+  animation: bounce 1s var(--ease-in-out) infinite;
+  filter: drop-shadow(0 4px 6px rgba(99, 102, 241, 0.3));
+}
+
+.drop-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+/* TODO Item Card */
+.todo-item-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-left-width: 4px;
+  border-radius: 0.5rem;
+  padding: var(--spacing-md);
+  display: flex;
+  gap: var(--spacing-md);
+  cursor: move;
+  transition: all var(--duration-normal) var(--ease-out);
+  position: relative;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.todo-item-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+.todo-item-card:active {
+  cursor: grabbing;
+  opacity: 0.7;
+  transform: scale(1.05);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: wiggle var(--duration-slow) var(--ease-in-out);
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: scale(1.05) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.05) rotate(-1deg);
+  }
+  75% {
+    transform: scale(1.05) rotate(1deg);
+  }
+}
+
+/* Drag Handle */
+.drag-handle {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 0.25rem;
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Card Content */
+.todo-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.todo-item-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-color, #1f2937);
+  margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.todo-item-badges {
+  display: flex;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.todo-item-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Linked Entity Info */
+.todo-item-link-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: var(--background-color, #f9fafb);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.link-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  background-color: var(--accent-color, #8B5CF6);
+  color: white;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.link-title {
+  color: var(--text-secondary, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Moving Overlay */
+.moving-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.moving-spinner {
+  padding: var(--spacing-xl) var(--spacing-2xl);
+  background: linear-gradient(135deg, white 0%, #F9FAFB 100%);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  animation: slideUp var(--duration-slow) var(--ease-out);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.moving-spinner::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design - Tablet */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .time-panes-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .time-pane {
+    min-height: 450px;
+  }
+}
+
+/* Responsive Design - Mobile */
+@media (max-width: 768px) {
+  /* Reduce padding and spacing on mobile */
+  .time-pane {
+    min-height: calc(100vh - 250px);
+    max-height: calc(100vh - 250px);
+  }
+  
+  .time-pane-header {
+    padding: 0.75rem;
+  }
+  
+  .time-pane-title {
+    font-size: 1rem;
+  }
+  
+  .time-pane-date {
+    font-size: 0.8125rem;
+  }
+  
+  .time-pane-content {
+    padding: 0.75rem;
+  }
+  
+  .todo-item-card {
+    padding: 0.625rem;
+  }
+  
+  .todo-item-title {
+    font-size: 0.875rem;
+  }
+  
+  .todo-item-description {
+    font-size: 0.8125rem;
+    -webkit-line-clamp: 3;
+  }
+  
+  /* Improve touch targets on mobile */
+  .action-button,
+  .adhoc-note-action-button,
+  .add-note-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Optimize drag handles for touch */
+  .drag-handle,
+  .adhoc-note-drag-handle {
+    padding: 0.5rem;
+    margin: -0.5rem;
+  }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 480px) {
+  .time-pane-title {
+    font-size: 0.9375rem;
+  }
+  
+  .todo-item-card {
+    padding: 0.5rem;
+  }
+  
+  .todo-item-title {
+    font-size: 0.8125rem;
+  }
+  
+  .todo-item-description {
+    font-size: 0.75rem;
+  }
+  
+  .count-badge {
+    min-width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Landscape Orientation on Mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .time-pane {
+    min-height: calc(100vh - 180px);
+    max-height: calc(100vh - 180px);
+  }
+}
+
+/* Focus Indicators for Accessibility */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary-color, #6366F1);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Skip to content link for keyboard navigation */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--primary-color, #6366F1);
+  color: white;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  border-radius: 0 0 0.25rem 0;
+  z-index: 100;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .time-pane,
+  .todo-item-card,
+  .adhoc-note-card {
+    border-width: 2px;
+    border-color: currentColor;
+  }
+  
+  .action-button,
+  .add-note-button {
+    border-width: 2px;
+  }
+}
+
+/* Accessibility - Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .time-pane,
+  .todo-item-card,
+  .drop-icon {
+    animation: none;
+    transition: none;
+  }
+  
+  .time-pane.drag-over {
+    transform: none;
+  }
+  
+  .todo-item-card:hover {
+    transform: none;
+  }
+  
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .time-pane {
+    background-color: #1f2937;
+  }
+  
+  .todo-item-card {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+  
+  .todo-item-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.1), 0 2px 4px -1px rgba(255, 255, 255, 0.06);
+  }
+  
+  .time-pane-header {
+    border-bottom-color: #374151;
+  }
+  
+  .todo-item-link-info {
+    background-color: #111827;
+  }
+  
+  .moving-spinner {
+    background-color: #1f2937;
+  }
+}
+
+/* TODO Item Card - Enhanced Styles */
+.todo-item-card .todo-item-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+  flex-wrap: wrap;
+}
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  border: 1px solid;
+  background-color: var(--surface-color);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0.1;
+  transform: translate(-50%, -50%);
+  transition: width var(--duration-slow) var(--ease-out), height var(--duration-slow) var(--ease-out);
+}
+
+.action-button:hover:not(:disabled)::before {
+  width: 300px;
+  height: 300px;
+}
+
+.action-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.action-button:active:not(:disabled) {
+  transform: translateY(0);
+  transition: transform var(--duration-fast) var(--ease-in);
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(50%);
+}
+
+.action-button-visibility {
+  color: var(--info-color);
+  border-color: var(--info-color);
+}
+
+.action-button-visibility:hover:not(:disabled) {
+  background-color: var(--info-color);
+  color: white;
+  border-color: var(--info-color);
+}
+
+.action-button-edit {
+  color: var(--secondary-color);
+  border-color: var(--secondary-color);
+}
+
+.action-button-edit:hover:not(:disabled) {
+  background-color: var(--secondary-color);
+  color: white;
+  border-color: var(--secondary-color);
+}
+
+.action-button-delete {
+  color: var(--danger-color);
+  border-color: var(--danger-color);
+}
+
+.action-button-delete:hover:not(:disabled) {
+  background-color: var(--danger-color);
+  color: white;
+  border-color: var(--danger-color);
+}
+
+.action-button-text {
+  display: inline;
+}
+
+/* Hide button text on mobile */
+@media (max-width: 640px) {
+  .action-button-text {
+    display: none;
+  }
+  
+  .action-button {
+    padding: 0.375rem;
+  }
+}
+
+/* Link Info Button */
+.link-info-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: opacity 0.2s ease;
+}
+
+.link-info-button:hover {
+  opacity: 0.8;
+}
+
+.link-info-button:focus {
+  outline: 2px solid var(--primary-color, #6366F1);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Task Link Info Panel */
+.task-link-info-panel {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+  border: 1px solid #D1D5DB;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  animation: slideDown var(--duration-slow) var(--ease-out);
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
+}
+
+.task-link-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #D1D5DB;
+}
+
+.task-link-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.task-link-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.task-link-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.task-link-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.task-link-field-full {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.task-link-field-label {
+  font-weight: 600;
+  color: #4B5563;
+  flex-shrink: 0;
+}
+
+.task-link-field-value {
+  color: #1F2937;
+  word-break: break-word;
+}
+
+.task-link-id {
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  background-color: #E5E7EB;
+  border-radius: 0.25rem;
+}
+
+.task-link-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.25rem;
+  border: 1px solid;
+}
+
+.task-link-footer {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #D1D5DB;
+}
+
+.task-link-view-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--primary-color, #6366F1);
+  background-color: white;
+  border: 1px solid var(--primary-color, #6366F1);
+  border-radius: 0.375rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.task-link-view-button:hover {
+  background-color: var(--primary-color, #6366F1);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.task-link-view-button:focus {
+  outline: 2px solid var(--primary-color, #6366F1);
+  outline-offset: 2px;
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase touch targets */
+  .action-button,
+  .adhoc-note-action-button,
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Remove hover effects on touch devices */
+  .todo-item-card:hover,
+  .adhoc-note-card:hover,
+  .action-button:hover,
+  .time-pane.drag-over {
+    transform: none;
+  }
+  
+  /* Improve drag feedback on touch */
+  .todo-item-card:active,
+  .adhoc-note-card.dragging {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Color Contrast Improvements for WCAG AA Compliance */
+.time-pane-date,
+.empty-text,
+.todo-item-description,
+.link-title {
+  color: #4B5563; /* Darker gray for better contrast */
+}
+
+.count-badge {
+  background-color: #4F46E5; /* Darker indigo for better contrast */
+}
+
+/* Ensure sufficient contrast for status badges */
+.task-link-status-badge {
+  font-weight: 600;
+}
+
+/* Improve visibility of focus indicators */
+*:focus-visible {
+  outline: 3px solid var(--primary-color, #6366F1);
+  outline-offset: 2px;
+}
+
+/* Screen Reader Only Content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Print Styles */
+@media print {
+  .time-panes-container {
+    display: block;
+  }
+  
+  .time-pane {
+    page-break-inside: avoid;
+    margin-bottom: 2rem;
+    max-height: none;
+  }
+  
+  .drag-handle {
+    display: none;
+  }
+  
+  .todo-item-card {
+    cursor: default;
+  }
+  
+  .moving-overlay {
+    display: none;
+  }
+  
+  .todo-item-actions {
+    display: none;
+  }
+  
+  .task-link-view-button {
+    display: none;
+  }
+  
+  /* Hide navigation and interactive elements */
+  nav,
+  button:not(.print-visible) {
+    display: none;
+  }
+  
+  /* Optimize colors for print */
+  * {
+    color: #000 !important;
+    background: #fff !important;
+  }
+  
+  .todo-item-card,
+  .time-pane,
+  .adhoc-note-card {
+    border: 1px solid #000 !important;
+  }
+}
+
+/* ADHOC Notes Pane Styles */
+.adhoc-notes-pane {
+  background-color: var(--surface-color, #ffffff);
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
+}
+
+.adhoc-notes-header {
+  padding: 1rem;
+  border-bottom: 2px solid var(--border-color, #e5e7eb);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.adhoc-notes-title-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.adhoc-notes-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-color, #1f2937);
+  margin: 0;
+}
+
+.adhoc-notes-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  background-color: #F59E0B;
+  color: white;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.add-note-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: linear-gradient(135deg, var(--warning-color) 0%, #D97706 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.add-note-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left var(--duration-slow) var(--ease-out);
+}
+
+.add-note-button:hover::before {
+  left: 100%;
+}
+
+.add-note-button:hover {
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.add-note-button:active {
+  transform: translateY(0);
+  transition: transform var(--duration-fast) var(--ease-in);
+}
+
+.add-note-button:focus {
+  outline: 3px solid rgba(245, 158, 11, 0.5);
+  outline-offset: 2px;
+}
+
+.add-note-text {
+  display: inline;
+}
+
+/* ADHOC Notes Content */
+.adhoc-notes-content {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.adhoc-notes-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-secondary, #6b7280);
+  height: 100%;
+}
+
+.adhoc-notes-empty .empty-icon {
+  width: 4rem;
+  height: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.adhoc-notes-empty .empty-text {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-color, #1f2937);
+}
+
+.adhoc-notes-empty .empty-subtext {
+  font-size: 0.875rem;
+  margin: 0;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* ADHOC Notes Grid - Masonry Layout */
+.adhoc-notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Tablet: 2 columns */
+@media (max-width: 1024px) {
+  .adhoc-notes-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile: 1 column */
+@media (max-width: 640px) {
+  .adhoc-notes-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .add-note-text {
+    display: none;
+  }
+  
+  .add-note-button {
+    padding: 0.5rem;
+  }
+}
+
+/* ADHOC Note Card - Sticky Note Style */
+.adhoc-note-card {
+  position: relative;
+  background-color: var(--sticky-note-color);
+  border-radius: 0.5rem;
+  padding: var(--card-padding);
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  cursor: move;
+  transition: all var(--duration-normal) var(--ease-out);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.adhoc-note-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.08), transparent);
+  border-radius: 0.5rem 0.5rem 0 0;
+  pointer-events: none;
+}
+
+.adhoc-note-card::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.adhoc-note-card:hover {
+  transform: translateY(-6px) rotate(0deg) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  z-index: 10;
+}
+
+.adhoc-note-card.dragging {
+  opacity: 0.7;
+  cursor: grabbing;
+  transform: scale(1.08) rotate(3deg) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: shake var(--duration-slow) var(--ease-in-out) infinite;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: scale(1.08) rotate(3deg);
+  }
+  25% {
+    transform: scale(1.08) rotate(1deg);
+  }
+  75% {
+    transform: scale(1.08) rotate(5deg);
+  }
+}
+
+.adhoc-note-card.deleting {
+  opacity: 0;
+  pointer-events: none;
+  animation: fadeOutShrink var(--duration-slow) var(--ease-in) forwards;
+}
+
+@keyframes fadeOutShrink {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.95) rotate(-5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8) rotate(-10deg);
+  }
+}
+
+/* Drag Handle */
+.adhoc-note-drag-handle {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem;
+  cursor: grab;
+  color: rgba(0, 0, 0, 0.3);
+  transition: color 0.2s ease;
+}
+
+.adhoc-note-drag-handle:hover {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.adhoc-note-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Note Content */
+.adhoc-note-content {
+  flex: 1;
+  margin-bottom: 0.75rem;
+  overflow-wrap: break-word;
+}
+
+.adhoc-note-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.85);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.adhoc-note-text {
+  font-size: 0.875rem;
+  color: rgba(0, 0, 0, 0.7);
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Action Buttons */
+.adhoc-note-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.adhoc-note-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.adhoc-note-action-button:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.adhoc-note-action-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.adhoc-note-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adhoc-note-edit-button:hover:not(:disabled) {
+  color: #8B5CF6;
+  border-color: #8B5CF6;
+}
+
+.adhoc-note-delete-button:hover:not(:disabled) {
+  color: #EF4444;
+  border-color: #EF4444;
+}
+
+/* Sticky Note Shadow Effect */
+.adhoc-note-shadow {
+  position: absolute;
+  bottom: -8px;
+  left: 4px;
+  right: 4px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  filter: blur(4px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Color Variations for Different Note Colors */
+.adhoc-note-card[style*="background-color: #FFC107"],
+.adhoc-note-card[style*="background-color: #FF9800"],
+.adhoc-note-card[style*="background-color: #FF5722"] {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.adhoc-note-card[style*="background-color: #E91E63"],
+.adhoc-note-card[style*="background-color: #9C27B0"],
+.adhoc-note-card[style*="background-color: #673AB7"],
+.adhoc-note-card[style*="background-color: #3F51B5"],
+.adhoc-note-card[style*="background-color: #2196F3"] {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.adhoc-note-card[style*="background-color: #E91E63"] .adhoc-note-title,
+.adhoc-note-card[style*="background-color: #9C27B0"] .adhoc-note-title,
+.adhoc-note-card[style*="background-color: #673AB7"] .adhoc-note-title,
+.adhoc-note-card[style*="background-color: #3F51B5"] .adhoc-note-title,
+.adhoc-note-card[style*="background-color: #2196F3"] .adhoc-note-title {
+  color: rgba(255, 255, 255, 1);
+}
+
+.adhoc-note-card[style*="background-color: #E91E63"] .adhoc-note-text,
+.adhoc-note-card[style*="background-color: #9C27B0"] .adhoc-note-text,
+.adhoc-note-card[style*="background-color: #673AB7"] .adhoc-note-text,
+.adhoc-note-card[style*="background-color: #3F51B5"] .adhoc-note-text,
+.adhoc-note-card[style*="background-color: #2196F3"] .adhoc-note-text {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.adhoc-note-card[style*="background-color: #E91E63"] .adhoc-note-drag-handle,
+.adhoc-note-card[style*="background-color: #9C27B0"] .adhoc-note-drag-handle,
+.adhoc-note-card[style*="background-color: #673AB7"] .adhoc-note-drag-handle,
+.adhoc-note-card[style*="background-color: #3F51B5"] .adhoc-note-drag-handle,
+.adhoc-note-card[style*="background-color: #2196F3"] .adhoc-note-drag-handle {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.adhoc-note-card[style*="background-color: #E91E63"] .adhoc-note-action-button,
+.adhoc-note-card[style*="background-color: #9C27B0"] .adhoc-note-action-button,
+.adhoc-note-card[style*="background-color: #673AB7"] .adhoc-note-action-button,
+.adhoc-note-card[style*="background-color: #3F51B5"] .adhoc-note-action-button,
+.adhoc-note-card[style*="background-color: #2196F3"] .adhoc-note-action-button {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.adhoc-note-card[style*="background-color: #E91E63"] .adhoc-note-actions,
+.adhoc-note-card[style*="background-color: #9C27B0"] .adhoc-note-actions,
+.adhoc-note-card[style*="background-color: #673AB7"] .adhoc-note-actions,
+.adhoc-note-card[style*="background-color: #3F51B5"] .adhoc-note-actions,
+.adhoc-note-card[style*="background-color: #2196F3"] .adhoc-note-actions {
+  border-top-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive Design - Tablet */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .adhoc-notes-pane {
+    width: 100%;
+    max-height: 400px;
+  }
+  
+  .adhoc-notes-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Responsive Design - Mobile */
+@media (max-width: 768px) {
+  .adhoc-notes-pane {
+    min-height: calc(100vh - 250px);
+    max-height: calc(100vh - 250px);
+  }
+  
+  .adhoc-notes-header {
+    padding: 0.75rem;
+  }
+  
+  .adhoc-notes-title {
+    font-size: 1rem;
+  }
+  
+  .adhoc-notes-content {
+    padding: 0.75rem;
+  }
+  
+  .adhoc-note-card {
+    min-height: 120px;
+    padding: 0.75rem;
+  }
+  
+  .adhoc-note-title {
+    font-size: 0.9375rem;
+  }
+  
+  .adhoc-note-text {
+    font-size: 0.8125rem;
+  }
+  
+  /* Stack notes vertically on mobile */
+  .adhoc-notes-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 480px) {
+  .adhoc-notes-title {
+    font-size: 0.9375rem;
+  }
+  
+  .adhoc-note-card {
+    min-height: 100px;
+    padding: 0.625rem;
+  }
+  
+  .adhoc-note-title {
+    font-size: 0.875rem;
+  }
+  
+  .adhoc-note-text {
+    font-size: 0.75rem;
+  }
+  
+  .adhoc-notes-count {
+    min-width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .adhoc-note-card,
+  .adhoc-note-action-button,
+  .add-note-button {
+    animation: none;
+    transition: none;
+  }
+  
+  .adhoc-note-card:hover {
+    transform: none !important;
+  }
+  
+  .adhoc-note-card.dragging {
+    transform: none !important;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .adhoc-notes-pane {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+  
+  .adhoc-notes-header {
+    border-bottom-color: #374151;
+  }
+  
+  .adhoc-notes-empty .empty-text {
+    color: #f9fafb;
+  }
+  
+  .adhoc-notes-empty .empty-subtext {
+    color: #9ca3af;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .adhoc-notes-pane {
+    page-break-inside: avoid;
+    max-height: none;
+  }
+  
+  .adhoc-note-drag-handle {
+    display: none;
+  }
+  
+  .adhoc-note-card {
+    cursor: default;
+    transform: none !important;
+    page-break-inside: avoid;
+  }
+  
+  .adhoc-note-actions {
+    display: none;
+  }
+  
+  .add-note-button {
+    display: none;
+  }
+}
+
+/* Skeleton Loader Styles */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+  border-radius: 0.25rem;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-text {
+  height: 16px;
+  border-radius: 0.25rem;
+}
+
+.skeleton-title {
+  height: 24px;
+  width: 60%;
+  margin-bottom: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+/* TODO Item Skeleton */
+.todo-item-skeleton {
+  background-color: var(--surface-color, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Time Pane Skeleton */
+.time-pane-skeleton {
+  background-color: var(--surface-color, #ffffff);
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+.pane-header-skeleton {
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--border-color, #e5e7eb);
+  margin-bottom: 1rem;
+}
+
+.pane-content-skeleton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ADHOC Note Skeleton */
+.adhoc-note-skeleton {
+  background-color: #FFEB3B;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  min-height: 150px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.adhoc-note-skeleton .skeleton {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.05) 25%, rgba(0, 0, 0, 0.1) 50%, rgba(0, 0, 0, 0.05) 75%);
+  background-size: 200% 100%;
+}
+
+/* ADHOC Pane Skeleton */
+.adhoc-pane-skeleton {
+  background-color: var(--surface-color, #ffffff);
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+/* Dark Mode Skeleton */
+@media (prefers-color-scheme: dark) {
+  .skeleton {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    background-size: 200% 100%;
+  }
+  
+  .todo-item-skeleton {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+  
+  .time-pane-skeleton {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+  
+  .pane-header-skeleton {
+    border-bottom-color: #374151;
+  }
+  
+  .adhoc-pane-skeleton {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+}
+
+/* Accessibility - Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: #e0e0e0;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .skeleton {
+      background: #4b5563;
+    }
+  }
+}
+
+/* Additional Accessibility Enhancements */
+
+/* Keyboard Navigation Indicators */
+.todo-item-card:focus-within,
+.adhoc-note-card:focus-within,
+.time-pane:focus-within {
+  outline: 2px solid var(--primary-color, #6366F1);
+  outline-offset: 2px;
+}
+
+/* Improve button accessibility */
+button:disabled,
+[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Live region for dynamic content updates */
+[aria-live="polite"],
+[aria-live="assertive"] {
+  position: relative;
+}
+
+/* Ensure draggable elements are keyboard accessible */
+[draggable="true"] {
+  cursor: move;
+}
+
+[draggable="true"]:focus {
+  outline: 2px solid var(--primary-color, #6366F1);
+  outline-offset: 2px;
+}
+
+/* Tab Navigation Accessibility */
+[role="tab"] {
+  position: relative;
+}
+
+[role="tab"][aria-selected="true"]::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: currentColor;
+  border-radius: 3px 3px 0 0;
+}
+
+/* Improve visibility of interactive elements */
+a,
+button,
+[role="button"],
+[role="tab"],
+[tabindex="0"] {
+  position: relative;
+}
+
+/* Ensure sufficient spacing for touch targets */
+@media (pointer: coarse) {
+  button,
+  a,
+  [role="button"],
+  [role="tab"] {
+    padding: 0.75rem;
+  }
+}
+
+/* Improve contrast for dark backgrounds */
+.adhoc-note-card[style*="background-color: #E91E63"] *,
+.adhoc-note-card[style*="background-color: #9C27B0"] *,
+.adhoc-note-card[style*="background-color: #673AB7"] *,
+.adhoc-note-card[style*="background-color: #3F51B5"] *,
+.adhoc-note-card[style*="background-color: #2196F3"] * {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Ensure visibility badges have sufficient contrast */
+.todo-item-badges [role="status"] {
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Improve error and success message visibility */
+.error-message {
+  color: #DC2626;
+  font-weight: 600;
+  padding: 0.5rem;
+  background-color: #FEE2E2;
+  border: 1px solid #FCA5A5;
+  border-radius: 0.375rem;
+}
+
+.success-message {
+  color: #059669;
+  font-weight: 600;
+  padding: 0.5rem;
+  background-color: #D1FAE5;
+  border: 1px solid #6EE7B7;
+  border-radius: 0.375rem;
+}
+
+/* Responsive Typography for Better Readability */
+@media (max-width: 768px) {
+  body {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+  
+  input,
+  textarea,
+  select {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* Improve visibility of loading states */
+.loading-spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--primary-color, #6366F1);
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Ensure proper spacing for mobile keyboards */
+@media (max-width: 768px) {
+  .modal-content,
+  .form-container {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  }
+}
+
+/* Improve visibility of drag indicators */
+.drag-handle:hover,
+.adhoc-note-drag-handle:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 0.25rem;
+}
+
+/* Ensure proper contrast for all text */
+.time-pane-title,
+.adhoc-notes-title,
+.todo-item-title,
+.adhoc-note-title {
+  color: #111827; /* Very dark gray for maximum contrast */
+}
+
+/* Dark mode text contrast */
+@media (prefers-color-scheme: dark) {
+  .time-pane-title,
+  .adhoc-notes-title,
+  .todo-item-title {
+    color: #F9FAFB; /* Very light gray for dark mode */
+  }
+  
+  .time-pane-date,
+  .empty-text,
+  .todo-item-description {
+    color: #D1D5DB; /* Light gray for secondary text */
+  }
+}
+
+/* Improve visibility of status indicators */
+[role="status"] {
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+/* Modal Animations and Styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+  animation: modalSlideIn var(--duration-slow) var(--ease-out);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-content:focus {
+  outline: none;
+}
+
+/* Modal closing animation */
+.modal-overlay.closing {
+  animation: fadeOut var(--duration-normal) var(--ease-in);
+}
+
+.modal-overlay.closing .modal-content {
+  animation: modalSlideOut var(--duration-normal) var(--ease-in);
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modalSlideOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+}
+
+/* Improve visibility of required fields */
+[required]::after,
+[aria-required="true"]::after {
+  content: " *";
+  color: #DC2626;
+  font-weight: bold;
+}
+
+/* Ensure proper spacing for form elements */
+.form-field {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Improve visibility of validation errors */
+.form-error {
+  color: #DC2626;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Ensure proper contrast for links */
+a {
+  color: var(--primary-color, #6366F1);
+  text-decoration: underline;
+}
+
+a:hover {
+  color: #4F46E5;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--primary-color, #6366F1);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Improve visibility of disabled states */
+[disabled],
+[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: grayscale(50%);
+}
+
+/* Ensure proper spacing for mobile safe areas */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-safe-area {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ========================================
+   Enhanced Styling and Animations
+   Requirements: 6.1, 6.2, 6.3, 6.4
+   ======================================== */
+
+/* Pane-specific color styling with vibrant gradients */
+.time-pane.border-gray-300 {
+  border-color: #9CA3AF;
+}
+
+.time-pane.border-blue-500 {
+  border-color: var(--info-color);
+  box-shadow: 0 1px 3px 0 rgba(59, 130, 246, 0.1), 0 1px 2px 0 rgba(59, 130, 246, 0.06);
+}
+
+.time-pane.border-green-500 {
+  border-color: var(--success-color);
+  box-shadow: 0 1px 3px 0 rgba(16, 185, 129, 0.1), 0 1px 2px 0 rgba(16, 185, 129, 0.06);
+}
+
+.time-pane.border-purple-500 {
+  border-color: var(--secondary-color);
+  box-shadow: 0 1px 3px 0 rgba(139, 92, 246, 0.1), 0 1px 2px 0 rgba(139, 92, 246, 0.06);
+}
+
+/* Enhanced header backgrounds with gradients */
+.bg-gray-50 {
+  background: linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%);
+}
+
+.bg-blue-50 {
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+}
+
+.bg-green-50 {
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+}
+
+.bg-purple-50 {
+  background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);
+}
+
+/* Visibility border colors with enhanced styling */
+.border-l-green-500 {
+  border-left-color: var(--success-color);
+  box-shadow: inset 4px 0 0 0 rgba(16, 185, 129, 0.1);
+}
+
+.border-l-blue-500 {
+  border-left-color: var(--info-color);
+  box-shadow: inset 4px 0 0 0 rgba(59, 130, 246, 0.1);
+}
+
+/* Enhanced link badge styling */
+.link-badge {
+  background: linear-gradient(135deg, var(--secondary-color) 0%, #7C3AED 100%);
+  box-shadow: 0 1px 2px 0 rgba(139, 92, 246, 0.3);
+}
+
+/* Status badge color variations */
+.task-link-status-badge {
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.task-link-status-badge:hover {
+  transform: scale(1.05);
+}
+
+/* Enhanced drag handle styling */
+.drag-handle,
+.adhoc-note-drag-handle {
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.drag-handle:hover,
+.adhoc-note-drag-handle:hover {
+  background-color: rgba(99, 102, 241, 0.1);
+  border-radius: 0.375rem;
+  transform: scale(1.1);
+}
+
+/* Sticky note shadow with enhanced depth */
+.adhoc-note-shadow {
+  position: absolute;
+  bottom: -10px;
+  left: 6px;
+  right: 6px;
+  height: 10px;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(6px);
+  z-index: -1;
+  pointer-events: none;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.adhoc-note-card:hover .adhoc-note-shadow {
+  bottom: -14px;
+  left: 8px;
+  right: 8px;
+  height: 14px;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.2) 0%, transparent 70%);
+}
+
+/* Enhanced empty state styling */
+.time-pane-empty,
+.adhoc-notes-empty {
+  animation: fadeIn var(--duration-slow) var(--ease-out);
+}
+
+.empty-icon {
+  animation: float 3s var(--ease-in-out) infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Enhanced count badge with pulse animation */
+.count-badge {
+  animation: subtlePulse 2s var(--ease-in-out) infinite;
+}
+
+@keyframes subtlePulse {
+  0%, 100% {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+  50% {
+    box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3), 0 2px 4px -1px rgba(99, 102, 241, 0.2);
+  }
+}
+
+/* Enhanced form input styling */
+input[type="text"],
+input[type="date"],
+textarea,
+select {
+  transition: all var(--duration-normal) var(--ease-out);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  outline: none;
+}
+
+/* Enhanced button ripple effect */
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width var(--duration-slow) var(--ease-out), height var(--duration-slow) var(--ease-out);
+}
+
+button:active::after {
+  width: 200px;
+  height: 200px;
+}
+
+/* Enhanced scrollbar styling */
+.time-pane-content::-webkit-scrollbar,
+.adhoc-notes-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.time-pane-content::-webkit-scrollbar-track,
+.adhoc-notes-content::-webkit-scrollbar-track {
+  background: var(--background-color);
+  border-radius: 4px;
+}
+
+.time-pane-content::-webkit-scrollbar-thumb,
+.adhoc-notes-content::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+  transition: background var(--duration-normal) var(--ease-out);
+}
+
+.time-pane-content::-webkit-scrollbar-thumb:hover,
+.adhoc-notes-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Enhanced loading state */
+.loading-spinner {
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Enhanced error and success messages */
+.error-message {
+  color: var(--danger-color);
+  font-weight: 600;
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+  border: 1px solid #FCA5A5;
+  border-radius: 0.5rem;
+  animation: slideIn var(--duration-slow) var(--ease-out);
+}
+
+.success-message {
+  color: var(--success-color);
+  font-weight: 600;
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+  border: 1px solid #6EE7B7;
+  border-radius: 0.5rem;
+  animation: slideIn var(--duration-slow) var(--ease-out);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Enhanced card hover effects with glow */
+.todo-item-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+              0 4px 6px -2px rgba(0, 0, 0, 0.05),
+              0 0 0 1px rgba(99, 102, 241, 0.1);
+}
+
+/* Enhanced adhoc note action buttons */
+.adhoc-note-action-button {
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.adhoc-note-action-button:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.1);
+}
+
+/* Consistent spacing throughout */
+.todo-item-card,
+.adhoc-note-card,
+.time-pane,
+.adhoc-notes-pane {
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Enhanced focus indicators for better accessibility */
+*:focus-visible {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Smooth transitions for all interactive elements */
+a, button, input, textarea, select,
+.todo-item-card, .adhoc-note-card, .time-pane {
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+/* Enhanced gradient backgrounds for better visual hierarchy */
+.time-pane-header {
+  position: relative;
+  overflow: hidden;
+}
+
+.time-pane-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5));
+  pointer-events: none;
+}
+
+/* Enhanced adhoc notes count badge */
+.adhoc-notes-count {
+  background: linear-gradient(135deg, var(--warning-color) 0%, #D97706 100%);
+  box-shadow: 0 2px 4px 0 rgba(245, 158, 11, 0.3);
+  animation: subtlePulse 2s var(--ease-in-out) infinite;
+}
+
+/* Print-friendly styles */
+@media print {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .time-pane,
+  .todo-item-card,
+  .adhoc-note-card {
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+  }
+}
