@@ -196,8 +196,36 @@ Password: postgres
 
 ## Seed Data
 
-Development seed data is available in `db/seeds/dev_data.sql`. To load:
+Development seed data is automatically loaded on first installation via migration `999_seed_dev_data.sql`. This migration:
+- Only runs if no users exist in the database (fresh installation)
+- Loads sample clients, users, programs, projects, tasks, and other test data
+- Sets up a default admin user with credentials:
+  - Email: `admin@datalegos.com`
+  - Password: `password`
+
+### Manual Seed Data Loading
+
+If you need to manually load or reload seed data:
 
 ```bash
-docker exec -i worky-postgres psql -U postgres -d worky < db/seeds/dev_data.sql
+# Load seed data (only if database is empty)
+./db/load_seed_data.sh
+
+# Force reload seed data (even if users exist)
+./db/load_seed_data.sh --force
 ```
+
+### Seed Data Contents
+
+The seed data includes:
+- **3 Clients**: DataLegos, Acme Corp, TechStart Inc
+- **6 Users**: Admin, developers, project manager, DevOps, tester
+- **2 Programs**: Internal Tools, Digital Transformation
+- **3 Projects**: Worky Platform, Customer Portal, Mobile App
+- **3 Use Cases**: User Authentication, Project Management, Task Tracking
+- **3 User Stories**: User Login, Create Project, Assign Tasks
+- **4 Tasks**: Database schema, authentication, UI mockups, CI/CD
+- **2 Bugs**: Login responsiveness, task filter
+- **1 Sprint**: Sprint 1 with linked tasks
+
+All users have the password: `password` (bcrypt hash: `$2b$12$9OAMueEnVYFWy7shFaKgqujLD8MJWcByjxw2uOzb30Vc3PgG.aHEy`)

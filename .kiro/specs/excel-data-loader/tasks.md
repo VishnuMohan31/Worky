@@ -123,7 +123,7 @@
   - Add port configuration (default 8001)
   - _Requirements: 7.3_
 
-- [ ]* 13. Write unit tests
+- [ ] 13. Write unit tests
   - Create `tests/test_data_mapper.py` with tests for column mapping and type conversion
   - Create `tests/test_hierarchy_builder.py` with tests for client/program creation and user resolution
   - Create `tests/test_database_writer.py` with tests for insert operations
