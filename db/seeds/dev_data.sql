@@ -8,14 +8,14 @@ INSERT INTO clients (id, name, description, is_active) VALUES
 ('33333333-3333-3333-3333-333333333333', 'TechStart Inc', 'Startup client - SaaS platform', true);
 
 -- Insert users (password is 'password' hashed with bcrypt)
--- Hash: $2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIr.xKfvGK
+-- Hash: $2b$12$9OAMueEnVYFWy7shFaKgqujLD8MJWcByjxw2uOzb30Vc3PgG.aHEy
 INSERT INTO users (id, email, hashed_password, full_name, role, client_id, language, theme) VALUES
-('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@datalegos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIr.xKfvGK', 'Admin User', 'Admin', '11111111-1111-1111-1111-111111111111', 'en', 'snow'),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'john@datalegos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIr.xKfvGK', 'John Doe', 'Developer', '11111111-1111-1111-1111-111111111111', 'en', 'dark'),
-('cccccccc-cccc-cccc-cccc-cccccccccccc', 'jane@datalegos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIr.xKfvGK', 'Jane Smith', 'Project Manager', '11111111-1111-1111-1111-111111111111', 'en', 'water'),
-('dddddddd-dddd-dddd-dddd-dddddddddddd', 'bob@datalegos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIr.xKfvGK', 'Bob Johnson', 'Developer', '11111111-1111-1111-1111-111111111111', 'en', 'greenery'),
-('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'alice@datalegos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIr.xKfvGK', 'Alice Williams', 'DevOps', '11111111-1111-1111-1111-111111111111', 'en', 'dracula'),
-('ffffffff-ffff-ffff-ffff-ffffffffffff', 'charlie@datalegos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIr.xKfvGK', 'Charlie Brown', 'Tester', '11111111-1111-1111-1111-111111111111', 'te', 'blackwhite');
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@datalegos.com', '$2b$12$9OAMueEnVYFWy7shFaKgqujLD8MJWcByjxw2uOzb30Vc3PgG.aHEy', 'Admin User', 'Admin', '11111111-1111-1111-1111-111111111111', 'en', 'snow'),
+('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'john@datalegos.com', '$2b$12$9OAMueEnVYFWy7shFaKgqujLD8MJWcByjxw2uOzb30Vc3PgG.aHEy', 'John Doe', 'Developer', '11111111-1111-1111-1111-111111111111', 'en', 'dark'),
+('cccccccc-cccc-cccc-cccc-cccccccccccc', 'jane@datalegos.com', '$2b$12$9OAMueEnVYFWy7shFaKgqujLD8MJWcByjxw2uOzb30Vc3PgG.aHEy', 'Jane Smith', 'Project Manager', '11111111-1111-1111-1111-111111111111', 'en', 'water'),
+('dddddddd-dddd-dddd-dddd-dddddddddddd', 'bob@datalegos.com', '$2b$12$9OAMueEnVYFWy7shFaKgqujLD8MJWcByjxw2uOzb30Vc3PgG.aHEy', 'Bob Johnson', 'Developer', '11111111-1111-1111-1111-111111111111', 'en', 'greenery'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'alice@datalegos.com', '$2b$12$9OAMueEnVYFWy7shFaKgqujLD8MJWcByjxw2uOzb30Vc3PgG.aHEy', 'Alice Williams', 'DevOps', '11111111-1111-1111-1111-111111111111', 'en', 'dracula'),
+('ffffffff-ffff-ffff-ffff-ffffffffffff', 'charlie@datalegos.com', '$2b$12$9OAMueEnVYFWy7shFaKgqujLD8MJWcByjxw2uOzb30Vc3PgG.aHEy', 'Charlie Brown', 'Tester', '11111111-1111-1111-1111-111111111111', 'te', 'blackwhite');
 
 -- Insert programs
 INSERT INTO programs (id, client_id, name, description, start_date, end_date, status) VALUES
