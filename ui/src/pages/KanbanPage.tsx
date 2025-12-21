@@ -118,6 +118,7 @@ export default function KanbanPage() {
   }
 
   const handleDragStart = (e: React.DragEvent, task: Task) => {
+    console.log(`🚀 Starting drag for task "${task.title}" with status "${task.status}"`)
     setDraggedTask(task)
     e.dataTransfer.effectAllowed = 'move'
   }
@@ -125,20 +126,35 @@ export default function KanbanPage() {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
+    // Only log occasionally to avoid spam
+    if (Math.random() < 0.01) {
+      console.log(`🎯 Dragging over column`)
+    }
   }
 
   const handleDrop = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault()
     
-    if (!draggedTask || draggedTask.status === newStatus) {
+    console.log(`🔄 Attempting to drop task "${draggedTask?.title}" from "${draggedTask?.status}" to "${newStatus}"`)
+    
+    if (!draggedTask) {
+      console.log('❌ No dragged task found')
+      setDraggedTask(null)
+      return
+    }
+    
+    if (draggedTask.status === newStatus) {
+      console.log('❌ Task already has this status, ignoring drop')
       setDraggedTask(null)
       return
     }
 
     try {
+      console.log(`📡 Calling API to update task ${draggedTask.id} status to ${newStatus}`)
       // Update task status via API
       await api.updateTask(draggedTask.id, { status: newStatus })
       
+      console.log(`✅ API call successful, updating local state`)
       // Update local state
       setTasks(tasks.map(task => 
         task.id === draggedTask.id 
@@ -146,10 +162,11 @@ export default function KanbanPage() {
           : task
       ))
       
-      console.log(`Task "${draggedTask.title}" moved to ${newStatus}`)
+      console.log(`✅ Task "${draggedTask.title}" successfully moved from "${draggedTask.status}" to "${newStatus}"`)
     } catch (error) {
-      console.error('Failed to update task status:', error)
-      alert('Failed to update task status')
+      console.error('❌ Failed to update task status:', error)
+      console.error('Error details:', error)
+      alert(`Failed to update task status: ${error.message || error}`)
     } finally {
       setDraggedTask(null)
     }
@@ -265,10 +282,18 @@ export default function KanbanPage() {
             className="rounded-lg p-4"
             style={{ 
               backgroundColor: 'var(--surface-color)',
-              border: '2px solid var(--border-color)'
+              border: '2px solid var(--border-color)',
+              minHeight: '500px' // Ensure adequate drop zone
             }}
             onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, column)}
+            onDrop={(e) => {
+              console.log(`📥 Drop event triggered on column: ${column}`)
+              handleDrop(e, column)
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault()
+              console.log(`🎯 Drag entered column: ${column}`)
+            }}
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold" style={{ color: 'var(--text-color)' }}>

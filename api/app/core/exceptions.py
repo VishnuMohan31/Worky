@@ -104,11 +104,11 @@ async def worky_exception_handler(request: Request, exc: WorkyException) -> JSON
     
     # Log the exception
     logger.error(
-        f"WorkyException: {exc.code}",
+        f"WorkyException: {exc.code} - {exc.message}",
         extra={
             "request_id": request_id,
             "code": exc.code,
-            "message": exc.message,
+            "error_message": exc.message,  # Changed from "message" to "error_message"
             "status_code": exc.status_code,
             "details": exc.details,
             "path": request.url.path,

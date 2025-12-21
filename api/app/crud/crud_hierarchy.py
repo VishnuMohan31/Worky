@@ -149,7 +149,7 @@ class CRUDPhase(CRUDBase[Phase, PhaseCreate, PhaseUpdate]):
             .where(
                 Phase.is_deleted == False
             )
-            .order_by(Phase.order)
+            .order_by(Phase.display_order)
         )
         return result.scalars().all()
 

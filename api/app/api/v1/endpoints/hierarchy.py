@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, Path, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
-from uuid import UUID
+# Removed UUID import since we're using string IDs
 
 from app.db.base import get_db
 from app.models.client import Client
@@ -39,7 +39,7 @@ logger = StructuredLogger(__name__)
 async def _get_children_for_entity(
     db: AsyncSession,
     entity_type: str,
-    entity_id: UUID
+    entity_id: str
 ) -> List:
     """Get child entities for a given entity."""
     child_mapping = {
@@ -73,10 +73,8 @@ def _entity_to_dict(entity) -> Optional[Dict[str, Any]]:
     result = {}
     for column in entity.__table__.columns:
         value = getattr(entity, column.name)
-        # Convert UUID and datetime to string for JSON serialization
-        if isinstance(value, UUID):
-            value = str(value)
-        elif hasattr(value, 'isoformat'):
+        # Convert datetime to string for JSON serialization
+        if hasattr(value, 'isoformat'):
             value = value.isoformat()
         result[column.name] = value
     
@@ -146,7 +144,7 @@ async def get_entity_with_context(
     # Get child entities (empty for Subtask)
     children = []
     if entity_type.lower() != 'subtask':
-        children = await _get_children_for_entity(db, entity_type.lower(), entity_id)
+        children = await _get_children_for_entity(db, entity_type.lower(), str(entity_id))
     
     # Get breadcrumb trail
     breadcrumb = await service._get_breadcrumb_for_entity(entity_type.lower(), entity_id)
@@ -515,7 +513,7 @@ async def list_tasks_for_user_story(
     story_id: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    phase_filter: Optional[UUID] = Query(None, alias="phase_id"),
+    phase_filter: Optional[str] = Query(None, alias="phase_id"),
     status_filter: Optional[str] = Query(None, alias="status"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)

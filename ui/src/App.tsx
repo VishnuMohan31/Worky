@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+
 import { queryClient } from './lib/queryClient'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -41,6 +41,8 @@ import SubtasksPage from './pages/SubtasksPage'
 import TodoPage from './pages/TodoPage'
 import ChatWidgetTestPage from './pages/ChatWidgetTestPage'
 import ReportViewerPage from './pages/ReportViewerPage'
+import TeamsPage from './pages/TeamsPage'
+import DecisionsPage from './pages/DecisionsPage'
 
 function App() {
   return (
@@ -74,6 +76,12 @@ function App() {
                   
                   {/* TODO Page */}
                   <Route path="todos" element={<TodoPage />} />
+                  
+                  {/* Team Management */}
+                  <Route path="teams" element={<TeamsPage />} />
+                  
+                  {/* Decision Management */}
+                  <Route path="decisions" element={<DecisionsPage />} />
                   
                   {/* QA Pages */}
                   <Route path="test-runs" element={<TestRunsPage />} />
@@ -114,7 +122,7 @@ function App() {
           </ToastProvider>
         </LanguageProvider>
       </ThemeProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+
     </QueryClientProvider>
   )
 }

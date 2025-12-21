@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
+import ProjectTeamDisplay from './ProjectTeamDisplay'
 
 interface ProjectDetail {
   id: string
@@ -498,6 +499,20 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                     No statistics available
                   </p>
                 )}
+              </div>
+
+              {/* Team Information Section */}
+              <div 
+                className="rounded-lg p-6"
+                style={{ 
+                  backgroundColor: 'var(--background-color)',
+                  border: '1px solid var(--border-color)'
+                }}
+              >
+                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-color)' }}>
+                  Project Team
+                </h3>
+                <ProjectTeamDisplay projectId={project.id} />
               </div>
 
               {/* Notes Section */}

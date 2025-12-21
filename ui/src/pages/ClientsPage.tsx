@@ -41,10 +41,13 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<ClientDetail | null>(null)
   const [selectedClient, setSelectedClient] = useState<ClientDetail | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [isInteracting, setIsInteracting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     short_description: '',
     long_description: '',
+    email: '',
+    phone: '',
     is_active: true
   })
 
@@ -71,12 +74,33 @@ export default function ClientsPage() {
     }))
   }
 
+  // Helper function to handle all input events and prevent modal closing
+  const handleInputEvent = (e: React.SyntheticEvent) => {
+    e.stopPropagation()
+    // Don't preventDefault() - we want normal input behavior to work
+  }
+
+  // Helper function to handle focus events
+  const handleInputFocus = (e: React.FocusEvent) => {
+    e.stopPropagation()
+    setIsInteracting(true)
+  }
+
+  // Helper function to handle blur events
+  const handleInputBlur = (e: React.FocusEvent) => {
+    e.stopPropagation()
+    // Delay clearing interaction state to prevent race conditions
+    setTimeout(() => setIsInteracting(false), 100)
+  }
+
   const handleCreateClick = () => {
     setEditingClient(null)
     setFormData({
       name: '',
       short_description: '',
       long_description: '',
+      email: '',
+      phone: '',
       is_active: true
     })
     setShowModal(true)
@@ -93,6 +117,8 @@ export default function ClientsPage() {
       name: client.name,
       short_description: client.description || '',
       long_description: '',
+      email: client.contact_email || '',
+      phone: client.contact_phone || '',
       is_active: client.is_active
     })
     setShowModal(true)
@@ -117,6 +143,8 @@ export default function ClientsPage() {
         name: '',
         short_description: '',
         long_description: '',
+        email: '',
+        phone: '',
         is_active: true
       })
       // Reload statistics to show the updated/new client
@@ -134,10 +162,10 @@ export default function ClientsPage() {
     setEditingClient(null)
     setFormData({
       name: '',
-      description: '',
-      industry: '',
-      contact_email: '',
-      contact_phone: '',
+      short_description: '',
+      long_description: '',
+      email: '',
+      phone: '',
       is_active: true
     })
   }
@@ -272,7 +300,13 @@ export default function ClientsPage() {
       {showModal && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={handleCloseModal}
+          onClick={(e) => {
+            // Only close if clicking on the backdrop itself, not on any child elements
+            // AND not currently interacting with form fields
+            if (e.target === e.currentTarget && !isInteracting) {
+              handleCloseModal()
+            }
+          }}
         >
           <div 
             className="rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
@@ -280,7 +314,19 @@ export default function ClientsPage() {
               backgroundColor: 'var(--surface-color)',
               border: '1px solid var(--border-color)'
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              // Prevent any clicks inside the modal from bubbling up
+              e.stopPropagation()
+              // Don't preventDefault() - we want normal click behavior inside modal
+            }}
+            onMouseDown={(e) => {
+              // Prevent mouse events during text selection from bubbling up
+              e.stopPropagation()
+            }}
+            onMouseUp={(e) => {
+              // Prevent mouse events during text selection from bubbling up
+              e.stopPropagation()
+            }}
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold" style={{ color: 'var(--text-color)' }}>
@@ -307,6 +353,11 @@ export default function ClientsPage() {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
+                    onSelect={(e) => e.stopPropagation()}
                     required
                     className="w-full px-4 py-2 rounded-md border"
                     style={{ 
@@ -328,6 +379,11 @@ export default function ClientsPage() {
                     name="short_description"
                     value={formData.short_description}
                     onChange={handleInputChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
+                    onSelect={(e) => e.stopPropagation()}
                     className="w-full px-4 py-2 rounded-md border"
                     style={{ 
                       backgroundColor: 'var(--background-color)',
@@ -348,6 +404,11 @@ export default function ClientsPage() {
                     name="long_description"
                     value={formData.long_description}
                     onChange={handleInputChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
+                    onSelect={(e) => e.stopPropagation()}
                     rows={4}
                     className="w-full px-4 py-2 rounded-md border"
                     style={{ 
@@ -356,6 +417,66 @@ export default function ClientsPage() {
                       color: 'var(--text-color)'
                     }}
                     placeholder="Detailed description of the client"
+                  />
+                </div>
+
+                {/* Contact Email */}
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
+                    Contact Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    onClick={handleInputEvent}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                    onMouseDown={handleInputEvent}
+                    onMouseUp={handleInputEvent}
+                    onMouseLeave={handleInputEvent}
+                    onMouseEnter={handleInputEvent}
+                    onSelect={handleInputEvent}
+                    onKeyDown={handleInputEvent}
+                    onKeyUp={handleInputEvent}
+                    className="w-full px-4 py-2 rounded-md border"
+                    style={{ 
+                      backgroundColor: 'var(--background-color)',
+                      borderColor: 'var(--border-color)',
+                      color: 'var(--text-color)'
+                    }}
+                    placeholder="contact@client.com"
+                  />
+                </div>
+
+                {/* Contact Phone */}
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
+                    Contact Phone
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    onClick={handleInputEvent}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                    onMouseDown={handleInputEvent}
+                    onMouseUp={handleInputEvent}
+                    onMouseLeave={handleInputEvent}
+                    onMouseEnter={handleInputEvent}
+                    onSelect={handleInputEvent}
+                    onKeyDown={handleInputEvent}
+                    onKeyUp={handleInputEvent}
+                    className="w-full px-4 py-2 rounded-md border"
+                    style={{ 
+                      backgroundColor: 'var(--background-color)',
+                      borderColor: 'var(--border-color)',
+                      color: 'var(--text-color)'
+                    }}
+                    placeholder="+1-555-0123"
                   />
                 </div>
 

@@ -43,17 +43,23 @@ class CRUDEntityNote:
         return new_id
     
     async def create(self, db: AsyncSession, *, obj_in: EntityNoteCreate, created_by: str) -> EntityNote:
-        """Create a new note"""
+        """Create a new note or decision"""
         note_id = await self._generate_id(db)
+        
+        # Handle is_decision flag properly - check for None vs False
+        is_decision_flag = obj_in.is_decision if obj_in.is_decision is not None else False
         
         db_obj = EntityNote(
             id=note_id,
             entity_type=obj_in.entity_type,
             entity_id=obj_in.entity_id,
             note_text=obj_in.note_text,
-            created_by=created_by
+            created_by=created_by,
+            is_decision=is_decision_flag,
+            decision_status=obj_in.decision_status if is_decision_flag else None
         )
         db.add(db_obj)
+        await db.flush()  # Ensure the object is persisted and gets an ID
         return db_obj
 
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
+import DecisionBadge from '../decisions/DecisionBadge'
 
 interface EntityNote {
   id: string
@@ -10,6 +11,8 @@ interface EntityNote {
   created_at: string
   creator_name: string
   creator_email: string
+  is_decision: boolean
+  decision_status?: string
 }
 
 interface EntityNotesProps {
@@ -24,12 +27,24 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
   const [newNoteText, setNewNoteText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [isDecision, setIsDecision] = useState(false)
+  const [decisionStatus, setDecisionStatus] = useState('Active')
+  const [filterType, setFilterType] = useState<'all' | 'notes' | 'decisions'>('all')
 
   const loadNotes = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await api.get(`/hierarchy/${entityType}/${entityId}/notes`)
+      
+      // Build query parameters based on filter
+      const params: any = {}
+      if (filterType === 'decisions') {
+        params.decisions_only = true
+      } else if (filterType === 'notes') {
+        params.notes_only = true
+      }
+      
+      const response = await api.getEntityNotes(entityType, entityId, params)
       setNotes(response.data || response)
     } catch (err: any) {
       console.error('Error loading notes:', err)
@@ -50,7 +65,7 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
 
   useEffect(() => {
     loadNotes()
-  }, [entityType, entityId])
+  }, [entityType, entityId, filterType])
 
   const handleSubmitNote = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,11 +78,15 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
       setSubmitting(true)
       setError(null)
       
-      await api.post(`/hierarchy/${entityType}/${entityId}/notes`, {
-        note_text: newNoteText.trim()
+      await api.createEntityNote(entityType, entityId, {
+        note_text: newNoteText.trim(),
+        is_decision: isDecision,
+        decision_status: isDecision ? decisionStatus : undefined
       })
       
       setNewNoteText('')
+      setIsDecision(false)
+      setDecisionStatus('Active')
       setShowAddForm(false)
       await loadNotes()
     } catch (err: any) {

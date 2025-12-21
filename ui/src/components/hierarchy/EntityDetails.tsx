@@ -9,6 +9,11 @@ import AuditHistory from './AuditHistory'
 import EntityNotes from './EntityNotes'
 import Modal from '../common/Modal'
 import EntityForm from '../forms/EntityForm'
+import { AssignmentDisplay } from '../assignments/AssignmentDisplay'
+import AssignmentSelector from '../assignments/AssignmentSelector'
+import TaskAssignmentSummary from '../assignments/TaskAssignmentSummary'
+import OwnershipDisplay from '../ownership/OwnershipDisplay'
+import EnhancedAssignmentDisplay from '../assignments/EnhancedAssignmentDisplay'
 import api from '../../services/api'
 
 interface EntityDetailsProps {
@@ -20,10 +25,26 @@ interface EntityDetailsProps {
 export default function EntityDetails({ entity, type, compact = false }: EntityDetailsProps) {
   const [showAuditHistory, setShowAuditHistory] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [showAssignments, setShowAssignments] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   
-  if (!entity) return null
+  // Safety checks
+  if (!entity) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        <p>No entity data available</p>
+      </div>
+    )
+  }
+  
+  if (!type) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        <p>Entity type not specified</p>
+      </div>
+    )
+  }
   
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -87,10 +108,40 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
       return ''
     }
   }
+
+  // Format date for API (YYYY-MM-DD)
+  const formatDateForAPI = (date: string | Date | undefined): string | null => {
+    if (!date) return null
+    try {
+      // If already in YYYY-MM-DD format, return as is
+      if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date
+      }
+      
+      // Extract date part from ISO string
+      if (typeof date === 'string' && date.includes('T')) {
+        const datePart = date.split('T')[0]
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          return datePart
+        }
+      }
+      
+      const dateObj = typeof date === 'string' ? new Date(date) : date
+      if (isNaN(dateObj.getTime())) return null
+      
+      const year = dateObj.getFullYear()
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+      const day = String(dateObj.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    } catch (error) {
+      console.error('Error formatting date for API:', error)
+      return null
+    }
+  }
   
   if (compact) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2" style={{ padding: '1rem' }}>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900">{entity.name || entity.title}</h3>
@@ -260,6 +311,42 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
         </dl>
       </div>
       
+      {/* Ownership/Assignment Display - NEW FEATURE */}
+      <div className="pt-6 border-t">
+        {(type === 'client' || type === 'program' || type === 'project') ? (
+          <OwnershipDisplay 
+            entityType={type as 'client' | 'program' | 'project'}
+            entityId={entity.id}
+            onOwnershipChange={() => {
+              // Optionally refresh the entity data
+              console.log('Ownership changed for', type, entity.id)
+            }}
+          />
+        ) : (
+          <EnhancedAssignmentDisplay 
+            entityType={type as 'usecase' | 'userstory' | 'task' | 'subtask'}
+            entityId={entity.id}
+            onAssignmentChange={() => {
+              // Optionally refresh the entity data
+              console.log('Assignment changed for', type, entity.id)
+            }}
+          />
+        )}
+      </div>
+
+      {/* Legacy Assignment Display - Keep for backward compatibility */}
+      <div className="pt-6 border-t">
+        <AssignmentDisplay 
+          entityType={type} 
+          entityId={entity.id}
+          showActions={true}
+          onAssignmentChange={() => {
+            // Optionally refresh the entity data
+            console.log('Legacy assignment changed for', type, entity.id)
+          }}
+        />
+      </div>
+
       {/* Actions */}
       <div className="flex gap-3 pt-4 border-t">
         <button 
@@ -267,6 +354,16 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           Edit
+        </button>
+        <button
+          onClick={() => setShowAssignments(!showAssignments)}
+          className={`px-4 py-2 rounded-lg transition-colors ${
+            showAssignments 
+              ? 'bg-blue-600 text-white hover:bg-blue-700' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          {showAssignments ? 'Hide Assign Tasks' : 'Manage Assign Tasks'}
         </button>
         <button 
           onClick={() => setShowAuditHistory(!showAuditHistory)}
@@ -290,6 +387,29 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
         </button>
       </div>
       
+      {/* Assignment Management Section */}
+      {showAssignments && (
+        <div className="pt-6 border-t space-y-6">
+          <AssignmentSelector 
+            entityType={type} 
+            entityId={entity.id}
+            onAssignmentChange={() => {
+              // Optionally refresh the entity data
+              console.log('Assignment changed for', type, entity.id)
+            }}
+          />
+          
+          {/* Task Assignment Summary for Projects */}
+          {type === 'project' && (
+            <TaskAssignmentSummary 
+              projectId={entity.id}
+              entityType={type}
+              entityId={entity.id}
+            />
+          )}
+        </div>
+      )}
+
       {/* Notes Section */}
       {showNotes && (
         <div className="pt-6 border-t">
@@ -300,14 +420,46 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
       {/* Audit History Section */}
       {showAuditHistory && (
         <div className="pt-6 border-t">
-          <AuditHistory entityType={type} entityId={entity.id} />
+          <AuditHistory key={`audit-${type}-${entity.id}`} entityType={type} entityId={entity.id} />
         </div>
       )}
       
       {/* Statistics Section */}
-      <div className="pt-6 border-t">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistics</h2>
-        <EntityStatistics entityId={entity.id} entityType={type} />
+      <div style={{ 
+        paddingTop: '1.5rem', 
+        borderTop: '1px solid #e5e7eb', 
+        marginTop: '1.5rem' 
+      }}>
+        <h2 style={{ 
+          fontSize: '1.125rem', 
+          fontWeight: '600', 
+          color: '#111827', 
+          marginBottom: '1rem' 
+        }}>
+          Statistics
+        </h2>
+        {entity.id && type ? (
+          <div style={{ 
+            padding: '1rem', 
+            backgroundColor: '#f9fafb', 
+            borderRadius: '0.5rem',
+            border: '1px solid #e5e7eb'
+          }}>
+            <EntityStatistics key={`${type}-${entity.id}`} entityId={entity.id} entityType={type} />
+          </div>
+        ) : (
+          <div style={{ 
+            padding: '1.5rem', 
+            backgroundColor: '#f9fafb', 
+            borderRadius: '0.5rem', 
+            minHeight: '150px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <p style={{ color: '#6b7280', textAlign: 'center' }}>Statistics not available</p>
+          </div>
+        )}
       </div>
 
       {/* Edit Modal */}
@@ -329,22 +481,178 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
             end_date: (entity.end_date || entity.endDate) ? formatDateForInput(entity.end_date || entity.endDate) : (entity.due_date || entity.dueDate) ? formatDateForInput(entity.due_date || entity.dueDate) : '',
             due_date: (entity.due_date || entity.dueDate) ? formatDateForInput(entity.due_date || entity.dueDate) : '',
             acceptance_criteria: entity.acceptance_criteria || entity.acceptanceCriteria || '',
-            story_points: entity.story_points || entity.storyPoints || 0
+            story_points: entity.story_points || entity.storyPoints || 0,
+            estimated_hours: entity.estimated_hours || 0,
+            actual_hours: entity.actual_hours || 0,
+            duration_days: entity.duration_days || 1,
+            scrum_points: entity.scrum_points || 0,
+            phase_id: entity.phase_id || '',
+            assigned_to: entity.assigned_to || ''
           }}
+          additionalFields={
+            <div className="pt-6 border-t">
+              <h4 className="text-lg font-medium text-gray-900 mb-4">Current Assignments</h4>
+              <AssignmentDisplay 
+                entityType={type} 
+                entityId={entity.id}
+                showActions={true}
+                onAssignmentChange={() => {
+                  // Refresh assignments when changed
+                  console.log('Assignment changed in edit form')
+                }}
+              />
+            </div>
+          }
           onSubmit={async (data) => {
             setIsUpdating(true)
             try {
+
+              
               // Map name/title based on entity type
               const updateData: any = { ...data }
-              if (type === 'userstory' || type === 'task') {
-                if (data.title) updateData.title = data.title
-                if (data.name && !data.title) updateData.title = data.name
+              
+              // Handle field mapping for different entity types
+              if (type === 'userstory' || type === 'task' || type === 'subtask') {
+                // These entities use 'title' field
+                if (data.title) {
+                  updateData.title = data.title.trim()
+                } else if (data.name && !data.title) {
+                  updateData.title = data.name.trim()
+                }
                 delete updateData.name
+                
+                // Validate title is not empty
+                if (!updateData.title || updateData.title === '') {
+                  throw new Error('Title is required')
+                }
               } else {
-                if (data.name) updateData.name = data.name
-                if (data.title && !data.name) updateData.name = data.title
+                // Other entities use 'name' field
+                if (data.name) {
+                  updateData.name = data.name.trim()
+                } else if (data.title && !data.name) {
+                  updateData.name = data.title.trim()
+                }
                 delete updateData.title
+                
+                // Validate name is not empty
+                if (!updateData.name || updateData.name === '') {
+                  throw new Error('Name is required')
+                }
               }
+              
+              // Handle date formatting and field mapping
+              if (updateData.start_date) {
+                updateData.start_date = formatDateForAPI(updateData.start_date)
+              }
+              
+              // For tasks, always map end_date to due_date (tasks don't have end_date)
+              if (type === 'task') {
+                if (updateData.end_date) {
+                  updateData.due_date = formatDateForAPI(updateData.end_date)
+                  delete updateData.end_date
+                }
+                if (updateData.due_date) {
+                  updateData.due_date = formatDateForAPI(updateData.due_date)
+                }
+              } else {
+                // For other entities, format end_date normally
+                if (updateData.end_date) {
+                  updateData.end_date = formatDateForAPI(updateData.end_date)
+                }
+                if (updateData.due_date) {
+                  updateData.due_date = formatDateForAPI(updateData.due_date)
+                }
+              }
+              
+              // Handle entity-specific field cleanup and validation
+              if (type === 'subtask') {
+                // Subtasks don't use these date fields
+                delete updateData.end_date
+                delete updateData.start_date
+                delete updateData.due_date
+                
+                // Ensure numeric fields are properly formatted
+                if (updateData.estimated_hours !== undefined && updateData.estimated_hours !== '') {
+                  updateData.estimated_hours = parseFloat(updateData.estimated_hours) || null
+                }
+                if (updateData.duration_days !== undefined && updateData.duration_days !== '') {
+                  updateData.duration_days = parseInt(updateData.duration_days) || null
+                }
+                if (updateData.scrum_points !== undefined && updateData.scrum_points !== '') {
+                  updateData.scrum_points = parseFloat(updateData.scrum_points) || null
+                }
+                if (updateData.actual_hours !== undefined && updateData.actual_hours !== '') {
+                  updateData.actual_hours = parseFloat(updateData.actual_hours) || null
+                }
+              } else if (type === 'task') {
+                // Tasks use estimated_hours and actual_hours
+                if (updateData.estimated_hours !== undefined && updateData.estimated_hours !== '') {
+                  updateData.estimated_hours = parseFloat(updateData.estimated_hours) || null
+                }
+                if (updateData.actual_hours !== undefined && updateData.actual_hours !== '') {
+                  updateData.actual_hours = parseFloat(updateData.actual_hours) || null
+                }
+                
+                // Remove subtask-specific fields
+                delete updateData.duration_days
+                delete updateData.scrum_points
+              } else if (type === 'userstory') {
+                // User stories use story_points
+                if (updateData.story_points !== undefined && updateData.story_points !== '') {
+                  updateData.story_points = parseInt(updateData.story_points) || null
+                }
+                
+                // Remove task/subtask specific fields
+                delete updateData.estimated_hours
+                delete updateData.actual_hours
+                delete updateData.duration_days
+                delete updateData.scrum_points
+                delete updateData.phase_id
+                delete updateData.assigned_to
+              } else {
+                // For other entity types, remove all task/subtask/userstory specific fields
+                delete updateData.estimated_hours
+                delete updateData.actual_hours
+                delete updateData.duration_days
+                delete updateData.scrum_points
+                delete updateData.story_points
+                delete updateData.phase_id
+                delete updateData.assigned_to
+                delete updateData.acceptance_criteria
+              }
+              
+              // Clean up data before sending to API
+              Object.keys(updateData).forEach(key => {
+                const value = updateData[key]
+                
+                // Convert empty strings to null for optional fields
+                if (value === '') {
+                  updateData[key] = null
+                }
+                
+                // Remove undefined values
+                if (value === undefined) {
+                  delete updateData[key]
+                }
+                
+                // Remove null values for fields that shouldn't be null
+                if (value === null && ['title', 'name'].includes(key)) {
+                  delete updateData[key]
+                }
+              })
+              
+              // Ensure required fields are present and valid
+              if (type === 'task' || type === 'userstory' || type === 'subtask') {
+                if (!updateData.title || updateData.title.trim() === '') {
+                  throw new Error('Title cannot be empty')
+                }
+              } else {
+                if (!updateData.name || updateData.name.trim() === '') {
+                  throw new Error('Name cannot be empty')
+                }
+              }
+              
+
               
               await api.updateEntity(type, entity.id, updateData)
               setIsEditModalOpen(false)
@@ -352,7 +660,41 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
               window.location.reload()
             } catch (error: any) {
               console.error('Failed to update entity:', error)
-              alert(error.response?.data?.detail || error.message || 'Failed to update entity')
+              
+              let errorMessage = 'Failed to update entity'
+              
+              if (error.response) {
+                const status = error.response.status
+                const data = error.response.data
+                
+                if (status === 401) {
+                  errorMessage = 'Authentication failed. Please log in again.'
+                  window.location.href = '/login'
+                  return
+                } else if (status === 403) {
+                  errorMessage = 'You do not have permission to update this entity.'
+                } else if (status === 404) {
+                  errorMessage = 'Entity not found. It may have been deleted.'
+                } else if (status === 422) {
+                  if (data?.detail) {
+                    if (Array.isArray(data.detail)) {
+                      errorMessage = data.detail.map((err: any) => `${err.loc?.join('.')}: ${err.msg}`).join(', ')
+                    } else {
+                      errorMessage = data.detail
+                    }
+                  } else {
+                    errorMessage = 'Validation error. Please check your input.'
+                  }
+                } else if (status === 500) {
+                  errorMessage = 'Server error. Please try again later.'
+                } else {
+                  errorMessage = data?.detail || data?.message || `Server error (${status})`
+                }
+              } else if (error.message) {
+                errorMessage = error.message
+              }
+              
+              alert(errorMessage)
             } finally {
               setIsUpdating(false)
             }

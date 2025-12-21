@@ -2,7 +2,6 @@
 Hierarchy Service for managing entity creation, updates, and hierarchy operations.
 """
 from typing import Optional, Dict, Any, TYPE_CHECKING
-from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, status
@@ -184,7 +183,8 @@ class HierarchyService:
         usecase = Usecase(
             project_id=usecase_data.project_id,
             name=usecase_data.name,
-            description=usecase_data.description,
+            short_description=usecase_data.short_description,
+            long_description=usecase_data.long_description,
             priority=usecase_data.priority or "Medium",
             status=usecase_data.status or "Draft",
             created_by=str(current_user.id),
@@ -225,8 +225,10 @@ class HierarchyService:
         # Create user story
         user_story = UserStory(
             usecase_id=story_data.usecase_id,
+            phase_id=story_data.phase_id,
             title=story_data.title,
-            description=story_data.description,
+            short_description=story_data.short_description,
+            long_description=story_data.long_description,
             acceptance_criteria=story_data.acceptance_criteria,
             story_points=story_data.story_points,
             priority=story_data.priority or "Medium",
@@ -266,10 +268,13 @@ class HierarchyService:
         task = Task(
             user_story_id=task_data.user_story_id,
             title=task_data.title,
-            description=task_data.description,
+            short_description=task_data.short_description,
+            long_description=task_data.long_description,
             status=task_data.status or "To Do",
             priority=task_data.priority or "Medium",
+            phase_id=task_data.phase_id,
             assigned_to=task_data.assigned_to,
+            sprint_id=task_data.sprint_id,
             estimated_hours=task_data.estimated_hours,
             start_date=task_data.start_date,
             due_date=task_data.due_date,
@@ -319,9 +324,14 @@ class HierarchyService:
             task_id=subtask_data.task_id,
             phase_id=subtask_data.phase_id,
             title=subtask_data.title,
-            description=subtask_data.description,
+            short_description=subtask_data.short_description,
+            long_description=subtask_data.long_description,
             status=subtask_data.status or "To Do",
             assigned_to=subtask_data.assigned_to,
+            estimated_hours=subtask_data.estimated_hours,
+            actual_hours=subtask_data.actual_hours,
+            duration_days=subtask_data.duration_days,
+            scrum_points=subtask_data.scrum_points,
             created_by=str(current_user.id),
             updated_by=str(current_user.id)
         )
@@ -336,7 +346,7 @@ class HierarchyService:
     
     async def _get_and_verify_client_access(
         self, 
-        client_id: UUID, 
+        client_id: str, 
         current_user: User
     ) -> Client:
         """Verify client exists and user has access"""
@@ -365,7 +375,7 @@ class HierarchyService:
     
     async def _get_and_verify_program_access(
         self, 
-        program_id: UUID, 
+        program_id: str, 
         current_user: User
     ) -> Program:
         """Verify program exists and user has access"""
@@ -390,7 +400,7 @@ class HierarchyService:
     
     async def _get_and_verify_project_access(
         self, 
-        project_id: UUID, 
+        project_id: str, 
         current_user: User
     ) -> Project:
         """Verify project exists and user has access"""
@@ -415,7 +425,7 @@ class HierarchyService:
     
     async def _get_and_verify_usecase_access(
         self, 
-        usecase_id: UUID, 
+        usecase_id: str, 
         current_user: User
     ) -> Usecase:
         """Verify use case exists and user has access"""
@@ -440,7 +450,7 @@ class HierarchyService:
     
     async def _get_and_verify_user_story_access(
         self, 
-        user_story_id: UUID, 
+        user_story_id: str, 
         current_user: User
     ) -> UserStory:
         """Verify user story exists and user has access"""
@@ -465,7 +475,7 @@ class HierarchyService:
     
     async def _get_and_verify_task_access(
         self, 
-        task_id: UUID, 
+        task_id: str, 
         current_user: User
     ) -> Task:
         """Verify task exists and user has access"""
@@ -488,7 +498,7 @@ class HierarchyService:
         
         return task
     
-    async def _get_phase(self, phase_id: UUID) -> Optional[Phase]:
+    async def _get_phase(self, phase_id: str) -> Optional[Phase]:
         """Get phase by ID"""
         result = await self.db.execute(
             select(Phase).where(
@@ -502,7 +512,7 @@ class HierarchyService:
     
     async def update_client(
         self,
-        client_id: UUID,
+        client_id: str,
         client_data: "ClientUpdate",
         current_user: User
     ) -> Client:
@@ -539,7 +549,7 @@ class HierarchyService:
     
     async def update_program(
         self,
-        program_id: UUID,
+        program_id: str,
         program_data: "ProgramUpdate",
         current_user: User
     ) -> Program:
@@ -576,7 +586,7 @@ class HierarchyService:
     
     async def update_project(
         self,
-        project_id: UUID,
+        project_id: str,
         project_data: "ProjectUpdate",
         current_user: User
     ) -> Project:
@@ -613,7 +623,7 @@ class HierarchyService:
     
     async def update_usecase(
         self,
-        usecase_id: UUID,
+        usecase_id: str,
         usecase_data: "UsecaseUpdate",
         current_user: User
     ) -> Usecase:
@@ -650,7 +660,7 @@ class HierarchyService:
     
     async def update_user_story(
         self,
-        user_story_id: UUID,
+        user_story_id: str,
         story_data: "UserStoryUpdate",
         current_user: User
     ) -> UserStory:
@@ -687,7 +697,7 @@ class HierarchyService:
     
     async def update_task(
         self,
-        task_id: UUID,
+        task_id: str,
         task_data: "TaskUpdate",
         current_user: User
     ) -> Task:
@@ -725,7 +735,7 @@ class HierarchyService:
     
     async def update_subtask(
         self,
-        subtask_id: UUID,
+        subtask_id: str,
         subtask_data: "SubtaskUpdate",
         current_user: User
     ) -> Subtask:
@@ -780,7 +790,7 @@ class HierarchyService:
     
     async def delete_client(
         self,
-        client_id: UUID,
+        client_id: str,
         current_user: User
     ) -> Dict[str, str]:
         """
@@ -815,7 +825,7 @@ class HierarchyService:
     
     async def delete_program(
         self,
-        program_id: UUID,
+        program_id: str,
         current_user: User
     ) -> Dict[str, str]:
         """
@@ -850,7 +860,7 @@ class HierarchyService:
     
     async def delete_project(
         self,
-        project_id: UUID,
+        project_id: str,
         current_user: User
     ) -> Dict[str, str]:
         """
@@ -885,7 +895,7 @@ class HierarchyService:
     
     async def delete_usecase(
         self,
-        usecase_id: UUID,
+        usecase_id: str,
         current_user: User
     ) -> Dict[str, str]:
         """
@@ -920,7 +930,7 @@ class HierarchyService:
     
     async def delete_user_story(
         self,
-        user_story_id: UUID,
+        user_story_id: str,
         current_user: User
     ) -> Dict[str, str]:
         """
@@ -955,7 +965,7 @@ class HierarchyService:
     
     async def delete_task(
         self,
-        task_id: UUID,
+        task_id: str,
         current_user: User
     ) -> Dict[str, str]:
         """
@@ -991,7 +1001,7 @@ class HierarchyService:
     
     async def delete_subtask(
         self,
-        subtask_id: UUID,
+        subtask_id: str,
         current_user: User
     ) -> Dict[str, str]:
         """
@@ -1065,7 +1075,7 @@ class HierarchyService:
     async def get_entity_statistics(
         self,
         entity_type: str,
-        entity_id: UUID,
+        entity_id: str,
         current_user: User
     ) -> Dict[str, Any]:
         """
@@ -1104,7 +1114,7 @@ class HierarchyService:
     async def _get_status_counts(
         self,
         entity_type: str,
-        entity_id: UUID
+        entity_id: str
     ) -> Dict[str, int]:
         """
         Get status counts for direct children of an entity.
@@ -1125,8 +1135,18 @@ class HierarchyService:
         
         entity_type_lower = entity_type.lower()
         
-        # Subtasks have no children
+        # Subtasks have no children, return their own status
         if entity_type_lower == 'subtask':
+            # Get the subtask itself to return its status
+            result = await self.db.execute(
+                select(Subtask).where(
+                    Subtask.id == entity_id,
+                    Subtask.is_deleted == False
+                )
+            )
+            subtask = result.scalar_one_or_none()
+            if subtask:
+                return {subtask.status: 1}
             return {}
         
         if entity_type_lower not in child_mapping:
@@ -1154,7 +1174,7 @@ class HierarchyService:
     async def _get_phase_distribution(
         self,
         entity_type: str,
-        entity_id: UUID
+        entity_id: str
     ) -> list[Dict[str, Any]]:
         """
         Get phase distribution for all descendant tasks and subtasks.
@@ -1232,8 +1252,8 @@ class HierarchyService:
     async def _get_descendant_task_ids(
         self,
         entity_type: str,
-        entity_id: UUID
-    ) -> list[UUID]:
+        entity_id: str
+    ) -> list[str]:
         """
         Get all descendant task IDs for an entity.
         """
@@ -1327,7 +1347,7 @@ class HierarchyService:
     async def _get_rollup_counts(
         self,
         entity_type: str,
-        entity_id: UUID
+        entity_id: str
     ) -> Dict[str, int]:
         """
         Get counts of all descendant entities by type.
@@ -1625,7 +1645,7 @@ class HierarchyService:
     async def _verify_entity_access(
         self,
         entity_type: str,
-        entity_id: UUID,
+        entity_id: str,
         current_user: User
     ) -> None:
         """
@@ -1816,7 +1836,7 @@ class HierarchyService:
         query,
         model,
         entity_type: str,
-        client_id: UUID
+        client_id: str
     ):
         """
         Apply client-level filtering to search query for non-Admin users.
@@ -1918,7 +1938,7 @@ class HierarchyService:
         
         Requirements: 2.3
         """
-        breadcrumb = await self._get_breadcrumb_for_entity(entity_type, UUID(entity_id))
+        breadcrumb = await self._get_breadcrumb_for_entity(entity_type, entity_id)
         
         if not breadcrumb:
             return ""
@@ -1930,7 +1950,7 @@ class HierarchyService:
     async def _get_breadcrumb_for_entity(
         self,
         entity_type: str,
-        entity_id: UUID
+        entity_id: str
     ) -> list[Dict[str, str]]:
         """
         Get breadcrumb trail from Client to current entity.
@@ -1969,7 +1989,7 @@ class HierarchyService:
     async def _get_entity_by_type(
         self,
         entity_type: str,
-        entity_id: UUID
+        entity_id: str
     ):
         """Get entity by type and ID."""
         model_mapping = {
@@ -1998,7 +2018,7 @@ class HierarchyService:
         self,
         entity_type: str,
         entity
-    ) -> Optional[tuple[str, UUID]]:
+    ) -> Optional[tuple[str, str]]:
         """
         Get parent type and ID for an entity.
         

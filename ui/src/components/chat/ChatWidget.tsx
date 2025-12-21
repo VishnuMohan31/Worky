@@ -149,7 +149,6 @@ export default function ChatWidget({ onSendMessage, isOpen: externalIsOpen, onTo
 
   const handleActionClick = (action: UIAction) => {
     // Action handling is now done in ActionButton component
-    console.log('Action clicked:', action)
   }
 
   const formatTime = (date: Date) => {

@@ -11,6 +11,8 @@ class ClientBase(BaseModel):
     name: str
     short_description: Optional[str] = None
     long_description: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
     is_active: Optional[bool] = True
 
 
@@ -22,6 +24,8 @@ class ClientUpdate(BaseModel):
     name: Optional[str] = None
     short_description: Optional[str] = None
     long_description: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
     is_active: Optional[bool] = None
 
 

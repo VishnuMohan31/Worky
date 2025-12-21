@@ -59,7 +59,7 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
     
-    # Get user from database
+    # Get user from database (user_id is already a string)
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     
@@ -70,6 +70,16 @@ async def get_current_user(
         raise HTTPException(status_code=400, detail="Inactive user")
     
     return user
+
+
+def verify_token(token: str) -> Optional[str]:
+    """Verify JWT token and return user ID"""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        return user_id
+    except JWTError:
+        return None
 
 
 def require_role(allowed_roles: list[str]):

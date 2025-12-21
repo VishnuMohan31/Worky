@@ -34,12 +34,13 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [isInteracting, setIsInteracting] = useState(false)
   const [formData, setFormData] = useState({
     name: client.name,
-    description: client.description,
-    industry: client.industry,
-    contact_email: client.contact_email,
-    contact_phone: client.contact_phone,
+    short_description: client.description,
+    long_description: '',
+    email: client.contact_email,
+    phone: client.contact_phone,
     is_active: client.is_active
   })
 
@@ -49,6 +50,25 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }))
+  }
+
+  // Helper function to handle all input events and prevent modal closing
+  const handleInputEvent = (e: React.SyntheticEvent) => {
+    e.stopPropagation()
+    // Don't preventDefault() - we want normal input behavior to work
+  }
+
+  // Helper function to handle focus events
+  const handleInputFocus = (e: React.FocusEvent) => {
+    e.stopPropagation()
+    setIsInteracting(true)
+  }
+
+  // Helper function to handle blur events
+  const handleInputBlur = (e: React.FocusEvent) => {
+    e.stopPropagation()
+    // Delay clearing interaction state to prevent race conditions
+    setTimeout(() => setIsInteracting(false), 100)
   }
 
   const handleSave = async () => {
@@ -68,10 +88,10 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
   const handleCancel = () => {
     setFormData({
       name: client.name,
-      description: client.description,
-      industry: client.industry,
-      contact_email: client.contact_email,
-      contact_phone: client.contact_phone,
+      short_description: client.description,
+      long_description: '',
+      email: client.contact_email,
+      phone: client.contact_phone,
       is_active: client.is_active
     })
     setIsEditing(false)
@@ -88,7 +108,13 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
   return (
     <div 
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
+      onClick={(e) => {
+        // Only close if clicking on the backdrop itself, not on any child elements
+        // AND not currently interacting with form fields
+        if (e.target === e.currentTarget && !isInteracting) {
+          onClose()
+        }
+      }}
     >
       <div 
         className="rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col"
@@ -96,7 +122,19 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
           backgroundColor: 'var(--surface-color)',
           border: '1px solid var(--border-color)'
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          // Prevent any clicks inside the modal from bubbling up
+          e.stopPropagation()
+          // Don't preventDefault() - we want normal click behavior inside modal
+        }}
+        onMouseDown={(e) => {
+          // Prevent mouse events during text selection from bubbling up
+          e.stopPropagation()
+        }}
+        onMouseUp={(e) => {
+          // Prevent mouse events during text selection from bubbling up
+          e.stopPropagation()
+        }}
       >
         {/* Header */}
         <div 
@@ -194,6 +232,16 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => e.stopPropagation()}
+                        onBlur={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.stopPropagation()}
+                        onMouseLeave={(e) => e.stopPropagation()}
+                        onMouseEnter={(e) => e.stopPropagation()}
+                        onSelect={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onKeyUp={(e) => e.stopPropagation()}
                         className="w-full px-4 py-2 rounded-md border"
                         style={{ 
                           backgroundColor: 'var(--surface-color)',
@@ -208,41 +256,63 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                     )}
                   </div>
 
-                  {/* Industry */}
+                  {/* Short Description */}
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                      Industry
+                      Short Description
                     </label>
                     {isEditing ? (
                       <input
                         type="text"
-                        name="industry"
-                        value={formData.industry}
+                        name="short_description"
+                        value={formData.short_description}
                         onChange={handleInputChange}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => e.stopPropagation()}
+                        onBlur={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.stopPropagation()}
+                        onMouseLeave={(e) => e.stopPropagation()}
+                        onMouseEnter={(e) => e.stopPropagation()}
+                        onSelect={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onKeyUp={(e) => e.stopPropagation()}
                         className="w-full px-4 py-2 rounded-md border"
                         style={{ 
                           backgroundColor: 'var(--surface-color)',
                           borderColor: 'var(--border-color)',
                           color: 'var(--text-color)'
                         }}
+                        placeholder="Brief description (max 500 characters)"
+                        maxLength={500}
                       />
                     ) : (
                       <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                        {client.industry}
+                        {client.description || 'No description provided'}
                       </p>
                     )}
                   </div>
 
-                  {/* Description */}
+                  {/* Long Description */}
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                      Description
+                      Long Description
                     </label>
                     {isEditing ? (
                       <textarea
-                        name="description"
-                        value={formData.description}
+                        name="long_description"
+                        value={formData.long_description}
                         onChange={handleInputChange}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => e.stopPropagation()}
+                        onBlur={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.stopPropagation()}
+                        onMouseLeave={(e) => e.stopPropagation()}
+                        onMouseEnter={(e) => e.stopPropagation()}
+                        onSelect={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onKeyUp={(e) => e.stopPropagation()}
                         rows={4}
                         className="w-full px-4 py-2 rounded-md border"
                         style={{ 
@@ -250,10 +320,11 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                           borderColor: 'var(--border-color)',
                           color: 'var(--text-color)'
                         }}
+                        placeholder="Detailed description of the client"
                       />
                     ) : (
                       <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                        {client.description || 'No description provided'}
+                        {formData.long_description || 'No detailed description provided'}
                       </p>
                     )}
                   </div>
@@ -281,20 +352,31 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                     {isEditing ? (
                       <input
                         type="email"
-                        name="contact_email"
-                        value={formData.contact_email}
+                        name="email"
+                        value={formData.email}
                         onChange={handleInputChange}
+                        onClick={handleInputEvent}
+                        onFocus={handleInputFocus}
+                        onBlur={handleInputBlur}
+                        onMouseDown={handleInputEvent}
+                        onMouseUp={handleInputEvent}
+                        onMouseLeave={handleInputEvent}
+                        onMouseEnter={handleInputEvent}
+                        onSelect={handleInputEvent}
+                        onKeyDown={handleInputEvent}
+                        onKeyUp={handleInputEvent}
                         className="w-full px-4 py-2 rounded-md border"
                         style={{ 
                           backgroundColor: 'var(--surface-color)',
                           borderColor: 'var(--border-color)',
                           color: 'var(--text-color)'
                         }}
+                        placeholder="contact@client.com"
                       />
                     ) : (
                       <p className="text-base flex items-center" style={{ color: 'var(--text-color)' }}>
                         <span className="mr-2">📧</span>
-                        {client.contact_email}
+                        {client.contact_email || 'No email provided'}
                       </p>
                     )}
                   </div>
@@ -307,20 +389,31 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                     {isEditing ? (
                       <input
                         type="tel"
-                        name="contact_phone"
-                        value={formData.contact_phone}
+                        name="phone"
+                        value={formData.phone}
                         onChange={handleInputChange}
+                        onClick={handleInputEvent}
+                        onFocus={handleInputFocus}
+                        onBlur={handleInputBlur}
+                        onMouseDown={handleInputEvent}
+                        onMouseUp={handleInputEvent}
+                        onMouseLeave={handleInputEvent}
+                        onMouseEnter={handleInputEvent}
+                        onSelect={handleInputEvent}
+                        onKeyDown={handleInputEvent}
+                        onKeyUp={handleInputEvent}
                         className="w-full px-4 py-2 rounded-md border"
                         style={{ 
                           backgroundColor: 'var(--surface-color)',
                           borderColor: 'var(--border-color)',
                           color: 'var(--text-color)'
                         }}
+                        placeholder="+1-555-0123"
                       />
                     ) : (
                       <p className="text-base flex items-center" style={{ color: 'var(--text-color)' }}>
                         <span className="mr-2">📞</span>
-                        {client.contact_phone}
+                        {client.contact_phone || 'No phone provided'}
                       </p>
                     )}
                   </div>

@@ -127,7 +127,10 @@ export const getParentType = (entityType: EntityType): EntityType | null => {
     usecase: 'project',
     userstory: 'usecase',
     task: 'userstory',
-    subtask: 'task'
+    subtask: 'task',
+    bug: null,
+    phase: null,
+    user: null
   }
   return hierarchy[entityType]
 }
@@ -140,7 +143,10 @@ export const getChildType = (entityType: EntityType): EntityType | null => {
     usecase: 'userstory',
     userstory: 'task',
     task: 'subtask',
-    subtask: null
+    subtask: null,
+    bug: null,
+    phase: null,
+    user: null
   }
   return hierarchy[entityType]
 }
@@ -153,7 +159,10 @@ export const getEntityDisplayName = (entityType: EntityType): string => {
     usecase: 'Use Case',
     userstory: 'User Story',
     task: 'Task',
-    subtask: 'Subtask'
+    subtask: 'Subtask',
+    bug: 'Bug',
+    phase: 'Phase',
+    user: 'User'
   }
   return names[entityType]
 }
@@ -166,7 +175,10 @@ export const getEntityPluralName = (entityType: EntityType): string => {
     usecase: 'Use Cases',
     userstory: 'User Stories',
     task: 'Tasks',
-    subtask: 'Subtasks'
+    subtask: 'Subtasks',
+    bug: 'Bugs',
+    phase: 'Phases',
+    user: 'Users'
   }
   return names[entityType]
 }

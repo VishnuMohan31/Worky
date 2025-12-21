@@ -6,14 +6,35 @@ This service manages notifications for:
 - Bug assignments
 - Status changes
 - Test execution results
+- Team assignment notifications
+- Team membership changes
 """
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import json
 import re
+from datetime import datetime
 
 from app.models.user import User
+from app.models.notification import (
+    Notification, 
+    NotificationPreference, 
+    NotificationHistory,
+    NotificationType, 
+    NotificationStatus, 
+    NotificationChannel
+)
+from app.crud.crud_notification import notification as crud_notification
+from app.crud.crud_notification import notification_preference as crud_notification_preference
+from app.crud.crud_notification import notification_history as crud_notification_history
+from app.schemas.notification import (
+    NotificationCreate, 
+    NotificationHistoryCreate,
+    AssignmentNotificationContext,
+    TeamNotificationContext,
+    EmailNotificationData
+)
 from app.core.logging import StructuredLogger
 
 logger = StructuredLogger(__name__)
@@ -410,6 +431,738 @@ class NotificationService:
         )
         
         return processed_count
+
+
+    # Assignment notification methods
+    @staticmethod
+    async def notify_assignment_created(
+        db: AsyncSession,
+        assigned_user_id: str,
+        entity_type: str,
+        entity_id: str,
+        entity_title: Optional[str],
+        assigned_by_id: str,
+        assignment_type: str,
+        project_id: Optional[str] = None,
+        project_name: Optional[str] = None
+    ) -> Optional[Notification]:
+        """
+        Send notification when a user is assigned to a hierarchy element.
+        
+        Args:
+            db: Database session
+            assigned_user_id: ID of the user being assigned
+            entity_type: Type of entity being assigned
+            entity_id: ID of the entity
+            entity_title: Title/name of the entity
+            assigned_by_id: ID of the user making the assignment
+            assignment_type: Type of assignment (owner, developer, etc.)
+            project_id: Optional project ID for context
+            project_name: Optional project name for context
+            
+        Returns:
+            Created notification or None if user has disabled this notification type
+        """
+        # Check if user has enabled this notification type
+        preference_enabled = await crud_notification_preference.check_user_preference(
+            db, 
+            user_id=assigned_user_id, 
+            notification_type=NotificationType.assignment_created,
+            channel=NotificationChannel.in_app
+        )
+        
+        if not preference_enabled:
+            logger.info(f"Assignment notification disabled for user {assigned_user_id}")
+            return None
+        
+        # Get assigned user and assigner details
+        assigned_user = await db.get(User, assigned_user_id)
+        assigner = await db.get(User, assigned_by_id)
+        
+        if not assigned_user or not assigner:
+            logger.error(f"User not found: assigned_user={assigned_user_id}, assigner={assigned_by_id}")
+            return None
+        
+        # Create notification context
+        context = AssignmentNotificationContext(
+            assignment_id=f"{entity_type}_{entity_id}_{assigned_user_id}",
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_title=entity_title,
+            assigned_by=assigned_by_id,
+            assigned_by_name=assigner.full_name,
+            assignment_type=assignment_type,
+            project_id=project_id,
+            project_name=project_name
+        )
+        
+        # Create notification
+        title = f"New Assignment: {entity_type.title()}"
+        message = f"You have been assigned as {assignment_type} to {entity_type} '{entity_title or entity_id}' by {assigner.full_name}"
+        
+        if project_name:
+            message += f" in project '{project_name}'"
+        
+        notification_data = NotificationCreate(
+            user_id=assigned_user_id,
+            type=NotificationType.assignment_created,
+            title=title,
+            message=message,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            channel=NotificationChannel.in_app,
+            context_data=context.dict()
+        )
+        
+        notification = await crud_notification.create_notification(
+            db, notification_data=notification_data, created_by=assigned_by_id
+        )
+        
+        # Send email notification if enabled
+        await NotificationService._send_email_notification_if_enabled(
+            db, notification, assigned_user, context
+        )
+        
+        logger.log_activity(
+            action="assignment_notification_created",
+            entity_type=entity_type,
+            entity_id=entity_id,
+            assigned_user_id=assigned_user_id,
+            assigned_by_id=assigned_by_id,
+            notification_id=notification.id,
+            message=f"Assignment notification sent to {assigned_user.full_name}"
+        )
+        
+        return notification
+
+    @staticmethod
+    async def notify_assignment_removed(
+        db: AsyncSession,
+        removed_user_id: str,
+        entity_type: str,
+        entity_id: str,
+        entity_title: Optional[str],
+        removed_by_id: str,
+        assignment_type: str,
+        project_id: Optional[str] = None,
+        project_name: Optional[str] = None
+    ) -> Optional[Notification]:
+        """
+        Send notification when a user's assignment is removed.
+        
+        Args:
+            db: Database session
+            removed_user_id: ID of the user whose assignment was removed
+            entity_type: Type of entity
+            entity_id: ID of the entity
+            entity_title: Title/name of the entity
+            removed_by_id: ID of the user removing the assignment
+            assignment_type: Type of assignment that was removed
+            project_id: Optional project ID for context
+            project_name: Optional project name for context
+            
+        Returns:
+            Created notification or None if user has disabled this notification type
+        """
+        # Check if user has enabled this notification type
+        preference_enabled = await crud_notification_preference.check_user_preference(
+            db, 
+            user_id=removed_user_id, 
+            notification_type=NotificationType.assignment_removed,
+            channel=NotificationChannel.in_app
+        )
+        
+        if not preference_enabled:
+            logger.info(f"Assignment removal notification disabled for user {removed_user_id}")
+            return None
+        
+        # Get user details
+        removed_user = await db.get(User, removed_user_id)
+        remover = await db.get(User, removed_by_id)
+        
+        if not removed_user or not remover:
+            logger.error(f"User not found: removed_user={removed_user_id}, remover={removed_by_id}")
+            return None
+        
+        # Create notification context
+        context = AssignmentNotificationContext(
+            assignment_id=f"{entity_type}_{entity_id}_{removed_user_id}",
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_title=entity_title,
+            assigned_by=removed_by_id,
+            assigned_by_name=remover.full_name,
+            assignment_type=assignment_type,
+            project_id=project_id,
+            project_name=project_name
+        )
+        
+        # Create notification
+        title = f"Assignment Removed: {entity_type.title()}"
+        message = f"Your assignment as {assignment_type} to {entity_type} '{entity_title or entity_id}' has been removed by {remover.full_name}"
+        
+        if project_name:
+            message += f" in project '{project_name}'"
+        
+        notification_data = NotificationCreate(
+            user_id=removed_user_id,
+            type=NotificationType.assignment_removed,
+            title=title,
+            message=message,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            channel=NotificationChannel.in_app,
+            context_data=context.dict()
+        )
+        
+        notification = await crud_notification.create_notification(
+            db, notification_data=notification_data, created_by=removed_by_id
+        )
+        
+        # Send email notification if enabled
+        await NotificationService._send_email_notification_if_enabled(
+            db, notification, removed_user, context
+        )
+        
+        logger.log_activity(
+            action="assignment_removal_notification_created",
+            entity_type=entity_type,
+            entity_id=entity_id,
+            removed_user_id=removed_user_id,
+            removed_by_id=removed_by_id,
+            notification_id=notification.id,
+            message=f"Assignment removal notification sent to {removed_user.full_name}"
+        )
+        
+        return notification
+
+    @staticmethod
+    async def notify_team_member_added(
+        db: AsyncSession,
+        added_user_id: str,
+        team_id: str,
+        team_name: str,
+        project_id: str,
+        project_name: Optional[str],
+        added_by_id: str,
+        role: Optional[str] = None
+    ) -> Optional[Notification]:
+        """
+        Send notification when a user is added to a team.
+        
+        Args:
+            db: Database session
+            added_user_id: ID of the user added to the team
+            team_id: ID of the team
+            team_name: Name of the team
+            project_id: ID of the project
+            project_name: Name of the project
+            added_by_id: ID of the user who added the member
+            role: Role of the user in the team
+            
+        Returns:
+            Created notification or None if user has disabled this notification type
+        """
+        # Check if user has enabled this notification type
+        preference_enabled = await crud_notification_preference.check_user_preference(
+            db, 
+            user_id=added_user_id, 
+            notification_type=NotificationType.team_member_added,
+            channel=NotificationChannel.in_app
+        )
+        
+        if not preference_enabled:
+            logger.info(f"Team member added notification disabled for user {added_user_id}")
+            return None
+        
+        # Get user details
+        added_user = await db.get(User, added_user_id)
+        adder = await db.get(User, added_by_id)
+        
+        if not added_user or not adder:
+            logger.error(f"User not found: added_user={added_user_id}, adder={added_by_id}")
+            return None
+        
+        # Create notification context
+        context = TeamNotificationContext(
+            team_id=team_id,
+            team_name=team_name,
+            project_id=project_id,
+            project_name=project_name,
+            action_by=added_by_id,
+            action_by_name=adder.full_name,
+            role=role
+        )
+        
+        # Create notification
+        title = f"Added to Team: {team_name}"
+        message = f"You have been added to team '{team_name}' by {adder.full_name}"
+        
+        if role:
+            message += f" with role '{role}'"
+        
+        if project_name:
+            message += f" for project '{project_name}'"
+        
+        notification_data = NotificationCreate(
+            user_id=added_user_id,
+            type=NotificationType.team_member_added,
+            title=title,
+            message=message,
+            entity_type="team",
+            entity_id=team_id,
+            channel=NotificationChannel.in_app,
+            context_data=context.dict()
+        )
+        
+        notification = await crud_notification.create_notification(
+            db, notification_data=notification_data, created_by=added_by_id
+        )
+        
+        # Send email notification if enabled
+        await NotificationService._send_email_notification_if_enabled(
+            db, notification, added_user, context
+        )
+        
+        logger.log_activity(
+            action="team_member_added_notification_created",
+            team_id=team_id,
+            added_user_id=added_user_id,
+            added_by_id=added_by_id,
+            notification_id=notification.id,
+            message=f"Team member added notification sent to {added_user.full_name}"
+        )
+        
+        return notification
+
+    @staticmethod
+    async def notify_team_member_removed(
+        db: AsyncSession,
+        removed_user_id: str,
+        team_id: str,
+        team_name: str,
+        project_id: str,
+        project_name: Optional[str],
+        removed_by_id: str
+    ) -> Optional[Notification]:
+        """
+        Send notification when a user is removed from a team.
+        
+        Args:
+            db: Database session
+            removed_user_id: ID of the user removed from the team
+            team_id: ID of the team
+            team_name: Name of the team
+            project_id: ID of the project
+            project_name: Name of the project
+            removed_by_id: ID of the user who removed the member
+            
+        Returns:
+            Created notification or None if user has disabled this notification type
+        """
+        # Check if user has enabled this notification type
+        preference_enabled = await crud_notification_preference.check_user_preference(
+            db, 
+            user_id=removed_user_id, 
+            notification_type=NotificationType.team_member_removed,
+            channel=NotificationChannel.in_app
+        )
+        
+        if not preference_enabled:
+            logger.info(f"Team member removed notification disabled for user {removed_user_id}")
+            return None
+        
+        # Get user details
+        removed_user = await db.get(User, removed_user_id)
+        remover = await db.get(User, removed_by_id)
+        
+        if not removed_user or not remover:
+            logger.error(f"User not found: removed_user={removed_user_id}, remover={removed_by_id}")
+            return None
+        
+        # Create notification context
+        context = TeamNotificationContext(
+            team_id=team_id,
+            team_name=team_name,
+            project_id=project_id,
+            project_name=project_name,
+            action_by=removed_by_id,
+            action_by_name=remover.full_name
+        )
+        
+        # Create notification
+        title = f"Removed from Team: {team_name}"
+        message = f"You have been removed from team '{team_name}' by {remover.full_name}"
+        
+        if project_name:
+            message += f" for project '{project_name}'"
+        
+        notification_data = NotificationCreate(
+            user_id=removed_user_id,
+            type=NotificationType.team_member_removed,
+            title=title,
+            message=message,
+            entity_type="team",
+            entity_id=team_id,
+            channel=NotificationChannel.in_app,
+            context_data=context.dict()
+        )
+        
+        notification = await crud_notification.create_notification(
+            db, notification_data=notification_data, created_by=removed_by_id
+        )
+        
+        # Send email notification if enabled
+        await NotificationService._send_email_notification_if_enabled(
+            db, notification, removed_user, context
+        )
+        
+        logger.log_activity(
+            action="team_member_removed_notification_created",
+            team_id=team_id,
+            removed_user_id=removed_user_id,
+            removed_by_id=removed_by_id,
+            notification_id=notification.id,
+            message=f"Team member removed notification sent to {removed_user.full_name}"
+        )
+        
+        return notification
+
+    @staticmethod
+    async def notify_assignment_conflict(
+        db: AsyncSession,
+        stakeholder_user_ids: List[str],
+        entity_type: str,
+        entity_id: str,
+        entity_title: Optional[str],
+        conflict_description: str,
+        reported_by_id: str,
+        project_id: Optional[str] = None,
+        project_name: Optional[str] = None
+    ) -> List[Notification]:
+        """
+        Send notifications about assignment conflicts to relevant stakeholders.
+        
+        Args:
+            db: Database session
+            stakeholder_user_ids: List of user IDs to notify
+            entity_type: Type of entity with conflict
+            entity_id: ID of the entity
+            entity_title: Title/name of the entity
+            conflict_description: Description of the conflict
+            reported_by_id: ID of the user reporting the conflict
+            project_id: Optional project ID for context
+            project_name: Optional project name for context
+            
+        Returns:
+            List of created notifications
+        """
+        notifications = []
+        
+        # Get reporter details
+        reporter = await db.get(User, reported_by_id)
+        if not reporter:
+            logger.error(f"Reporter user not found: {reported_by_id}")
+            return notifications
+        
+        for user_id in stakeholder_user_ids:
+            # Check if user has enabled this notification type
+            preference_enabled = await crud_notification_preference.check_user_preference(
+                db, 
+                user_id=user_id, 
+                notification_type=NotificationType.assignment_conflict,
+                channel=NotificationChannel.in_app
+            )
+            
+            if not preference_enabled:
+                logger.info(f"Assignment conflict notification disabled for user {user_id}")
+                continue
+            
+            # Get user details
+            user = await db.get(User, user_id)
+            if not user:
+                logger.error(f"Stakeholder user not found: {user_id}")
+                continue
+            
+            # Create notification context
+            context = AssignmentNotificationContext(
+                assignment_id=f"conflict_{entity_type}_{entity_id}",
+                entity_type=entity_type,
+                entity_id=entity_id,
+                entity_title=entity_title,
+                assigned_by=reported_by_id,
+                assigned_by_name=reporter.full_name,
+                assignment_type="conflict",
+                project_id=project_id,
+                project_name=project_name
+            )
+            
+            # Create notification
+            title = f"Assignment Conflict: {entity_type.title()}"
+            message = f"Assignment conflict detected for {entity_type} '{entity_title or entity_id}': {conflict_description}"
+            
+            if project_name:
+                message += f" in project '{project_name}'"
+            
+            notification_data = NotificationCreate(
+                user_id=user_id,
+                type=NotificationType.assignment_conflict,
+                title=title,
+                message=message,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                channel=NotificationChannel.in_app,
+                context_data=context.dict()
+            )
+            
+            notification = await crud_notification.create_notification(
+                db, notification_data=notification_data, created_by=reported_by_id
+            )
+            
+            notifications.append(notification)
+            
+            # Send email notification if enabled
+            await NotificationService._send_email_notification_if_enabled(
+                db, notification, user, context
+            )
+        
+        logger.log_activity(
+            action="assignment_conflict_notifications_created",
+            entity_type=entity_type,
+            entity_id=entity_id,
+            stakeholder_count=len(notifications),
+            reported_by_id=reported_by_id,
+            message=f"Assignment conflict notifications sent to {len(notifications)} stakeholders"
+        )
+        
+        return notifications
+
+    @staticmethod
+    async def notify_bulk_assignment_completed(
+        db: AsyncSession,
+        user_id: str,
+        successful_count: int,
+        failed_count: int,
+        total_count: int,
+        initiated_by_id: str
+    ) -> Optional[Notification]:
+        """
+        Send notification when bulk assignment operation completes.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user to notify (usually the one who initiated)
+            successful_count: Number of successful assignments
+            failed_count: Number of failed assignments
+            total_count: Total number of assignments attempted
+            initiated_by_id: ID of the user who initiated the bulk operation
+            
+        Returns:
+            Created notification or None if user has disabled this notification type
+        """
+        # Check if user has enabled this notification type
+        preference_enabled = await crud_notification_preference.check_user_preference(
+            db, 
+            user_id=user_id, 
+            notification_type=NotificationType.bulk_assignment_completed,
+            channel=NotificationChannel.in_app
+        )
+        
+        if not preference_enabled:
+            logger.info(f"Bulk assignment notification disabled for user {user_id}")
+            return None
+        
+        # Get user details
+        user = await db.get(User, user_id)
+        if not user:
+            logger.error(f"User not found: {user_id}")
+            return None
+        
+        # Create notification
+        title = "Bulk Assignment Completed"
+        message = f"Bulk assignment operation completed: {successful_count}/{total_count} successful"
+        
+        if failed_count > 0:
+            message += f", {failed_count} failed"
+        
+        notification_data = NotificationCreate(
+            user_id=user_id,
+            type=NotificationType.bulk_assignment_completed,
+            title=title,
+            message=message,
+            entity_type="bulk_assignment",
+            entity_id=f"bulk_{initiated_by_id}_{datetime.utcnow().timestamp()}",
+            channel=NotificationChannel.in_app,
+            context_data={
+                "successful_count": successful_count,
+                "failed_count": failed_count,
+                "total_count": total_count,
+                "initiated_by": initiated_by_id
+            }
+        )
+        
+        notification = await crud_notification.create_notification(
+            db, notification_data=notification_data, created_by=initiated_by_id
+        )
+        
+        logger.log_activity(
+            action="bulk_assignment_notification_created",
+            user_id=user_id,
+            successful_count=successful_count,
+            failed_count=failed_count,
+            total_count=total_count,
+            notification_id=notification.id,
+            message=f"Bulk assignment completion notification sent to {user.full_name}"
+        )
+        
+        return notification
+
+    @staticmethod
+    async def _send_email_notification_if_enabled(
+        db: AsyncSession,
+        notification: Notification,
+        user: User,
+        context: Any
+    ) -> Optional[NotificationHistory]:
+        """
+        Send email notification if user has enabled email notifications.
+        
+        Args:
+            db: Database session
+            notification: The notification to send via email
+            user: The user to send email to
+            context: Context data for the notification
+            
+        Returns:
+            NotificationHistory entry if email was sent, None otherwise
+        """
+        # Check if user has enabled email notifications for this type
+        preference_enabled = await crud_notification_preference.check_user_preference(
+            db, 
+            user_id=user.id, 
+            notification_type=notification.type,
+            channel=NotificationChannel.email
+        )
+        
+        if not preference_enabled:
+            return None
+        
+        # Create history entry for email attempt
+        history_data = NotificationHistoryCreate(
+            notification_id=notification.id,
+            channel=NotificationChannel.email,
+            status=NotificationStatus.pending
+        )
+        
+        history = await crud_notification_history.create_history_entry(
+            db, history_data=history_data
+        )
+        
+        try:
+            # TODO: Implement actual email sending
+            # This would integrate with an email service like SendGrid, AWS SES, etc.
+            
+            # For now, just log the email notification
+            logger.log_activity(
+                action="email_notification_sent",
+                notification_id=notification.id,
+                user_id=user.id,
+                user_email=user.email,
+                notification_type=notification.type.value,
+                message=f"Email notification sent to {user.email}"
+            )
+            
+            # Update history as sent
+            await crud_notification_history.update_delivery_status(
+                db,
+                history_id=history.id,
+                status=NotificationStatus.sent,
+                delivered_at=datetime.utcnow()
+            )
+            
+            return history
+            
+        except Exception as e:
+            logger.error(
+                f"Failed to send email notification: {str(e)}",
+                notification_id=notification.id,
+                user_id=user.id,
+                error=str(e)
+            )
+            
+            # Update history as failed
+            await crud_notification_history.update_delivery_status(
+                db,
+                history_id=history.id,
+                status=NotificationStatus.failed,
+                error_message=str(e),
+                error_code="EMAIL_SEND_FAILED"
+            )
+            
+            return history
+
+    @staticmethod
+    async def get_user_notifications(
+        db: AsyncSession,
+        user_id: str,
+        status: Optional[NotificationStatus] = None,
+        notification_type: Optional[NotificationType] = None,
+        skip: int = 0,
+        limit: int = 50
+    ) -> List[Notification]:
+        """Get notifications for a user with filtering options"""
+        return await crud_notification.get_user_notifications(
+            db,
+            user_id=user_id,
+            status=status,
+            notification_type=notification_type,
+            skip=skip,
+            limit=limit
+        )
+
+    @staticmethod
+    async def mark_notification_as_read(
+        db: AsyncSession,
+        notification_id: str,
+        user_id: str
+    ) -> Optional[Notification]:
+        """Mark a notification as read"""
+        return await crud_notification.mark_as_read(
+            db, notification_id=notification_id, user_id=user_id
+        )
+
+    @staticmethod
+    async def get_notification_summary(
+        db: AsyncSession,
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Get notification summary for a user"""
+        return await crud_notification.get_notification_summary(db, user_id=user_id)
+
+    @staticmethod
+    async def update_notification_preferences(
+        db: AsyncSession,
+        user_id: str,
+        notification_type: NotificationType,
+        email_enabled: Optional[bool] = None,
+        in_app_enabled: Optional[bool] = None,
+        push_enabled: Optional[bool] = None
+    ) -> Optional[NotificationPreference]:
+        """Update notification preferences for a user"""
+        from app.schemas.notification import NotificationPreferenceUpdate
+        
+        preference_data = NotificationPreferenceUpdate(
+            email_enabled=email_enabled,
+            in_app_enabled=in_app_enabled,
+            push_enabled=push_enabled
+        )
+        
+        return await crud_notification_preference.update_user_preference(
+            db,
+            user_id=user_id,
+            notification_type=notification_type,
+            preference_data=preference_data
+        )
 
 
 # Create singleton instance

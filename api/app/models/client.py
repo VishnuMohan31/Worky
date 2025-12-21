@@ -13,6 +13,8 @@ class Client(Base):
     name = Column(String(255), nullable=False)
     short_description = Column(String(500))
     long_description = Column(Text)
+    email = Column(String(255))
+    phone = Column(String(50))
     is_active = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_by = Column(String(20))

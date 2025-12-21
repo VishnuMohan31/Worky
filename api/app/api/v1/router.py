@@ -25,7 +25,12 @@ from app.api.v1.endpoints import (
     todos,
     adhoc_notes,
     chat,
-    reports
+    reports,
+    audit_logs,
+    teams,
+    assignments,
+    validation,
+    decisions
 )
 
 api_router = APIRouter()
@@ -92,3 +97,26 @@ api_router.include_router(chat.router, tags=["chat"])
 
 # Reports - Generate and export reports in PDF/CSV
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
+
+# Audit Logs - Track changes and access history
+api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
+
+# Team Management - Project-based team organization
+api_router.include_router(teams.router, prefix="/teams", tags=["teams"])
+
+# Assignment Management - Entity-user assignment tracking
+api_router.include_router(assignments.router, prefix="/assignments", tags=["assignments"])
+
+# Validation - Assignment and team validation utilities
+api_router.include_router(validation.router, prefix="/validation", tags=["validation"])
+
+# Decisions - Decision tracking and management system
+api_router.include_router(decisions.router, prefix="/decisions", tags=["decisions"])
+
+# Notifications - Assignment and team notification system
+from app.api.v1.endpoints import notifications
+api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+
+# Performance - Performance monitoring and optimization (temporarily disabled due to missing psutil dependency)
+# from app.api.v1.endpoints import performance
+# api_router.include_router(performance.router, prefix="/performance", tags=["performance"])

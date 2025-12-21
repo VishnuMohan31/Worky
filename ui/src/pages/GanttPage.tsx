@@ -46,12 +46,13 @@ const AVAILABLE_DURATION_LEVELS: Record<HierarchyLevel, DurationLevel[]> = {
 }
 
 export default function GanttPage() {
-  const { t } = useLanguage()
+  const { } = useLanguage() // Language context available if needed
   const [selectedLevel, setSelectedLevel] = useState<HierarchyLevel>('project')
   const [selectedDurationLevel, setSelectedDurationLevel] = useState<DurationLevel>('task')
   const [items, setItems] = useState<GanttItem[]>([])
   const [loading, setLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month')
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   // Hierarchy selections
   const [selectedClientId, setSelectedClientId] = useState<string>('')
@@ -69,17 +70,56 @@ export default function GanttPage() {
   const [userstories, setUserstories] = useState<any[]>([])
   const [tasks, setTasks] = useState<any[]>([])
 
-  // Load clients on mount
-  useEffect(() => {
-    const loadClients = async () => {
-      try {
-        const clientsData = await api.getClients()
-        setClients(clientsData)
-      } catch (err) {
-        console.error('Failed to load clients:', err)
+  // Helper function to safely make API calls without causing logout
+  const safeApiCall = async (apiFunction: () => Promise<any>, fallbackValue: any = []) => {
+    try {
+      const result = await apiFunction()
+      console.log('✅ Safe API call successful')
+      return result
+    } catch (error: any) {
+      // Log the error but don't let it propagate to avoid logout
+      console.warn('⚠️ Safe API call failed:', error.message, 'Status:', error.response?.status)
+      
+      // For 401 errors, specifically prevent the interceptor from triggering logout
+      if (error.response?.status === 401) {
+        console.warn('🚫 401 error caught in safeApiCall - using fallback value, NOT redirecting to login')
       }
+      
+      // For any error, return fallback value instead of throwing
+      return fallbackValue
     }
-    loadClients()
+  }
+
+  // Filter available duration levels based on user permissions
+  const availableDurationLevels = useMemo(() => {
+    // Always return a valid array to prevent hooks order issues
+    if (!currentUser) {
+      // Return all levels except subtasks for non-authenticated users
+      return AVAILABLE_DURATION_LEVELS[selectedLevel].filter(level => level !== 'subtask')
+    }
+    
+    let levels = AVAILABLE_DURATION_LEVELS[selectedLevel]
+    
+    // For non-admin users, only show subtasks if a specific task is selected
+    if (currentUser.role !== 'Admin' && selectedLevel !== 'task') {
+      levels = levels.filter(level => level !== 'subtask')
+    }
+    
+    return levels
+  }, [selectedLevel, currentUser])
+
+  // Load current user and clients on mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      // Load current user first
+      const user = await safeApiCall(() => api.getCurrentUser(), null)
+      setCurrentUser(user)
+      
+      // Load clients
+      const clientsData = await safeApiCall(() => api.getClients(), [])
+      setClients(clientsData)
+    }
+    loadInitialData()
   }, [])
 
   // Load programs when client is selected
@@ -89,15 +129,11 @@ export default function GanttPage() {
         setPrograms([])
         return
       }
-      try {
-        const allPrograms = await api.getEntityList('program')
-        const filteredPrograms = allPrograms.filter((p: any) => 
-          (p.clientId === selectedClientId || p.client_id === selectedClientId)
-        )
-        setPrograms(filteredPrograms)
-      } catch (err) {
-        console.error('Failed to load programs:', err)
-      }
+      const allPrograms = await safeApiCall(() => api.getEntityList('program'), [])
+      const filteredPrograms = allPrograms.filter((p: any) => 
+        (p.clientId === selectedClientId || p.client_id === selectedClientId)
+      )
+      setPrograms(filteredPrograms)
     }
     loadPrograms()
   }, [selectedClientId])
@@ -109,15 +145,11 @@ export default function GanttPage() {
         setProjects([])
         return
       }
-      try {
-        const allProjects = await api.getProjects()
-        const filteredProjects = allProjects.filter((p: any) => 
-          (p.programId === selectedProgramId || p.program_id === selectedProgramId)
-        )
-        setProjects(filteredProjects)
-      } catch (err) {
-        console.error('Failed to load projects:', err)
-      }
+      const allProjects = await safeApiCall(() => api.getProjects(), [])
+      const filteredProjects = allProjects.filter((p: any) => 
+        (p.programId === selectedProgramId || p.program_id === selectedProgramId)
+      )
+      setProjects(filteredProjects)
     }
     loadProjects()
   }, [selectedProgramId])
@@ -129,15 +161,11 @@ export default function GanttPage() {
         setUsecases([])
         return
       }
-      try {
-        const allUseCases = await api.getEntityList('usecase')
-        const filteredUseCases = allUseCases.filter((uc: any) => 
-          (uc.projectId === selectedProjectId || uc.project_id === selectedProjectId)
-        )
-        setUsecases(filteredUseCases)
-      } catch (err) {
-        console.error('Failed to load use cases:', err)
-      }
+      const allUseCases = await safeApiCall(() => api.getEntityList('usecase'), [])
+      const filteredUseCases = allUseCases.filter((uc: any) => 
+        (uc.projectId === selectedProjectId || uc.project_id === selectedProjectId)
+      )
+      setUsecases(filteredUseCases)
     }
     loadUseCases()
   }, [selectedProjectId])
@@ -149,15 +177,11 @@ export default function GanttPage() {
         setUserstories([])
         return
       }
-      try {
-        const allStories = await api.getEntityList('userstory')
-        const filteredStories = allStories.filter((s: any) => 
-          (s.usecaseId === selectedUseCaseId || s.usecase_id === selectedUseCaseId)
-        )
-        setUserstories(filteredStories)
-      } catch (err) {
-        console.error('Failed to load user stories:', err)
-      }
+      const allStories = await safeApiCall(() => api.getEntityList('userstory'), [])
+      const filteredStories = allStories.filter((s: any) => 
+        (s.usecaseId === selectedUseCaseId || s.usecase_id === selectedUseCaseId)
+      )
+      setUserstories(filteredStories)
     }
     loadUserStories()
   }, [selectedUseCaseId])
@@ -169,35 +193,33 @@ export default function GanttPage() {
         setTasks([])
         return
       }
-      try {
-        const allTasks = await api.getTasks()
-        const filteredTasks = allTasks.filter((t: any) => 
-          (t.userStoryId === selectedUserStoryId || t.user_story_id === selectedUserStoryId)
-        )
-        setTasks(filteredTasks)
-      } catch (err) {
-        console.error('Failed to load tasks:', err)
-      }
+      const allTasks = await safeApiCall(() => api.getTasks(), [])
+      const filteredTasks = allTasks.filter((t: any) => 
+        (t.userStoryId === selectedUserStoryId || t.user_story_id === selectedUserStoryId)
+      )
+      setTasks(filteredTasks)
     }
     loadTasks()
   }, [selectedUserStoryId])
 
-  // Update available duration levels when hierarchy level changes
+  // Update available duration levels when hierarchy level or user changes
   useEffect(() => {
-    const availableLevels = AVAILABLE_DURATION_LEVELS[selectedLevel]
-    if (!availableLevels.includes(selectedDurationLevel)) {
+    if (availableDurationLevels && availableDurationLevels.length > 0 && !availableDurationLevels.includes(selectedDurationLevel)) {
       // Reset to first available level
-      setSelectedDurationLevel(availableLevels[0])
+      setSelectedDurationLevel(availableDurationLevels[0])
     }
-  }, [selectedLevel])
+  }, [selectedLevel, availableDurationLevels, selectedDurationLevel])
 
   // Load items for Gantt chart based on selections
   useEffect(() => {
-    loadGanttItems()
-  }, [selectedLevel, selectedDurationLevel, selectedClientId, selectedProgramId, selectedProjectId, selectedUseCaseId, selectedUserStoryId, selectedTaskId])
+    // Only load if we have current user data
+    if (currentUser) {
+      loadGanttItems()
+    }
+  }, [selectedLevel, selectedDurationLevel, selectedClientId, selectedProgramId, selectedProjectId, selectedUseCaseId, selectedUserStoryId, selectedTaskId, currentUser])
 
   const loadGanttItems = async () => {
-    if (!selectedDurationLevel) return
+    if (!selectedDurationLevel || !currentUser) return
 
     setLoading(true)
     try {
@@ -205,7 +227,7 @@ export default function GanttPage() {
 
       switch (selectedDurationLevel) {
         case 'program':
-          const allPrograms = await api.getEntityList('program')
+          const allPrograms = await safeApiCall(() => api.getEntityList('program'), [])
           if (selectedLevel === 'client' && selectedClientId) {
             items = allPrograms
               .filter((p: any) => (p.clientId === selectedClientId || p.client_id === selectedClientId))
@@ -230,7 +252,7 @@ export default function GanttPage() {
           break
 
         case 'project':
-          const allProjects = await api.getProjects()
+          const allProjects = await safeApiCall(() => api.getProjects(), [])
           if (selectedLevel === 'client' && selectedClientId) {
             // Get all programs for client, then all projects for those programs
             const clientPrograms = programs.filter((p: any) => 
@@ -271,7 +293,7 @@ export default function GanttPage() {
           break
 
         case 'usecase':
-          const allUseCases = await api.getEntityList('usecase')
+          const allUseCases = await safeApiCall(() => api.getEntityList('usecase'), [])
           if (selectedLevel === 'project' && selectedProjectId) {
             items = allUseCases
               .filter((uc: any) => (uc.projectId === selectedProjectId || uc.project_id === selectedProjectId))
@@ -332,7 +354,7 @@ export default function GanttPage() {
           break
 
         case 'userstory':
-          const allUserStories = await api.getEntityList('userstory')
+          const allUserStories = await safeApiCall(() => api.getEntityList('userstory'), [])
           if (selectedLevel === 'usecase' && selectedUseCaseId) {
             items = allUserStories
               .filter((s: any) => (s.usecaseId === selectedUseCaseId || s.usecase_id === selectedUseCaseId))
@@ -376,7 +398,7 @@ export default function GanttPage() {
           break
 
         case 'task':
-          const allTasks = await api.getTasks()
+          const allTasks = await safeApiCall(() => api.getTasks(), [])
           if (selectedLevel === 'userstory' && selectedUserStoryId) {
             items = allTasks
               .filter((t: any) => (t.userStoryId === selectedUserStoryId || t.user_story_id === selectedUserStoryId))
@@ -449,11 +471,30 @@ export default function GanttPage() {
           break
 
         case 'subtask':
-          const allSubtasks = await api.getSubtasks()
-          if (selectedLevel === 'task' && selectedTaskId) {
-            items = allSubtasks
-              .filter((st: any) => (st.taskId === selectedTaskId || st.task_id === selectedTaskId))
-              .map((st: any) => ({
+          console.log('🔍 Loading subtasks - User role:', currentUser?.role, 'Selected level:', selectedLevel, 'Task ID:', selectedTaskId)
+          
+          // Check if user is admin or if we have a specific task selected
+          if (currentUser?.role === 'Admin' || (selectedLevel === 'task' && selectedTaskId)) {
+            console.log('✅ User has permission to view subtasks, making API call...')
+            const allSubtasks = await safeApiCall(() => api.getSubtasksSafe(selectedTaskId || undefined), [])
+            console.log('📊 Subtasks API response:', allSubtasks)
+            
+            if (selectedLevel === 'task' && selectedTaskId) {
+              items = allSubtasks
+                .filter((st: any) => (st.taskId === selectedTaskId || st.task_id === selectedTaskId))
+                .map((st: any) => ({
+                  id: st.id,
+                  name: st.title || st.name,
+                  title: st.title || st.name,
+                  startDate: st.start_date || st.startDate,
+                  endDate: st.end_date || st.endDate,
+                  dueDate: st.due_date || st.dueDate,
+                  status: st.status || 'To Do',
+                  progress: st.progress || 0,
+                  assignedToName: st.assignedToName || st.assigned_to_name
+                }))
+            } else {
+              items = allSubtasks.map((st: any) => ({
                 id: st.id,
                 name: st.title || st.name,
                 title: st.title || st.name,
@@ -464,18 +505,12 @@ export default function GanttPage() {
                 progress: st.progress || 0,
                 assignedToName: st.assignedToName || st.assigned_to_name
               }))
+            }
+            console.log('✅ Processed subtasks items:', items.length)
           } else {
-            items = allSubtasks.map((st: any) => ({
-              id: st.id,
-              name: st.title || st.name,
-              title: st.title || st.name,
-              startDate: st.start_date || st.startDate,
-              endDate: st.end_date || st.endDate,
-              dueDate: st.due_date || st.dueDate,
-              status: st.status || 'To Do',
-              progress: st.progress || 0,
-              assignedToName: st.assignedToName || st.assigned_to_name
-            }))
+            // For non-admin users without a specific task selected, show empty array
+            console.log('❌ Subtasks view requires admin role or specific task selection - showing empty array')
+            items = []
           }
           break
       }
@@ -490,13 +525,15 @@ export default function GanttPage() {
       setItems(itemsWithDates)
     } catch (error) {
       console.error('Failed to load Gantt items:', error)
+      // Don't let API errors cause logout - just show empty chart
+      setItems([])
     } finally {
       setLoading(false)
     }
   }
 
   // Calculate timeline range
-  const { startDate, endDate, timelineMonths, timelineWeeks } = useMemo(() => {
+  const { startDate, endDate, timelineMonths } = useMemo(() => {
     if (items.length === 0) {
       const today = new Date()
       return {
@@ -547,8 +584,7 @@ export default function GanttPage() {
     return {
       startDate: minDate,
       endDate: maxDate,
-      timelineMonths: months,
-      timelineWeeks: weeks
+      timelineMonths: months
     }
   }, [items])
 
@@ -591,7 +627,7 @@ export default function GanttPage() {
     alert('Export to PNG functionality - will use html2canvas library')
   }
 
-  const availableDurationLevels = AVAILABLE_DURATION_LEVELS[selectedLevel]
+
 
   // Get selected entity name for display
   const getSelectedEntityName = () => {
@@ -632,6 +668,16 @@ export default function GanttPage() {
     }
   }
 
+  // Show loading while initializing
+  if (!availableDurationLevels || availableDurationLevels.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Initializing...</span>
+      </div>
+    )
+  }
+
   if (loading && items.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -639,8 +685,6 @@ export default function GanttPage() {
       </div>
     )
   }
-
-  const totalWeeks = timelineMonths.reduce((sum, m) => sum + m.weeks, 0)
 
   return (
     <div>
@@ -690,14 +734,63 @@ export default function GanttPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Client:
+            </label>
+            <select
+              value={selectedClientId}
+              onChange={(e) => {
+                setSelectedClientId(e.target.value)
+                // Reset dependent selections when client changes
+                setSelectedProgramId('')
+                setSelectedProjectId('')
+                setSelectedUseCaseId('')
+                setSelectedUserStoryId('')
+                setSelectedTaskId('')
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Client...</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Duration at level?
+            </label>
+            <select
+              value={selectedDurationLevel}
+              onChange={(e) => {
+                const newLevel = e.target.value as DurationLevel
+                console.log('🎯 Duration level changed to:', newLevel, 'User role:', currentUser?.role)
+                console.log('🎯 Available levels:', availableDurationLevels)
+                setSelectedDurationLevel(newLevel)
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {availableDurationLevels.map(level => (
+                <option key={level} value={level}>
+                  {DURATION_LEVELS.find(dl => dl.value === level)?.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               What level?
             </label>
             <select
               value={selectedLevel}
               onChange={(e) => {
                 setSelectedLevel(e.target.value as HierarchyLevel)
-                // Reset hierarchy selections when level changes
-                setSelectedClientId('')
+                // Reset dependent hierarchy selections when level changes (but keep client)
                 setSelectedProgramId('')
                 setSelectedProjectId('')
                 setSelectedUseCaseId('')
@@ -715,120 +808,47 @@ export default function GanttPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Duration at level?
-            </label>
-            <select
-              value={selectedDurationLevel}
-              onChange={(e) => setSelectedDurationLevel(e.target.value as DurationLevel)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {availableDurationLevels.map(level => (
-                <option key={level} value={level}>
-                  {DURATION_LEVELS.find(dl => dl.value === level)?.label || level}
-                </option>
-              ))}
-            </select>
+            {/* Empty div to maintain grid layout */}
           </div>
         </div>
 
         {/* Hierarchy Selection Dropdowns */}
         <div className="flex items-center gap-3 flex-wrap">
-          {selectedLevel === 'client' && (
+          {selectedLevel === 'program' && selectedClientId && (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Client:</span>
+              <span className="text-sm font-medium text-gray-700">Program:</span>
               <select
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
+                value={selectedProgramId}
+                onChange={(e) => setSelectedProgramId(e.target.value)}
                 className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Select Client...</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
+                <option value="">Select Program...</option>
+                {programs.map((program) => (
+                  <option key={program.id} value={program.id}>
+                    {program.name}
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {selectedLevel === 'program' && (
+          {selectedLevel === 'project' && selectedClientId && (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Client:</span>
+                <span className="text-sm font-medium text-gray-700">Program:</span>
                 <select
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  value={selectedProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
                   className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select Client...</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
+                  <option value="">Select Program...</option>
+                  {programs.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {program.name}
                     </option>
                   ))}
                 </select>
               </div>
-              {selectedClientId && (
-                <>
-                  <span className="text-gray-400">→</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700">Program:</span>
-                    <select
-                      value={selectedProgramId}
-                      onChange={(e) => setSelectedProgramId(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Program...</option>
-                      {programs.map((program) => (
-                        <option key={program.id} value={program.id}>
-                          {program.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {selectedLevel === 'project' && (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Client:</span>
-                <select
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select Client...</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {selectedClientId && (
-                <>
-                  <span className="text-gray-400">→</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700">Program:</span>
-                    <select
-                      value={selectedProgramId}
-                      onChange={(e) => setSelectedProgramId(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Program...</option>
-                      {programs.map((program) => (
-                        <option key={program.id} value={program.id}>
-                          {program.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
               {selectedProgramId && (
                 <>
                   <span className="text-gray-400">→</span>
@@ -852,43 +872,23 @@ export default function GanttPage() {
             </>
           )}
 
-          {selectedLevel === 'usecase' && (
+          {selectedLevel === 'usecase' && selectedClientId && (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Client:</span>
+                <span className="text-sm font-medium text-gray-700">Program:</span>
                 <select
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  value={selectedProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
                   className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select Client...</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
+                  <option value="">Select Program...</option>
+                  {programs.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {program.name}
                     </option>
                   ))}
                 </select>
               </div>
-              {selectedClientId && (
-                <>
-                  <span className="text-gray-400">→</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700">Program:</span>
-                    <select
-                      value={selectedProgramId}
-                      onChange={(e) => setSelectedProgramId(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Program...</option>
-                      {programs.map((program) => (
-                        <option key={program.id} value={program.id}>
-                          {program.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
               {selectedProgramId && (
                 <>
                   <span className="text-gray-400">→</span>
@@ -932,43 +932,23 @@ export default function GanttPage() {
             </>
           )}
 
-          {selectedLevel === 'userstory' && (
+          {selectedLevel === 'userstory' && selectedClientId && (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Client:</span>
+                <span className="text-sm font-medium text-gray-700">Program:</span>
                 <select
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  value={selectedProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
                   className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select Client...</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
+                  <option value="">Select Program...</option>
+                  {programs.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {program.name}
                     </option>
                   ))}
                 </select>
               </div>
-              {selectedClientId && (
-                <>
-                  <span className="text-gray-400">→</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700">Program:</span>
-                    <select
-                      value={selectedProgramId}
-                      onChange={(e) => setSelectedProgramId(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Program...</option>
-                      {programs.map((program) => (
-                        <option key={program.id} value={program.id}>
-                          {program.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
               {selectedProgramId && (
                 <>
                   <span className="text-gray-400">→</span>
@@ -1032,43 +1012,23 @@ export default function GanttPage() {
             </>
           )}
 
-          {selectedLevel === 'task' && (
+          {selectedLevel === 'task' && selectedClientId && (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Client:</span>
+                <span className="text-sm font-medium text-gray-700">Program:</span>
                 <select
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  value={selectedProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
                   className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select Client...</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
+                  <option value="">Select Program...</option>
+                  {programs.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {program.name}
                     </option>
                   ))}
                 </select>
               </div>
-              {selectedClientId && (
-                <>
-                  <span className="text-gray-400">→</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700">Program:</span>
-                    <select
-                      value={selectedProgramId}
-                      onChange={(e) => setSelectedProgramId(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Program...</option>
-                      {programs.map((program) => (
-                        <option key={program.id} value={program.id}>
-                          {program.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
               {selectedProgramId && (
                 <>
                   <span className="text-gray-400">→</span>

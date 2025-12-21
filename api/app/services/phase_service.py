@@ -52,7 +52,7 @@ class PhaseService:
             query = query.where(Phase.is_active == True)
         
         # Order by display order
-        query = query.order_by(Phase.order)
+        query = query.order_by(Phase.display_order)
         
         result = await self.db.execute(query)
         phases = result.scalars().all()
@@ -115,8 +115,10 @@ class PhaseService:
         # Create phase
         phase = Phase(
             name=phase_data.name,
-            description=phase_data.description,
-            order=phase_data.order,
+            short_description=phase_data.short_description,
+            long_description=phase_data.long_description,
+            color=phase_data.color,
+            display_order=phase_data.display_order,
             is_deleted=False,
             created_by=str(current_user.id),
             updated_by=str(current_user.id)
@@ -179,8 +181,8 @@ class PhaseService:
             phase.name = phase_data.name
         if phase_data.description is not None:
             phase.description = phase_data.description
-        if phase_data.order is not None:
-            phase.order = phase_data.order
+        if phase_data.display_order is not None:
+            phase.display_order = phase_data.display_order
         
         phase.updated_by = str(current_user.id)
         

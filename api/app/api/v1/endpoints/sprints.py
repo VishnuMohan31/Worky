@@ -21,6 +21,64 @@ router = APIRouter()
 logger = StructuredLogger(__name__)
 
 
+@router.get("/projects/{project_id}/sprint-default-dates")
+async def get_project_sprint_default_dates(
+    project_id: str = Path(..., description="Project ID"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get default start and end dates for a new sprint in the project."""
+    
+    # Verify project exists and user has access
+    project_result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.is_deleted == False)
+    )
+    project = project_result.scalar_one_or_none()
+    
+    if not project:
+        raise ResourceNotFoundException("Project not found")
+    
+    # Check access
+    program_result = await db.execute(
+        select(Program).where(Program.id == project.program_id)
+    )
+    program = program_result.scalar_one_or_none()
+    
+    if current_user.role != "Admin" and program and program.client_id != current_user.client_id:
+        raise AccessDeniedException("You don't have access to this project")
+    
+    # Get the latest sprint to calculate next sprint dates
+    latest_sprint_result = await db.execute(
+        select(Sprint).where(Sprint.project_id == project_id)
+        .order_by(Sprint.end_date.desc())
+        .limit(1)
+    )
+    latest_sprint = latest_sprint_result.scalar_one_or_none()
+    
+    # Calculate default dates based on project configuration
+    sprint_length_weeks = int(project.sprint_length_weeks or "2")
+    
+    if latest_sprint:
+        # Start the new sprint the day after the latest sprint ends
+        start_date = latest_sprint.end_date + timedelta(days=1)
+    else:
+        # No existing sprints, start from today or next Monday
+        today = date.today()
+        days_until_monday = (7 - today.weekday()) % 7
+        if days_until_monday == 0:  # Today is Monday
+            start_date = today
+        else:
+            start_date = today + timedelta(days=days_until_monday)
+    
+    # Calculate end date based on sprint length
+    end_date = start_date + timedelta(weeks=sprint_length_weeks) - timedelta(days=1)
+    
+    return {
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat()
+    }
+
+
 @router.get("/projects/{project_id}/sprints", response_model=List[SprintWithTasks])
 async def list_project_sprints(
     project_id: str = Path(..., description="Project ID"),

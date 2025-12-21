@@ -53,6 +53,7 @@ class Project(Base):
     program = relationship("Program", back_populates="projects")
     usecases = relationship("Usecase", back_populates="project", cascade="all, delete-orphan")
     sprints = relationship("Sprint", back_populates="project", cascade="all, delete-orphan")
+    teams = relationship("Team", back_populates="project", cascade="all, delete-orphan")
 
 
 class Usecase(Base):
@@ -81,7 +82,7 @@ class UserStory(Base):
 
     id = Column(String(20), primary_key=True, server_default=text("generate_string_id('UST', 'user_stories_id_seq')"))
     usecase_id = Column(String(20), ForeignKey("usecases.id"), nullable=False)
-    phase_id = Column(String(20), ForeignKey("phases.id"))
+    phase_id = Column(String(20), ForeignKey("phases.id"), nullable=False)
     title = Column(String(255), nullable=False)
     short_description = Column(String(500))
     long_description = Column(Text)
@@ -174,7 +175,7 @@ class Phase(Base):
     long_description = Column(Text)
     color = Column(String(7), nullable=False, default='#4A90E2')
     is_active = Column(Boolean, default=True, nullable=False)
-    order = Column(Integer, nullable=False)
+    display_order = Column(Integer, nullable=False, default=0)
     is_deleted = Column(Boolean, default=False)
     created_by = Column(String(255))
     updated_by = Column(String(255))

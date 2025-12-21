@@ -13,6 +13,8 @@ from app.models.comment import BugComment, TestCaseComment, BugAttachment, BugSt
 from app.models.organization import Organization
 from app.models.todo import TodoItem, AdhocNote
 from app.models.chat import ChatMessage, ChatAuditLog, Reminder
+from app.models.team import Team, TeamMember, Assignment, AssignmentHistory
+from app.models.notification import Notification, NotificationPreference, NotificationHistory, NotificationType, NotificationStatus, NotificationChannel
 
 __all__ = [
     "User",
@@ -44,5 +46,15 @@ __all__ = [
     "AdhocNote",
     "ChatMessage",
     "ChatAuditLog",
-    "Reminder"
+    "Reminder",
+    "Team",
+    "TeamMember",
+    "Assignment",
+    "AssignmentHistory",
+    "Notification",
+    "NotificationPreference",
+    "NotificationHistory",
+    "NotificationType",
+    "NotificationStatus",
+    "NotificationChannel"
 ]

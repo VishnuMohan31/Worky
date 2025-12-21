@@ -29,6 +29,7 @@ export default function Sidebar() {
     hierarchy: true,
     planning: true,
     tracking: true,
+    management: true,
     qa: true,
     admin: true
   })
@@ -162,12 +163,21 @@ export default function Sidebar() {
         { path: '/bug-lifecycle', label: 'Bug Lifecycle', icon: '🐛' }
       ]
     },
+    management: {
+      label: 'Management',
+      icon: '👥',
+      defaultOpen: true,
+      items: [
+        { path: '/teams', label: 'Teams', icon: '👥' },
+        { path: '/decisions', label: 'Decisions', icon: '📋' }
+      ]
+    },
     admin: {
       label: 'Administration',
       icon: '⚙️',
       defaultOpen: false,
       items: [
-        { path: '/users', label: t('users'), icon: '👥' },
+        { path: '/users', label: t('users'), icon: '👤' },
         { path: '/phases', label: 'Phases', icon: '🔄' },
         { path: '/organizations', label: 'Organizations', icon: '🏢' },
         { path: '/sprint-configuration', label: 'Sprint Configuration', icon: '🏃' }

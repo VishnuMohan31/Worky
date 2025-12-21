@@ -2,7 +2,7 @@
 Phase management endpoints for the Worky API.
 """
 from typing import List
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from uuid import UUID
@@ -32,7 +32,7 @@ async def list_phases(
     if not include_inactive:
         query = query.where(Phase.is_active == True)
     
-    query = query.order_by(Phase.order, Phase.name)
+    query = query.order_by(Phase.display_order, Phase.name)
     result = await db.execute(query)
     phases = result.scalars().all()
     
@@ -85,8 +85,28 @@ async def create_phase(
             f"Phase with name '{phase_data.name}' already exists"
         )
     
+    # Use provided display_order or auto-generate
+    if phase_data.display_order is not None:
+        display_order = phase_data.display_order
+    else:
+        # Get the highest display_order and add 1 for new phase
+        max_order_result = await db.execute(
+            select(func.coalesce(func.max(Phase.display_order), 0)).where(
+                Phase.is_deleted == False
+            )
+        )
+        max_order = max_order_result.scalar()
+        display_order = max_order + 1
+    
+    # Use description field for short_description if provided
+    short_desc = phase_data.description or phase_data.short_description
+    
     phase = Phase(
-        **phase_data.dict(),
+        name=phase_data.name,
+        short_description=short_desc,
+        long_description=phase_data.long_description,
+        color=phase_data.color,
+        display_order=display_order,
         created_by=str(current_user.id),
         updated_by=str(current_user.id)
     )

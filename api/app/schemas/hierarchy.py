@@ -85,7 +85,7 @@ class UserStoryBase(BaseModel):
 
 class UserStoryCreate(UserStoryBase):
     usecase_id: str
-    phase_id: Optional[str] = None
+    phase_id: str
 
 
 class UserStoryUpdate(BaseModel):
@@ -155,16 +155,14 @@ class SubtaskResponse(SubtaskBase):
 
 
 # Phase Schemas
-class PhaseBase(BaseModel):
+# Phase Schemas
+class PhaseCreate(BaseModel):
     name: str
+    description: Optional[str] = None  # Frontend sends 'description'
     short_description: Optional[str] = None
     long_description: Optional[str] = None
     color: str = '#4A90E2'
-    order: int
-
-
-class PhaseCreate(PhaseBase):
-    pass
+    display_order: Optional[int] = None
 
 
 class PhaseUpdate(BaseModel):
@@ -172,11 +170,16 @@ class PhaseUpdate(BaseModel):
     short_description: Optional[str] = None
     long_description: Optional[str] = None
     color: Optional[str] = None
-    order: Optional[int] = None
+    display_order: Optional[int] = None
 
 
-class PhaseResponse(PhaseBase):
+class PhaseResponse(BaseModel):
     id: str
+    name: str
+    short_description: Optional[str] = None
+    long_description: Optional[str] = None
+    color: str
+    display_order: int
     is_active: bool
     created_at: datetime
     updated_at: datetime

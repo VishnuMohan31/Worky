@@ -11,7 +11,7 @@ from app.core.config import settings
 router = APIRouter()
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, response_model_by_alias=True)
 async def login(
     credentials: LoginRequest,
     db: AsyncSession = Depends(get_db)
@@ -42,16 +42,39 @@ async def login(
         expires_delta=access_token_expires
     )
     
+    # Create user response with string conversion
+    user_response = UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        client_id=str(user.client_id),
+        language=user.language,
+        theme=user.theme,
+        is_active=user.is_active,
+        created_at=user.created_at
+    )
+    
     return Token(
         access_token=access_token,
         token_type="bearer",
-        user=UserResponse.from_orm(user)
+        user=user_response
     )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse, response_model_by_alias=True)
 async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user information"""
-    return UserResponse.from_orm(current_user)
+    return UserResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        client_id=str(current_user.client_id),
+        language=current_user.language,
+        theme=current_user.theme,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at
+    )

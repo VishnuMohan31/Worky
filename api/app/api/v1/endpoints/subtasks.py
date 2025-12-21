@@ -2,15 +2,16 @@
 Subtask endpoints for the Worky API.
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from uuid import UUID
+# Removed UUID import - using string IDs
 from datetime import datetime
 
 from app.db.base import get_db
 from app.models.hierarchy import Subtask, Task, Phase
 from app.models.user import User
+from app.models.audit import AuditLog
 from app.schemas.hierarchy import SubtaskCreate, SubtaskUpdate, SubtaskResponse
 from app.core.security import get_current_user
 from app.core.exceptions import ResourceNotFoundException, AccessDeniedException, ValidationException
@@ -20,11 +21,35 @@ router = APIRouter()
 logger = StructuredLogger(__name__)
 
 
+async def create_audit_log(
+    db: AsyncSession,
+    user_id: str,
+    action: str,
+    entity_type: str,
+    entity_id: str,
+    changes: dict = None
+):
+    """Create an audit log entry for subtask operations."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            changes=changes
+        )
+        db.add(audit_log)
+        # Don't commit here - let the main operation commit
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
+        # Don't fail the main operation if audit logging fails
+
+
 @router.get("/", response_model=List[SubtaskResponse])
 async def list_subtasks(
-    task_id: Optional[UUID] = Query(None),
-    assigned_to: Optional[UUID] = Query(None),
-    phase_id: Optional[UUID] = Query(None),
+    task_id: Optional[str] = Query(None),
+    assigned_to: Optional[str] = Query(None),
+    phase_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
@@ -130,12 +155,23 @@ async def create_subtask(
     await db.commit()
     await db.refresh(subtask)
     
+    # Create audit log
+    await create_audit_log(
+        db=db,
+        user_id=str(current_user.id),
+        action="CREATE",
+        entity_type="subtask",
+        entity_id=str(subtask.id),
+        changes=None
+    )
+    await db.commit()  # Commit the audit log
+    
     logger.log_activity(
         action="create_subtask",
         entity_type="subtask",
         entity_id=str(subtask.id),
         task_id=str(subtask.task_id),
-        phase_id=str(subtask.phase_id)
+        phase_id=str(subtask.phase_id) if subtask.phase_id else None
     )
     
     return SubtaskResponse.from_orm(subtask)
@@ -167,9 +203,16 @@ async def update_subtask(
     if current_user.role != "Admin" and subtask.assigned_to != current_user.id:
         raise AccessDeniedException("You can only update subtasks assigned to you")
     
-    # Track status transitions
+    # Track status transitions and changes for audit
     old_status = subtask.status
     new_status = subtask_data.status if subtask_data.status else old_status
+    
+    # Track all changes for audit log
+    changes = {}
+    for field, value in subtask_data.dict(exclude_unset=True).items():
+        old_value = getattr(subtask, field, None)
+        if old_value != value:
+            changes[field] = {"old": old_value, "new": value}
     
     # Validate status transitions
     valid_transitions = {
@@ -216,6 +259,16 @@ async def update_subtask(
     
     subtask.updated_by = str(current_user.id)
     
+    # Create audit log before commit
+    await create_audit_log(
+        db=db,
+        user_id=str(current_user.id),
+        action="UPDATE",
+        entity_type="subtask",
+        entity_id=str(subtask_id),
+        changes=changes if changes else None
+    )
+    
     await db.commit()
     await db.refresh(subtask)
     
@@ -257,6 +310,16 @@ async def delete_subtask(
     subtask.is_deleted = True
     subtask.updated_by = str(current_user.id)
     
+    # Create audit log before commit
+    await create_audit_log(
+        db=db,
+        user_id=str(current_user.id),
+        action="DELETE",
+        entity_type="subtask",
+        entity_id=str(subtask_id),
+        changes=None
+    )
+    
     await db.commit()
     
     logger.log_activity(
@@ -269,7 +332,7 @@ async def delete_subtask(
 @router.get("/my-subtasks/", response_model=List[SubtaskResponse])
 async def get_my_subtasks(
     status: Optional[str] = Query(None),
-    phase_id: Optional[UUID] = Query(None),
+    phase_id: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),

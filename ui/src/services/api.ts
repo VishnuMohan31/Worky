@@ -1,8 +1,7 @@
 import axios from 'axios'
-import { apiConfig, endpoints } from '../config/api.config'
+import { apiConfig } from '../config/api.config'
 
-// Toggle between dummy data and real API
-const USE_DUMMY_DATA = false // Set to true for dummy data, false for real API
+// Real API calls only - dummy data removed for cleaner code
 
 // Helper function to transform API response from snake_case to camelCase
 const transformUser = (user: any) => {
@@ -91,11 +90,61 @@ const transformProject = (project: any) => {
   }
 }
 
+// Simple cache for API responses
+const apiCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_DURATION = 30000 // 30 seconds
+
+// Debounce map for preventing duplicate requests
+const pendingRequests = new Map<string, Promise<any>>()
+
+// Helper function to get cached data or make request
+const getCachedOrFetch = async <T>(cacheKey: string, fetchFn: () => Promise<T>): Promise<T> => {
+  // Check cache first
+  const cached = apiCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data
+  }
+
+  // Check if request is already pending
+  if (pendingRequests.has(cacheKey)) {
+    return pendingRequests.get(cacheKey)
+  }
+
+  // Make new request
+  const requestPromise = fetchFn().then(data => {
+    // Cache the result
+    apiCache.set(cacheKey, { data, timestamp: Date.now() })
+    // Remove from pending
+    pendingRequests.delete(cacheKey)
+    return data
+  }).catch(error => {
+    // Remove from pending on error
+    pendingRequests.delete(cacheKey)
+    throw error
+  })
+
+  // Store pending request
+  pendingRequests.set(cacheKey, requestPromise)
+  return requestPromise
+}
+
+// Helper function to invalidate cache entries
+const invalidateCache = (pattern: string) => {
+  for (const key of apiCache.keys()) {
+    if (key.includes(pattern)) {
+      apiCache.delete(key)
+    }
+  }
+}
+
 // Axios instance with config - no dummy data, all real API calls
 const apiClient = axios.create(apiConfig)
 
-// Add auth token to requests
-apiClient.interceptors.request.use(config => {
+// Create a separate axios instance for safe API calls that don't trigger logout
+const safeApiClient = axios.create(apiConfig)
+
+// Add auth token to requests for both clients
+const addAuthToken = (config: any) => {
   const token = localStorage.getItem('token')
   const fullUrl = config.baseURL + config.url
   if (token) {
@@ -105,28 +154,23 @@ apiClient.interceptors.request.use(config => {
     console.log('No token found for request:', fullUrl)
   }
   return config
-})
+}
 
-// Add response interceptor for error handling
+apiClient.interceptors.request.use(addAuthToken)
+safeApiClient.interceptors.request.use(addAuthToken)
+
+// Add response interceptor for error handling - MAIN CLIENT (with logout)
 apiClient.interceptors.response.use(
   response => response,
   error => {
     console.log('API Error:', error.config?.url, 'Status:', error.response?.status, 'Message:', error.response?.data)
     
-    // Only redirect to login for 401 on auth endpoints
-    // For other endpoints, let the component handle the error
+    // Redirect to login for any 401 error (unauthorized)
     if (error.response?.status === 401) {
       const url = error.config?.url || ''
-      console.log('401 Unauthorized for:', url)
-      
-      // Only redirect if it's an auth-related endpoint
-      if (url.includes('/auth/me') || url.includes('/auth/login')) {
-        console.log('Auth endpoint failed - redirecting to login and clearing token')
-        localStorage.removeItem('token')
-        window.location.href = '/login'
-      } else {
-        console.log('Non-auth endpoint failed with 401 - not redirecting, letting component handle it')
-      }
+      console.log('401 Unauthorized for:', url, '- redirecting to login')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
     }
     
     // Handle 403 Forbidden - show access denied message
@@ -141,19 +185,30 @@ apiClient.interceptors.response.use(
   }
 )
 
-// Simulate API delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+// Add response interceptor for SAFE CLIENT (no logout redirect)
+safeApiClient.interceptors.response.use(
+  response => response,
+  error => {
+    console.log('Safe API Error:', error.config?.url, 'Status:', error.response?.status, 'Message:', error.response?.data)
+    
+    // Don't redirect to login for 401 errors - just log and reject
+    if (error.response?.status === 401) {
+      const url = error.config?.url || ''
+      console.warn('401 Unauthorized for safe call:', url, '- NOT redirecting to login')
+    }
+    
+    // Handle 403 Forbidden - show access denied message
+    if (error.response?.status === 403) {
+      console.error('Access denied:', error.response.data)
+    }
+    
+    return Promise.reject(error)
+  }
+)
 
 const api = {
   // Auth
   async login(email: string, password: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return {
-        token: 'dummy-jwt-token-' + Date.now(),
-        user: dummyUser
-      }
-    }
     const response = await apiClient.post('/auth/login', { email, password })
     return {
       token: response.data.access_token,
@@ -162,26 +217,12 @@ const api = {
   },
 
   async getCurrentUser() {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      return dummyUser
-    }
     const response = await apiClient.get('/auth/me')
     return transformUser(response.data)
   },
 
   // Generic Entity Operations
   async getEntity(type: string, id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      // Return dummy data based on type
-      const dummyData: any = {
-        client: dummyClients,
-        project: dummyProjects,
-        task: dummyTasks
-      }
-      return dummyData[type]?.find((item: any) => item.id === id) || null
-    }
     const endpoint = this.getEntityEndpoint(type)
     const response = await apiClient.get(`${endpoint}/${id}`)
     return response.data
@@ -204,19 +245,6 @@ const api = {
   },
 
   async getEntityList(type: string, filters?: Record<string, any>) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      const dummyData: any = {
-        client: dummyClients,
-        program: dummyPrograms,
-        project: dummyProjects,
-        usecase: dummyUseCases,
-        task: dummyTasks,
-        bug: dummyBugs,
-        user: dummyUsers
-      }
-      return dummyData[type] || []
-    }
     const endpoint = this.getEntityEndpoint(type)
     const response = await apiClient.get(`${endpoint}/`, { params: filters })
     if (!Array.isArray(response.data)) {
@@ -230,97 +258,24 @@ const api = {
   },
 
   async createEntity(type: string, data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      const newEntity = { 
-        id: `${type}-${Date.now()}`, 
-        ...data,
-        created_at: new Date().toISOString()
-      }
-      
-      // Add to the appropriate dummy array
-      if (type === 'program') {
-        dummyPrograms.push(newEntity)
-      } else if (type === 'project') {
-        dummyProjects.push(newEntity)
-      } else if (type === 'usecase') {
-        dummyUseCases.push(newEntity)
-      } else if (type === 'task') {
-        dummyTasks.push(newEntity)
-      } else if (type === 'bug') {
-        dummyBugs.push(newEntity)
-      }
-      
-      return newEntity
-    }
     const endpoint = this.getEntityEndpoint(type)
     const response = await apiClient.post(`${endpoint}/`, data)
     return response.data
   },
 
   async updateEntity(type: string, id: string, data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      
-      // Find and update in the appropriate dummy array
-      let targetArray: any[] = []
-      if (type === 'program') targetArray = dummyPrograms
-      else if (type === 'project') targetArray = dummyProjects
-      else if (type === 'usecase') targetArray = dummyUseCases
-      else if (type === 'task') targetArray = dummyTasks
-      else if (type === 'bug') targetArray = dummyBugs
-      
-      const index = targetArray.findIndex(item => item.id === id)
-      if (index !== -1) {
-        targetArray[index] = { ...targetArray[index], ...data, updated_at: new Date().toISOString() }
-        return targetArray[index]
-      }
-      
-      return { id, ...data }
-    }
     const endpoint = this.getEntityEndpoint(type)
     const response = await apiClient.put(`${endpoint}/${id}`, data)
     return response.data
   },
 
   async deleteEntity(type: string, id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { success: true }
-    }
     const endpoint = this.getEntityEndpoint(type)
     const response = await apiClient.delete(`${endpoint}/${id}`)
     return response.data
   },
 
   async getEntityWithContext(type: string, id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      const entity = await api.getEntity(type, id)
-      
-      // Mock parent and children based on type
-      let parent = null
-      let children: any[] = []
-      let breadcrumb: any[] = []
-      
-      if (type === 'project') {
-        parent = dummyPrograms.find(p => p.id === entity?.programId)
-        children = dummyUseCases.filter(uc => uc.project_id === id)
-        breadcrumb = [
-          { id: 'client-1', name: 'DataLegos', type: 'client' },
-          { id: parent?.id, name: parent?.name, type: 'program' },
-          { id: entity?.id, name: entity?.name, type: 'project' }
-        ]
-      }
-      
-      return {
-        entity,
-        parent,
-        children,
-        breadcrumb
-      }
-    }
-    
     try {
       const response = await apiClient.get(`/hierarchy/${type}/${id}`)
       return response.data
@@ -348,65 +303,15 @@ const api = {
   },
 
   async getEntityStatistics(type: string, id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      if (type === 'project') {
-        return {
-          total_usecases: 8,
-          usecases_in_development: 3,
-          usecases_in_testing: 2,
-          usecases_completed: 3,
-          total_user_stories: 24,
-          total_tasks: 67,
-          completion_percentage: 45
-        }
-      }
-      if (type === 'usecase') {
-        return {
-          total_user_stories: 6,
-          user_stories_in_progress: 2,
-          user_stories_in_testing: 1,
-          user_stories_completed: 3,
-          total_tasks: 18,
-          completion_percentage: 50
-        }
-      }
-      return {
-        status_counts: {
-          'To Do': 5,
-          'In Progress': 3,
-          'Done': 12
-        },
-        phase_distribution: [
-          { phase: 'Development', count: 8 },
-          { phase: 'Testing', count: 6 },
-          { phase: 'Design', count: 4 },
-          { phase: 'Analysis', count: 2 }
-        ],
-        completion_percentage: 60,
-        rollup_counts: {
-          tasks: 20,
-          subtasks: 45,
-          bugs: 3
-        }
-      }
-    }
-    const response = await apiClient.get(`/hierarchy/${type}/${id}/statistics`)
-    return response.data
+    const cacheKey = `statistics:${type}:${id}`
+    
+    return getCachedOrFetch(cacheKey, async () => {
+      const response = await apiClient.get(`/hierarchy/${type}/${id}/statistics`)
+      return response.data
+    })
   },
 
   async searchEntities(query: string, types?: string[]) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      const allEntities = [
-        ...dummyProjects.map(p => ({ ...p, type: 'project', displayName: p.name })),
-        ...dummyTasks.map(t => ({ ...t, type: 'task', displayName: t.title }))
-      ]
-      return allEntities.filter(e => 
-        e.displayName?.toLowerCase().includes(query.toLowerCase()) ||
-        (e as any).description?.toLowerCase().includes(query.toLowerCase())
-      )
-    }
     const response = await apiClient.get('/hierarchy/search', { 
       params: { q: query, entity_types: types?.join(',') } 
     })
@@ -415,125 +320,33 @@ const api = {
 
   // Clients
   async getClients() {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return dummyClients
-    }
     const response = await apiClient.get('/clients/')
     // The clients endpoint returns paginated data with a 'clients' property
     return response.data.clients || response.data
   },
 
   async getClient(id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      return dummyClients.find(c => c.id === id)
-    }
     const response = await apiClient.get(`/clients/${id}`)
     return response.data
   },
 
   async getClientStatistics() {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return {
-        total_clients: 3,
-        clients_with_ongoing_projects: 2,
-        clients_with_no_projects: 0,
-        total_projects_across_clients: 5,
-        total_ongoing_projects: 3,
-        clients: [
-          {
-            id: 'client-1',
-            name: 'DataLegos',
-            description: 'Internal projects',
-            industry: 'Technology',
-            contact_email: 'contact@datalegos.com',
-            contact_phone: '+1-555-0100',
-            is_active: true,
-            total_projects: 2,
-            ongoing_projects: 2,
-            completed_projects: 0,
-            latest_project: {
-              id: 'proj-1',
-              name: 'Worky Platform',
-              status: 'In Progress',
-              created_at: '2025-01-01T00:00:00'
-            },
-            created_at: '2024-01-01T00:00:00',
-            updated_at: '2025-01-10T00:00:00'
-          },
-          {
-            id: 'client-2',
-            name: 'Acme Corp',
-            description: 'Enterprise client',
-            industry: 'Manufacturing',
-            contact_email: 'info@acmecorp.com',
-            contact_phone: '+1-555-0200',
-            is_active: true,
-            total_projects: 2,
-            ongoing_projects: 1,
-            completed_projects: 1,
-            latest_project: {
-              id: 'proj-3',
-              name: 'Mobile App',
-              status: 'In Progress',
-              created_at: '2024-11-01T00:00:00'
-            },
-            created_at: '2024-03-15T00:00:00',
-            updated_at: '2025-01-08T00:00:00'
-          },
-          {
-            id: 'client-3',
-            name: 'TechStart Inc',
-            description: 'Startup client',
-            industry: 'SaaS',
-            contact_email: 'hello@techstart.io',
-            contact_phone: '+1-555-0300',
-            is_active: true,
-            total_projects: 1,
-            ongoing_projects: 0,
-            completed_projects: 1,
-            latest_project: {
-              id: 'proj-4',
-              name: 'Website Redesign',
-              status: 'Completed',
-              created_at: '2024-09-01T00:00:00'
-            },
-            created_at: '2024-06-20T00:00:00',
-            updated_at: '2024-12-15T00:00:00'
-          }
-        ]
-      }
-    }
     const response = await apiClient.get('/clients/statistics/dashboard')
     return response.data
   },
 
   async createClient(data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id: 'client-' + Date.now(), ...data, isActive: true }
-    }
     const response = await apiClient.post('/clients/', data)
     return response.data
   },
 
   async updateClient(id: string, data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id, ...data }
-    }
     const response = await apiClient.put(`/clients/${id}`, data)
     return response.data
   },
 
   // Projects
   async getProjects() {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return dummyProjects
-    }
     const response = await apiClient.get('/projects/')
     if (!Array.isArray(response.data)) {
       console.error('Projects API returned non-array response:', response.data)
@@ -544,123 +357,80 @@ const api = {
   },
 
   async getProject(id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      return dummyProjects.find(p => p.id === id)
-    }
     const response = await apiClient.get(`/projects/${id}`)
     return transformProject(response.data)
   },
 
   async createProject(data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id: 'proj-' + Date.now(), ...data }
-    }
     const response = await apiClient.post('/projects/', data)
     return response.data
   },
 
   async updateProject(id: string, data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id, ...data }
-    }
     const response = await apiClient.put(`/projects/${id}`, data)
     return transformProject(response.data)
   },
 
   // Tasks
   async getTasks(projectId?: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return projectId 
-        ? dummyTasks.filter(t => t.projectId === projectId)
-        : dummyTasks
-    }
     const response = await apiClient.get('/tasks/', { params: { projectId } })
     return response.data
   },
 
   async getTask(id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      return dummyTasks.find(t => t.id === id)
-    }
     const response = await apiClient.get(`/tasks/${id}`)
     return response.data
   },
 
   async createTask(data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id: 'task-' + Date.now(), ...data, progress: 0 }
-    }
     const response = await apiClient.post('/tasks/', data)
     return response.data
   },
 
   async updateTask(id: string, data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id, ...data }
-    }
     const response = await apiClient.put(`/tasks/${id}`, data)
     return response.data
   },
 
   // Bugs
   async getBugs(projectId?: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return projectId
-        ? dummyBugs.filter(b => b.projectId === projectId)
-        : dummyBugs
-    }
     const response = await apiClient.get('/bugs/', { params: { projectId } })
     return response.data
   },
 
   async createBug(data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id: 'bug-' + Date.now(), ...data, createdAt: new Date().toISOString() }
-    }
     const response = await apiClient.post('/bugs/', data)
     return response.data
   },
 
   // Users
   async getUsers() {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return dummyUsers
-    }
     const response = await apiClient.get('/users/')
     return response.data
   },
 
   async updateUserPreferences(data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      return { ...dummyUser, ...data }
-    }
     const response = await apiClient.put('/users/me/preferences', data)
+    return response.data
+  },
+
+  async createUser(userData: any) {
+    const response = await apiClient.post('/users/', userData)
+    return response.data
+  },
+
+  async updateUser(userId: string, userData: any) {
+    const response = await apiClient.put(`/users/${userId}`, userData)
+    return response.data
+  },
+
+  async deleteUser(userId: string) {
+    const response = await apiClient.delete(`/users/${userId}`)
     return response.data
   },
 
   // Phase Management
   async getPhases(includeInactive = false) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      const phases = [
-        { id: 'phase-1', name: 'Development', description: 'Development work', color: '#3498db', isActive: true, displayOrder: 1 },
-        { id: 'phase-2', name: 'Analysis', description: 'Analysis and planning', color: '#9b59b6', isActive: true, displayOrder: 2 },
-        { id: 'phase-3', name: 'Design', description: 'Design and architecture', color: '#e67e22', isActive: true, displayOrder: 3 },
-        { id: 'phase-4', name: 'Testing', description: 'Testing and QA', color: '#1abc9c', isActive: true, displayOrder: 4 }
-      ]
-      return includeInactive ? phases : phases.filter(p => p.isActive)
-    }
     const response = await apiClient.get('/phases/', { params: { include_inactive: includeInactive } })
     // Transform snake_case to camelCase
     return response.data.map((phase: any) => ({
@@ -674,20 +444,11 @@ const api = {
   },
 
   async getPhase(id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      const phases = await api.getPhases(true)
-      return phases.find((p: any) => p.id === id)
-    }
     const response = await apiClient.get(`/phases/${id}`)
     return response.data
   },
 
   async createPhase(data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id: 'phase-' + Date.now(), ...data, isActive: true }
-    }
     // Transform camelCase to snake_case for API
     const apiData = {
       name: data.name,
@@ -701,10 +462,6 @@ const api = {
   },
 
   async updatePhase(id: string, data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { id, ...data }
-    }
     // Transform camelCase to snake_case for API
     const apiData = {
       name: data.name,
@@ -718,33 +475,11 @@ const api = {
   },
 
   async deactivatePhase(id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return { success: true }
-    }
     const response = await apiClient.post(`/phases/${id}/deactivate`)
     return response.data
   },
 
   async getPhaseUsage(id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return {
-        totalCount: 25,
-        taskCount: 15,
-        subtaskCount: 10,
-        taskStatusBreakdown: {
-          'To Do': 5,
-          'In Progress': 7,
-          'Done': 3
-        },
-        subtaskStatusBreakdown: {
-          'To Do': 3,
-          'In Progress': 4,
-          'Done': 3
-        }
-      }
-    }
     const response = await apiClient.get(`/phases/${id}/usage`)
     // Transform the response
     const data = response.data
@@ -759,36 +494,17 @@ const api = {
 
   // Programs
   async getPrograms(clientId?: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return [
-        { id: 'prog-1', name: 'Internal Tools', clientId: 'client-1', status: 'Active' },
-        { id: 'prog-2', name: 'Customer Solutions', clientId: 'client-1', status: 'Active' }
-      ]
-    }
     const response = await apiClient.get('/programs', { params: { client_id: clientId } })
     return response.data
   },
 
   async getProgram(id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      const programs = await api.getPrograms()
-      return programs.find((p: any) => p.id === id)
-    }
     const response = await apiClient.get(`/programs/${id}`)
     return response.data
   },
 
   // Use Cases
   async getUseCases(projectId?: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return [
-        { id: 'uc-1', name: 'User Authentication', projectId: 'proj-1', status: 'In Progress', priority: 'High' },
-        { id: 'uc-2', name: 'Task Management', projectId: 'proj-1', status: 'Planning', priority: 'High' }
-      ]
-    }
     const response = await apiClient.get('/usecases', { params: { project_id: projectId } })
     if (!Array.isArray(response.data)) {
       console.error('UseCases API returned non-array response:', response.data)
@@ -799,72 +515,50 @@ const api = {
 
   // User Stories
   async getUserStories(usecaseId?: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return [
-        { id: 'us-1', name: 'As a user, I want to login', usecaseId: 'uc-1', status: 'In Progress', priority: 'High' },
-        { id: 'us-2', name: 'As a user, I want to reset password', usecaseId: 'uc-1', status: 'To Do', priority: 'Medium' }
-      ]
-    }
     const response = await apiClient.get('/user-stories', { params: { usecase_id: usecaseId } })
     return response.data
   },
 
   // Subtasks
   async getSubtasks(taskId?: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return [
-        { id: 'st-1', name: 'Write unit tests', taskId: 'task-1', status: 'Done', phaseId: 'phase-4' },
-        { id: 'st-2', name: 'Code review', taskId: 'task-1', status: 'Done', phaseId: 'phase-1' }
-      ]
-    }
     const response = await apiClient.get('/subtasks', { params: { task_id: taskId } })
     return response.data
   },
 
+  // Safe version of getSubtasks that doesn't trigger logout on 401
+  async getSubtasksSafe(taskId?: string) {
+    try {
+      // Use the safe client that doesn't trigger logout on 401
+      const response = await safeApiClient.get('/subtasks', { params: { task_id: taskId } })
+      return response.data
+    } catch (error: any) {
+      // Don't let 401 errors propagate to avoid logout
+      if (error.response?.status === 401) {
+        console.warn('Access denied to subtasks - user may not have permission')
+        return []
+      }
+      // Re-throw other errors
+      throw error
+    }
+  },
+
   // Bug Management - Additional methods
   async getBug(id: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(300)
-      return dummyBugs.find(b => b.id === id)
-    }
     const response = await apiClient.get(`/bugs/${id}`)
     return response.data
   },
 
   async updateBug(id: string, data: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      const index = dummyBugs.findIndex(b => b.id === id)
-      if (index !== -1) {
-        dummyBugs[index] = { ...dummyBugs[index], ...data }
-        return dummyBugs[index]
-      }
-      return { id, ...data }
-    }
     const response = await apiClient.put(`/bugs/${id}`, data)
     return response.data
   },
 
   async assignBug(id: string, assigneeId: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return api.updateBug(id, { assignedTo: assigneeId, status: 'Assigned' })
-    }
     const response = await apiClient.post(`/bugs/${id}/assign`, { assignee_id: assigneeId })
     return response.data
   },
 
   async resolveBug(id: string, resolutionNotes: string) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      return api.updateBug(id, { 
-        status: 'Resolved', 
-        resolutionNotes,
-        resolvedAt: new Date().toISOString()
-      })
-    }
     const response = await apiClient.post(`/bugs/${id}/resolve`, { resolution_notes: resolutionNotes })
     return response.data
   },
@@ -918,123 +612,6 @@ const api = {
 
   // Audit Logs
   async getAuditLogs(entityType: string, entityId: string, filters?: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(500)
-      
-      // Generate dummy audit logs
-      const dummyAuditLogs = [
-        {
-          id: 'audit-1',
-          user_id: 'user-1',
-          user_name: 'John Doe',
-          action: 'CREATE',
-          entity_type: entityType,
-          entity_id: entityId,
-          changes: null,
-          created_at: '2025-01-10T10:30:00Z',
-          ip_address: '192.168.1.100',
-          user_agent: 'Mozilla/5.0'
-        },
-        {
-          id: 'audit-2',
-          user_id: 'user-2',
-          user_name: 'Jane Smith',
-          action: 'UPDATE',
-          entity_type: entityType,
-          entity_id: entityId,
-          changes: {
-            status: { old: 'To Do', new: 'In Progress' },
-            assigned_to: { old: null, new: 'user-2' }
-          },
-          created_at: '2025-01-11T14:20:00Z',
-          ip_address: '192.168.1.101',
-          user_agent: 'Mozilla/5.0'
-        },
-        {
-          id: 'audit-3',
-          user_id: 'user-2',
-          user_name: 'Jane Smith',
-          action: 'UPDATE',
-          entity_type: entityType,
-          entity_id: entityId,
-          changes: {
-            description: { 
-              old: 'Initial description', 
-              new: 'Updated description with more details' 
-            }
-          },
-          created_at: '2025-01-12T09:15:00Z',
-          ip_address: '192.168.1.101',
-          user_agent: 'Mozilla/5.0'
-        },
-        {
-          id: 'audit-4',
-          user_id: 'user-3',
-          user_name: 'Bob Johnson',
-          action: 'VIEW',
-          entity_type: entityType,
-          entity_id: entityId,
-          changes: null,
-          created_at: '2025-01-12T11:45:00Z',
-          ip_address: '192.168.1.102',
-          user_agent: 'Mozilla/5.0'
-        },
-        {
-          id: 'audit-5',
-          user_id: 'user-1',
-          user_name: 'John Doe',
-          action: 'UPDATE',
-          entity_type: entityType,
-          entity_id: entityId,
-          changes: {
-            status: { old: 'In Progress', new: 'Done' },
-            completed_at: { old: null, new: '2025-01-13T16:30:00Z' }
-          },
-          created_at: '2025-01-13T16:30:00Z',
-          ip_address: '192.168.1.100',
-          user_agent: 'Mozilla/5.0'
-        }
-      ]
-      
-      // Apply filters
-      let filteredLogs = [...dummyAuditLogs]
-      
-      if (filters?.action) {
-        filteredLogs = filteredLogs.filter(log => log.action === filters.action)
-      }
-      
-      if (filters?.date_from) {
-        const fromDate = new Date(filters.date_from)
-        filteredLogs = filteredLogs.filter(log => new Date(log.created_at) >= fromDate)
-      }
-      
-      if (filters?.date_to) {
-        const toDate = new Date(filters.date_to)
-        toDate.setHours(23, 59, 59, 999) // End of day
-        filteredLogs = filteredLogs.filter(log => new Date(log.created_at) <= toDate)
-      }
-      
-      // Sort by created_at descending (newest first)
-      filteredLogs.sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-      
-      // Pagination
-      const page = filters?.page || 1
-      const pageSize = filters?.page_size || 100
-      const startIndex = (page - 1) * pageSize
-      const endIndex = startIndex + pageSize
-      const paginatedLogs = filteredLogs.slice(startIndex, endIndex)
-      
-      return {
-        items: paginatedLogs,
-        total: filteredLogs.length,
-        page: page,
-        page_size: pageSize,
-        has_more: endIndex < filteredLogs.length
-      }
-    }
-    
     const response = await apiClient.get(`/audit-logs/${entityType}/${entityId}`, { 
       params: filters 
     })
@@ -1043,18 +620,6 @@ const api = {
 
   // Generic HTTP methods for direct API access
   async get(url: string, config?: any) {
-    // Handle notes endpoint in dummy mode
-    if (USE_DUMMY_DATA && url.includes('/notes')) {
-      await delay(300)
-      // Extract entity key from URL (e.g., "client/client-1")
-      const match = url.match(/hierarchy\/([^\/]+)\/([^\/]+)\/notes/)
-      if (match) {
-        const entityKey = `${match[1]}-${match[2]}`
-        return dummyNotes[entityKey] || []
-      }
-      return []
-    }
-    
     try {
       const response = await apiClient.get(url, config)
       return response.data
@@ -1068,21 +633,6 @@ const api = {
   },
 
   async post(url: string, data?: any, config?: any) {
-    // Handle notes endpoint in dummy mode
-    if (USE_DUMMY_DATA && url.includes('/notes')) {
-      await delay(300)
-      return {
-        id: 'note-' + Date.now(),
-        entity_type: 'Client',
-        entity_id: 'client-1',
-        note_text: data.note_text,
-        created_by: '1',
-        created_at: new Date().toISOString(),
-        creator_name: 'Admin User',
-        creator_email: 'admin@datalegos.com'
-      }
-    }
-    
     const response = await apiClient.post(url, data, config)
     return response.data
   },
@@ -1099,103 +649,22 @@ const api = {
 
   // QA Metrics
   async getBugSummaryMetrics(hierarchyFilter?: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return {
-        total_bugs: 127,
-        open_bugs: 45,
-        closed_bugs: 82,
-        resolution_rate: 64.6,
-        average_resolution_time: 5.2,
-        by_severity: {
-          'Blocker': 3,
-          'Critical': 12,
-          'Major': 35,
-          'Minor': 52,
-          'Trivial': 25
-        },
-        by_priority: {
-          'P0 (Critical)': 8,
-          'P1 (High)': 28,
-          'P2 (Medium)': 61,
-          'P3 (Low)': 30
-        },
-        by_status: {
-          'New': 12,
-          'Open': 15,
-          'In Progress': 18,
-          'Fixed': 25,
-          'Verified': 20,
-          'Closed': 37
-        }
-      }
-    }
     const response = await apiClient.get('/qa-metrics/bugs/summary', { params: hierarchyFilter })
     return response.data
   },
 
   async getBugTrends(startDate?: string, endDate?: string, hierarchyFilter?: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      const dates = []
-      const created = []
-      const resolved = []
-      const today = new Date()
-      
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today)
-        date.setDate(date.getDate() - i)
-        dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
-        created.push(Math.floor(Math.random() * 10) + 5)
-        resolved.push(Math.floor(Math.random() * 8) + 3)
-      }
-      
-      return { dates, created, resolved }
-    }
     const params = { ...hierarchyFilter, start_date: startDate, end_date: endDate }
     const response = await apiClient.get('/qa-metrics/bugs/trends', { params })
     return response.data
   },
 
   async getBugAgingReport(hierarchyFilter?: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return {
-        age_ranges: [
-          { range: '0-7 days', count: 28, percentage: 22.0 },
-          { range: '8-30 days', count: 45, percentage: 35.4 },
-          { range: '31-90 days', count: 38, percentage: 29.9 },
-          { range: '90+ days', count: 16, percentage: 12.6 }
-        ],
-        average_age_by_severity: {
-          'Blocker': 2.5,
-          'Critical': 8.3,
-          'Major': 25.7,
-          'Minor': 42.1,
-          'Trivial': 58.9
-        }
-      }
-    }
     const response = await apiClient.get('/qa-metrics/bugs/aging', { params: hierarchyFilter })
     return response.data
   },
 
   async getTestExecutionMetrics(testRunId?: string, hierarchyFilter?: any) {
-    if (USE_DUMMY_DATA) {
-      await delay(400)
-      return {
-        total_executions: 245,
-        passed: 180,
-        failed: 45,
-        blocked: 12,
-        skipped: 8,
-        pass_rate: 73.5,
-        fail_rate: 18.4,
-        execution_coverage: 82.3,
-        total_test_cases: 150,
-        executed_test_cases: 123
-      }
-    }
     const params = { ...hierarchyFilter, test_run_id: testRunId }
     const response = await apiClient.get('/qa-metrics/test-execution/summary', { params })
     return response.data
@@ -1226,6 +695,148 @@ const api = {
   async deleteOrganization(id: string) {
     const response = await apiClient.delete(`/organizations/${id}`)
     return response.data
+  },
+
+  // Team Management Operations - NEW
+  async getTeams(projectId?: string) {
+    const response = await apiClient.get('/teams/', { params: { project_id: projectId } })
+    return response.data.items || response.data || []
+  },
+
+  async getTeam(id: string) {
+    const response = await apiClient.get(`/teams/${id}`)
+    return response.data
+  },
+
+  async createTeam(data: any) {
+    const response = await apiClient.post('/teams/', data)
+    return response.data
+  },
+
+  async updateTeam(id: string, data: any) {
+    const response = await apiClient.put(`/teams/${id}`, data)
+    return response.data
+  },
+
+  async deleteTeam(id: string) {
+    const response = await apiClient.delete(`/teams/${id}`)
+    return response.data
+  },
+
+  async addTeamMember(teamId: string, userId: string, role?: string) {
+    const response = await apiClient.post(`/teams/${teamId}/members`, { 
+      user_id: userId, 
+      role: role || 'Developer' 
+    })
+    return response.data
+  },
+
+  async removeTeamMember(teamId: string, userId: string) {
+    const response = await apiClient.delete(`/teams/${teamId}/members/${userId}`)
+    return response.data
+  },
+
+  async getTeamMembers(teamId: string) {
+    const response = await apiClient.get(`/teams/${teamId}/members`)
+    return response.data || []
+  },
+
+  // Assignment Operations - NEW
+  async getAssignments(entityType?: string, entityId?: string) {
+    const cacheKey = `assignments:${entityType || 'all'}:${entityId || 'all'}`
+    
+    return getCachedOrFetch(cacheKey, async () => {
+      const params: any = {}
+      if (entityType) params.entity_type = entityType
+      if (entityId) params.entity_id = entityId
+      const response = await apiClient.get('/assignments/', { params })
+      return response.data
+    })
+  },
+
+  async createAssignment(data: any) {
+    const response = await apiClient.post('/assignments/', data)
+    // Invalidate assignment cache - clear all assignment-related cache
+    invalidateCache('assignments')
+    console.log('Assignment created successfully, cache invalidated')
+    return response.data
+  },
+
+  async updateAssignment(id: string, data: any) {
+    const response = await apiClient.put(`/assignments/${id}`, data)
+    // Invalidate assignment cache
+    invalidateCache('assignments:')
+    return response.data
+  },
+
+  async deleteAssignment(id: string) {
+    const response = await apiClient.delete(`/assignments/${id}`)
+    // Invalidate assignment cache - clear all assignment-related cache
+    invalidateCache('assignments')
+    console.log('Assignment deleted successfully, cache invalidated')
+    return response.data
+  },
+
+  async getAvailableAssignees(entityType: string, entityId: string) {
+    const response = await apiClient.get(`/assignments/available-assignees`, {
+      params: { entity_type: entityType, entity_id: entityId }
+    })
+    return response.data
+  },
+
+  // Decision Management
+  async getDecisions(params?: { entity_type?: string; decision_status?: string; skip?: number; limit?: number }) {
+    const response = await apiClient.get('/decisions/', { params })
+    return response.data
+  },
+
+  async createDecision(data: {
+    note_text: string;
+    entity_type: string;
+    entity_id: string;
+    decision_status?: string;
+  }) {
+    const response = await apiClient.post('/decisions/', data)
+    return response.data
+  },
+
+  async updateDecisionStatus(decisionId: string, status: string) {
+    const response = await apiClient.put(`/decisions/${decisionId}/status`, {
+      decision_status: status
+    })
+    return response.data
+  },
+
+  async getDecisionStats() {
+    const response = await apiClient.get('/decisions/stats')
+    return response.data
+  },
+
+  // Enhanced Entity Notes with Decision Support
+  async getEntityNotes(entityType: string, entityId: string, params?: {
+    decisions_only?: boolean;
+    notes_only?: boolean;
+    skip?: number;
+    limit?: number;
+  }) {
+    const response = await apiClient.get(`/hierarchy/${entityType}/${entityId}/notes`, { params })
+    return response.data
+  },
+
+  async createEntityNote(entityType: string, entityId: string, data: {
+    note_text: string;
+    is_decision?: boolean;
+    decision_status?: string;
+  }) {
+    const response = await apiClient.post(`/hierarchy/${entityType}/${entityId}/notes`, data)
+    return response.data
+  },
+
+  async updateDecisionStatusInEntity(entityType: string, entityId: string, noteId: string, status: string) {
+    const response = await apiClient.put(`/hierarchy/${entityType}/${entityId}/notes/${noteId}/decision-status`, {
+      decision_status: status
+    })
+    return response.data
   }
 }
 
@@ -1233,7 +844,7 @@ export default api
 
 // Export a typed API interface for better type safety
 export interface HierarchyAPI {
-  // Generic Entity Operations (Requirements: 11.1, 11.2, 11.3, 11.4, 11.5)
+  // Generic Entity Operations
   getEntity: (type: string, id: string) => Promise<any>
   getEntityList: (type: string, filters?: Record<string, any>) => Promise<any[]>
   createEntity: (type: string, data: any) => Promise<any>
@@ -1295,12 +906,32 @@ export interface HierarchyAPI {
   getUsers: () => Promise<any[]>
   getCurrentUser: () => Promise<any>
   updateUserPreferences: (data: any) => Promise<any>
+  createUser: (userData: any) => Promise<any>
+  updateUser: (userId: string, userData: any) => Promise<any>
+  deleteUser: (userId: string) => Promise<any>
   
   // Auth Operations
   login: (email: string, password: string) => Promise<any>
   
   // Audit Operations
   getAuditLogs: (entityType: string, entityId: string, filters?: any) => Promise<any>
+
+  // Team Operations
+  getTeams: (projectId?: string) => Promise<any[]>
+  getTeam: (id: string) => Promise<any>
+  createTeam: (data: any) => Promise<any>
+  updateTeam: (id: string, data: any) => Promise<any>
+  deleteTeam: (id: string) => Promise<any>
+  addTeamMember: (teamId: string, userId: string, role?: string) => Promise<any>
+  removeTeamMember: (teamId: string, userId: string) => Promise<any>
+  getTeamMembers: (teamId: string) => Promise<any[]>
+
+  // Assignment Operations
+  getAssignments: (entityType?: string, entityId?: string) => Promise<any[]>
+  createAssignment: (data: any) => Promise<any>
+  updateAssignment: (id: string, data: any) => Promise<any>
+  deleteAssignment: (id: string) => Promise<any>
+  getAvailableAssignees: (entityType: string, entityId: string) => Promise<any[]>
 }
 
 // Ensure api conforms to the interface

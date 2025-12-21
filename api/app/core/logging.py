@@ -54,9 +54,17 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         # Add message
         log_record['message'] = record.getMessage()
         
-        # Add extra fields from record
-        if hasattr(record, 'extra'):
-            log_record.update(record.extra)
+        # Add extra fields from record (avoid overwriting reserved logging fields)
+        reserved_fields = {
+            'name', 'msg', 'args', 'levelname', 'levelno', 'pathname', 'filename', 
+            'module', 'lineno', 'funcName', 'created', 'msecs', 'relativeCreated', 
+            'thread', 'threadName', 'processName', 'process', 'message', 'exc_info', 
+            'exc_text', 'stack_info', 'getMessage', 'extra'
+        }
+        
+        for key, value in record.__dict__.items():
+            if key not in reserved_fields:
+                log_record[key] = value
 
 
 def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None, environment: str = "development") -> None:
@@ -105,11 +113,19 @@ class StructuredLogger:
     
     def _log(self, level: str, message: str, **context: Any) -> None:
         """Internal logging method with context."""
-        extra = {"extra": context} if context else {}
+        # Extract special logging parameters
+        exc_info = context.pop('exc_info', None)
+        stack_info = context.pop('stack_info', None)
+        stacklevel = context.pop('stacklevel', 1)
+        
+        # Pass remaining context as extra
         self.logger.log(
             getattr(logging, level.upper()),
             message,
-            extra=extra
+            exc_info=exc_info,
+            stack_info=stack_info,
+            stacklevel=stacklevel,
+            extra=context
         )
     
     def debug(self, message: str, **context: Any) -> None:

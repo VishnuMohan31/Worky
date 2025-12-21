@@ -1,118 +1,100 @@
 /**
  * Error Boundary Component
- * Catches and handles React errors in component tree
- * Requirements: 8.8
+ * Catches JavaScript errors anywhere in the child component tree
  */
+import React, { Component, ErrorInfo, ReactNode } from 'react'
 
-import { Component, ReactNode, ErrorInfo } from 'react'
-
-interface ErrorBoundaryProps {
+interface Props {
   children: ReactNode
   fallback?: ReactNode
-  onError?: (error: Error, errorInfo: ErrorInfo) => void
 }
 
-interface ErrorBoundaryState {
+interface State {
   hasError: boolean
-  error: Error | null
+  error?: Error
+  errorInfo?: ErrorInfo
 }
 
-export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props)
-    this.state = {
-      hasError: false,
-      error: null
-    }
+    this.state = { hasError: false }
   }
-  
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return {
-      hasError: true,
-      error
-    }
+
+  static getDerivedStateFromError(error: Error): State {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true, error }
   }
-  
+
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to console
+    // Log the error to console
     console.error('ErrorBoundary caught an error:', error, errorInfo)
     
-    // Call optional error handler
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo)
-    }
-  }
-  
-  handleReset = () => {
     this.setState({
-      hasError: false,
-      error: null
+      error,
+      errorInfo
     })
   }
-  
+
   render() {
     if (this.state.hasError) {
-      // Use custom fallback if provided
+      // Custom fallback UI
       if (this.props.fallback) {
         return this.props.fallback
       }
-      
-      // Default error UI
+
+      // Default fallback UI
       return (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '400px',
-            padding: '24px',
-            textAlign: 'center'
-          }}
-        >
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚠️</div>
-          <h2
-            style={{
-              fontSize: '24px',
-              fontWeight: 'bold',
-              marginBottom: '8px',
-              color: 'var(--text-color)'
-            }}
-          >
-            Something went wrong
-          </h2>
-          <p
-            style={{
-              fontSize: '16px',
-              marginBottom: '24px',
-              color: 'var(--text-secondary)',
-              maxWidth: '500px'
-            }}
-          >
-            {this.state.error?.message || 'An unexpected error occurred'}
-          </p>
-          <button
-            onClick={this.handleReset}
-            style={{
-              padding: '12px 24px',
-              fontSize: '16px',
-              fontWeight: '500',
-              backgroundColor: 'var(--primary-color)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'opacity 0.2s'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-          >
-            Try Again
-          </button>
+        <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
+          <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-lg">
+            <div className="text-red-600 text-5xl mb-4">💥</div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
+            <p className="text-gray-600 mb-4">
+              The application encountered an unexpected error.
+            </p>
+            
+            {this.state.error && (
+              <div className="text-left mb-4 p-3 bg-gray-100 rounded text-sm">
+                <p className="font-semibold text-red-600 mb-2">Error Details:</p>
+                <p className="font-mono text-xs text-gray-700 break-all">
+                  {this.state.error.message}
+                </p>
+              </div>
+            )}
+            
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Reload Page
+              </button>
+              <button
+                onClick={() => window.history.back()}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Go Back
+              </button>
+            </div>
+            
+            {/* Debug info (only in development) */}
+            {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+              <details className="mt-4 text-left">
+                <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+                  Show Stack Trace (Development)
+                </summary>
+                <pre className="mt-2 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-40">
+                  {this.state.errorInfo.componentStack}
+                </pre>
+              </details>
+            )}
+          </div>
         </div>
       )
     }
-    
+
     return this.props.children
   }
 }
+
+export default ErrorBoundary

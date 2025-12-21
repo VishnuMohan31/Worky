@@ -47,6 +47,29 @@ export default function AuditHistory({ entityType, entityId }: AuditHistoryProps
     setError(null)
     
     try {
+      // Validate that entityId matches entityType pattern
+      const idPrefixes: Record<string, string> = {
+        'client': 'CLI',
+        'program': 'PRG', 
+        'project': 'PRJ',
+        'usecase': 'USC',
+        'userstory': 'UST',
+        'task': 'TSK',
+        'subtask': 'SUB',
+        'bug': 'BUG',
+        'phase': 'PHS',
+        'user': 'USR'
+      }
+      
+      const expectedPrefix = idPrefixes[entityType]
+      if (expectedPrefix && !entityId.startsWith(expectedPrefix)) {
+        console.warn(`AuditHistory: ID/Type mismatch - ${entityType} should start with ${expectedPrefix}, got ${entityId}. Skipping API call.`)
+        setAuditLogs([])
+        setTotalPages(1)
+        setHasMore(false)
+        return
+      }
+      
       const filters: any = {
         page,
         page_size: pageSize

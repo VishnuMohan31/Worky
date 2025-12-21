@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from uuid import UUID
+from sqlalchemy.exc import IntegrityError
 
 from app.db.base import get_db
 from app.models.hierarchy import UserStory, Usecase, Project, Program
@@ -21,7 +21,7 @@ logger = StructuredLogger(__name__)
 
 @router.get("/", response_model=List[UserStoryResponse])
 async def list_user_stories(
-    usecase_id: Optional[UUID] = Query(None),
+    usecase_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
@@ -130,15 +130,28 @@ async def create_user_story(
         if not program or program.client_id != current_user.client_id:
             raise AccessDeniedException()
     
-    story = UserStory(
-        **story_data.dict(),
-        created_by=str(current_user.id),
-        updated_by=str(current_user.id)
-    )
-    
-    db.add(story)
-    await db.commit()
-    await db.refresh(story)
+    try:
+        story = UserStory(
+            **story_data.dict(),
+            created_by=str(current_user.id),
+            updated_by=str(current_user.id)
+        )
+        
+        db.add(story)
+        await db.commit()
+        await db.refresh(story)
+    except IntegrityError as e:
+        await db.rollback()
+        if "phase_id" in str(e) and "not-null" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="phase_id is required for user stories"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Database constraint violation"
+            )
     
     logger.log_activity(
         action="create_user_story",
