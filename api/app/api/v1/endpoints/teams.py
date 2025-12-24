@@ -237,6 +237,7 @@ async def update_team(
             team_id=team_id,
             name=team_data.name,
             description=team_data.description,
+            project_id=team_data.project_id,
             current_user=current_user
         )
         
@@ -606,58 +607,6 @@ async def create_team(
     
     team_dict = team.__dict__.copy()
     team_dict['member_count'] = 0
-    return TeamResponse(**team_dict)
-
-
-@router.put("/{team_id}", response_model=TeamResponse)
-async def update_team(
-    team_id: str,
-    team_data: TeamUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Update a team."""
-    
-    result = await db.execute(
-        select(Team).where(Team.id == team_id)
-    )
-    team = result.scalar_one_or_none()
-    
-    if not team:
-        raise ResourceNotFoundException("Team", team_id)
-    
-    # Only admins can update teams
-    if current_user.role != "Admin":
-        raise AccessDeniedException("Only administrators can update teams")
-    
-    # Update fields
-    for field, value in team_data.dict(exclude_unset=True).items():
-        setattr(team, field, value)
-    
-    team.updated_by = current_user.id
-    
-    await db.commit()
-    await db.refresh(team)
-    
-    logger.log_activity(
-        action="update_team",
-        entity_type="team",
-        entity_id=team_id
-    )
-    
-    # Get member count
-    member_count_result = await db.execute(
-        select(func.count(TeamMember.id)).where(
-            and_(
-                TeamMember.team_id == team_id,
-                TeamMember.is_active == True
-            )
-        )
-    )
-    member_count = member_count_result.scalar() or 0
-    
-    team_dict = team.__dict__.copy()
-    team_dict['member_count'] = member_count
     return TeamResponse(**team_dict)
 
 

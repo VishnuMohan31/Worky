@@ -95,7 +95,7 @@ class ValidationService:
         # Assignment rules matrix
         assignment_rules = {
             "client": {
-                "contact_person": ["Contact Person", "Admin"]
+                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
             },
             "program": {
                 "owner": ["Owner", "Admin", "Architect", "Project Manager"]
@@ -104,16 +104,16 @@ class ValidationService:
                 "owner": ["Owner", "Admin", "Architect", "Project Manager"]
             },
             "usecase": {
-                "owner": ["Owner", "Admin", "Architect", "Designer", "Project Manager"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
             },
             "userstory": {
-                "owner": ["Owner", "Admin", "Architect", "Designer", "Project Manager"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
             },
             "task": {
-                "developer": ["Developer", "Admin"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
             },
             "subtask": {
-                "developer": ["Developer", "Admin"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
             }
         }
         
@@ -486,7 +486,7 @@ class ValidationService:
         """
         return {
             "client": {
-                "contact_person": ["Contact Person", "Admin"]
+                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
             },
             "program": {
                 "owner": ["Owner", "Admin", "Architect", "Project Manager"]
@@ -495,16 +495,16 @@ class ValidationService:
                 "owner": ["Owner", "Admin", "Architect", "Project Manager"]
             },
             "usecase": {
-                "owner": ["Owner", "Admin", "Architect", "Designer", "Project Manager"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
             },
             "userstory": {
-                "owner": ["Owner", "Admin", "Architect", "Designer", "Project Manager"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
             },
             "task": {
-                "developer": ["Developer", "Admin"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
             },
             "subtask": {
-                "developer": ["Developer", "Admin"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
             }
         }
     

@@ -4,7 +4,7 @@ User endpoints for the Worky API.
 from typing import List
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.db.base import get_db
 from app.models.user import User
@@ -23,11 +23,12 @@ async def list_users(
     current_user: User = Depends(get_current_user)
 ):
     """List all users."""
-    query = select(User).where(User.is_active == True)
+    # Show all users (both active and inactive) for admins to manage
+    query = select(User)
     
-    # Non-admin users can only see users from their own client
+    # Non-admin users can only see active users from their own client
     if current_user.role != "Admin":
-        query = query.where(User.client_id == current_user.client_id)
+        query = query.where(User.client_id == current_user.client_id).where(User.is_active == True)
     
     result = await db.execute(query)
     users = result.scalars().all()
@@ -124,11 +125,11 @@ async def get_user(
 ):
     """Get a specific user by ID."""
     
-    query = select(User).where(User.id == user_id, User.is_active == True)
+    # Admins can see all users (both active and inactive), non-admins only active users from their client
+    query = select(User).where(User.id == user_id)
     
-    # Non-admin users can only see users from their own client
     if current_user.role != "Admin":
-        query = query.where(User.client_id == current_user.client_id)
+        query = query.where(User.client_id == current_user.client_id).where(User.is_active == True)
     
     result = await db.execute(query)
     user = result.scalar_one_or_none()
@@ -148,9 +149,9 @@ async def update_user(
 ):
     """Update a user (Admin only)."""
     
-    # Get the user to update
+    # Get the user to update (admins can update any user including inactive ones)
     result = await db.execute(
-        select(User).where(User.id == user_id, User.is_active == True)
+        select(User).where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
     
@@ -198,11 +199,11 @@ async def delete_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(["Admin"]))
 ):
-    """Soft delete a user (Admin only)."""
+    """Permanently delete a user (Admin only)."""
     
     # Get the user to delete
     result = await db.execute(
-        select(User).where(User.id == user_id, User.is_active == True)
+        select(User).where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
     
@@ -213,14 +214,67 @@ async def delete_user(
     if user.id == current_user.id:
         raise ConflictException("Cannot delete your own account")
     
-    # Soft delete by setting is_active to False
-    user.is_active = False
+    # Delete all related records first (to handle foreign key constraints)
     
+    # Delete assignment history
+    await db.execute(
+        text("DELETE FROM assignment_history WHERE user_id = :user_id OR previous_user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    # Delete assignments
+    await db.execute(
+        text("DELETE FROM assignments WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    # Delete todo items
+    await db.execute(
+        text("DELETE FROM todo_items WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    # Delete notifications
+    await db.execute(
+        text("DELETE FROM notifications WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    # Delete notification preferences
+    await db.execute(
+        text("DELETE FROM notification_preferences WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    # Delete any other related records
+    await db.execute(
+        text("DELETE FROM adhoc_notes WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    await db.execute(
+        text("DELETE FROM chat_messages WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    await db.execute(
+        text("DELETE FROM chat_audit_logs WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    await db.execute(
+        text("DELETE FROM reminders WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    # Finally, delete the user permanently
+    await db.delete(user)
     await db.commit()
     
     logger.log_activity(
-        action="delete_user",
+        action="delete_user_permanent",
         entity_type="user",
         entity_id=user_id,
-        user_email=user.email
+        user_email=user.email,
+        note="User permanently deleted from system"
     )

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import api from '../services/api'
 import ClientDetailView from '../components/clients/ClientDetailView'
+import OwnerSelector from '../components/ownership/OwnerSelector'
 
 interface ClientStatistics {
   total_clients: number
@@ -50,6 +51,7 @@ export default function ClientsPage() {
     phone: '',
     is_active: true
   })
+  const [selectedOwners, setSelectedOwners] = useState<string[]>([])
 
   useEffect(() => {
     loadStatistics()
@@ -129,12 +131,36 @@ export default function ClientsPage() {
     setSubmitting(true)
     
     try {
+      let clientId: string
+      
       if (editingClient) {
         // Update existing client
         await api.updateClient(editingClient.id, formData)
+        clientId = editingClient.id
       } else {
         // Create new client
-        await api.createClient(formData)
+        const newClient = await api.createClient(formData)
+        clientId = newClient.id
+      }
+      
+      // Handle owner assignments for new clients or when owners are selected
+      if (selectedOwners.length > 0) {
+        try {
+          // Create owner assignments
+          for (const ownerId of selectedOwners) {
+            await api.createAssignment({
+              entity_type: 'client',
+              entity_id: clientId,
+              user_id: ownerId,
+              assignment_type: 'owner'
+            })
+          }
+          console.log(`Successfully assigned ${selectedOwners.length} owners to client ${clientId}`)
+        } catch (ownerError) {
+          console.error('Failed to assign owners:', ownerError)
+          // Don't fail the entire operation, just show a warning
+          alert('Client created successfully, but failed to assign some owners. You can assign them later from the client details page.')
+        }
       }
       
       setShowModal(false)
@@ -147,6 +173,8 @@ export default function ClientsPage() {
         phone: '',
         is_active: true
       })
+      setSelectedOwners([])
+      
       // Reload statistics to show the updated/new client
       await loadStatistics()
     } catch (error) {
@@ -168,6 +196,7 @@ export default function ClientsPage() {
       phone: '',
       is_active: true
     })
+    setSelectedOwners([])
   }
 
   if (loading) {
@@ -494,6 +523,18 @@ export default function ClientsPage() {
                     Active Client
                   </label>
                 </div>
+
+                {/* Owner Assignment - NEW */}
+                {!editingClient && (
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                    <OwnerSelector
+                      entityType="client"
+                      selectedOwners={selectedOwners}
+                      onOwnersChange={setSelectedOwners}
+                      disabled={submitting}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Form Actions */}

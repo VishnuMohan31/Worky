@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import SubtaskForm from '../forms/SubtaskForm'
 import api from '../../services/api'
+import EnhancedAssignmentDisplay from '../assignments/EnhancedAssignmentDisplay'
 import type { Subtask, SubtaskFormData, Task, Phase, User, Client, Program, Project, UseCase, UserStory } from '../../types/entities'
 
 interface SubtaskModalProps {
@@ -124,6 +125,20 @@ export default function SubtaskModal({
       size="lg"
     >
       <div className="space-y-4">
+        {/* Assignment Management - AT TOP */}
+        {isEditMode && subtask && (
+          <div className="mb-6 pb-4 border-b border-gray-200">
+            <EnhancedAssignmentDisplay
+              entityType="subtask"
+              entityId={subtask.id}
+              onAssignmentChange={() => {
+                // Refresh assignments if needed
+                console.log('Subtask assignments updated')
+              }}
+            />
+          </div>
+        )}
+
         {/* Error Display */}
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">

@@ -103,6 +103,7 @@ export const AssignmentHistory: React.FC<AssignmentHistoryProps> = ({
   const getAssignmentTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       'owner': 'Owner',
+      'assignee': 'Assignee',
       'contact_person': 'Contact Person',
       'developer': 'Developer'
     };

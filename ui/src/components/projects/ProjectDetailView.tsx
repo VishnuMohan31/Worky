@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
 import ProjectTeamDisplay from './ProjectTeamDisplay'
+import OwnershipDisplay from '../ownership/OwnershipDisplay'
 
 interface ProjectDetail {
   id: string
@@ -253,6 +254,25 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Project Information */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Owner Management - AT TOP */}
+              <div 
+                className="rounded-lg p-6"
+                style={{ 
+                  backgroundColor: 'var(--background-color)',
+                  border: '1px solid var(--border-color)',
+                  borderLeft: '4px solid var(--primary-color)'
+                }}
+              >
+                <OwnershipDisplay
+                  entityType="project"
+                  entityId={project.id}
+                  onOwnershipChange={() => {
+                    // Refresh project data if needed
+                    console.log('Project ownership updated')
+                  }}
+                />
+              </div>
+
               {/* Basic Information */}
               <div 
                 className="rounded-lg p-6"

@@ -9,7 +9,6 @@ import AuditHistory from './AuditHistory'
 import EntityNotes from './EntityNotes'
 import Modal from '../common/Modal'
 import EntityForm from '../forms/EntityForm'
-import { AssignmentDisplay } from '../assignments/AssignmentDisplay'
 import AssignmentSelector from '../assignments/AssignmentSelector'
 import TaskAssignmentSummary from '../assignments/TaskAssignmentSummary'
 import OwnershipDisplay from '../ownership/OwnershipDisplay'
@@ -311,40 +310,31 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
         </dl>
       </div>
       
-      {/* Ownership/Assignment Display - NEW FEATURE */}
+      {/* Ownership/Assignment Display - CLEAN VERSION */}
       <div className="pt-6 border-t">
         {(type === 'client' || type === 'program' || type === 'project') ? (
-          <OwnershipDisplay 
-            entityType={type as 'client' | 'program' | 'project'}
-            entityId={entity.id}
-            onOwnershipChange={() => {
-              // Optionally refresh the entity data
-              console.log('Ownership changed for', type, entity.id)
-            }}
-          />
+          <div>
+            <OwnershipDisplay 
+              entityType={type as 'client' | 'program' | 'project'}
+              entityId={entity.id}
+              onOwnershipChange={() => {
+                // Optionally refresh the entity data
+                console.log('Ownership changed for', type, entity.id)
+              }}
+            />
+          </div>
         ) : (
-          <EnhancedAssignmentDisplay 
-            entityType={type as 'usecase' | 'userstory' | 'task' | 'subtask'}
-            entityId={entity.id}
-            onAssignmentChange={() => {
-              // Optionally refresh the entity data
-              console.log('Assignment changed for', type, entity.id)
-            }}
-          />
+          <div>
+            <EnhancedAssignmentDisplay 
+              entityType={type as 'usecase' | 'userstory' | 'task' | 'subtask'}
+              entityId={entity.id}
+              onAssignmentChange={() => {
+                // Optionally refresh the entity data
+                console.log('Assignment changed for', type, entity.id)
+              }}
+            />
+          </div>
         )}
-      </div>
-
-      {/* Legacy Assignment Display - Keep for backward compatibility */}
-      <div className="pt-6 border-t">
-        <AssignmentDisplay 
-          entityType={type} 
-          entityId={entity.id}
-          showActions={true}
-          onAssignmentChange={() => {
-            // Optionally refresh the entity data
-            console.log('Legacy assignment changed for', type, entity.id)
-          }}
-        />
       </div>
 
       {/* Actions */}
@@ -489,20 +479,7 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
             phase_id: entity.phase_id || '',
             assigned_to: entity.assigned_to || ''
           }}
-          additionalFields={
-            <div className="pt-6 border-t">
-              <h4 className="text-lg font-medium text-gray-900 mb-4">Current Assignments</h4>
-              <AssignmentDisplay 
-                entityType={type} 
-                entityId={entity.id}
-                showActions={true}
-                onAssignmentChange={() => {
-                  // Refresh assignments when changed
-                  console.log('Assignment changed in edit form')
-                }}
-              />
-            </div>
-          }
+          additionalFields={undefined}
           onSubmit={async (data) => {
             setIsUpdating(true)
             try {

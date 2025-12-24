@@ -47,11 +47,12 @@ class AssignmentService:
                 detail="User not found or inactive"
             )
         
-        # Check for existing active assignment
+        # Check for existing active assignment - only prevent same user + same role
         existing_query = select(Assignment).where(
             and_(
                 Assignment.entity_type == entity_type,
                 Assignment.entity_id == entity_id,
+                Assignment.user_id == user_id,
                 Assignment.assignment_type == assignment_type,
                 Assignment.is_active == True
             )
@@ -60,20 +61,12 @@ class AssignmentService:
         existing_assignment = existing_result.scalar_one_or_none()
         
         if existing_assignment:
-            if existing_assignment.user_id == user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Entity is already assigned to this user"
-                )
-            else:
-                # Update existing assignment
-                existing_assignment.user_id = user_id
-                existing_assignment.updated_by = current_user.id
-                await self.db.commit()
-                await self.db.refresh(existing_assignment)
-                return existing_assignment
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already assigned this role for this entity"
+            )
         
-        # Create new assignment
+        # Always create new assignment (allow multiple users with same role)
         assignment = Assignment(
             id=generate_id("ASSGN"),
             entity_type=entity_type,
@@ -291,9 +284,11 @@ class AssignmentService:
         Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
         """
         # Assignment rules matrix
+        # Client, Program, Project = Owner (multiple allowed)
+        # UseCase, UserStory, Task, Subtask = Assignee from Team Members
         assignment_rules = {
             "client": {
-                "contact_person": ["Contact Person", "Admin"]
+                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
             },
             "program": {
                 "owner": ["Owner", "Admin", "Architect", "Project Manager"]
@@ -302,16 +297,16 @@ class AssignmentService:
                 "owner": ["Owner", "Admin", "Architect", "Project Manager"]
             },
             "usecase": {
-                "owner": ["Owner", "Admin", "Architect", "Designer", "Project Manager"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
             },
             "userstory": {
-                "owner": ["Owner", "Admin", "Architect", "Designer", "Project Manager"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
             },
             "task": {
-                "developer": ["Developer", "Admin", "DevOps", "Tester", "Lead", "Manager"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
             },
             "subtask": {
-                "developer": ["Developer", "Admin", "DevOps", "Tester", "Lead", "Manager"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
             }
         }
         
@@ -326,8 +321,9 @@ class AssignmentService:
         # Get allowed roles for this assignment
         allowed_roles = assignment_rules[entity_type][assignment_type]
         
-        # Check user's primary role
-        if user.primary_role in allowed_roles:
+        # Check user's primary role (fallback to role field for backward compatibility)
+        user_primary_role = user.primary_role or user.role
+        if user_primary_role in allowed_roles:
             return {"valid": True}
         
         # Check user's secondary roles
@@ -342,7 +338,7 @@ class AssignmentService:
         
         return {
             "valid": False, 
-            "error": f"User role '{user.primary_role}' is not compatible with assignment type '{assignment_type}' for entity type '{entity_type}'"
+            "error": f"User role '{user_primary_role}' is not compatible with assignment type '{assignment_type}' for entity type '{entity_type}'"
         }
     
     async def validate_team_membership(

@@ -401,6 +401,7 @@ class TeamService:
         team_id: str,
         name: Optional[str] = None,
         description: Optional[str] = None,
+        project_id: Optional[str] = None,
         current_user: User = None
     ) -> Team:
         """
@@ -408,6 +409,8 @@ class TeamService:
         
         Requirements: 2.2
         """
+        from sqlalchemy import update as sql_update
+        
         # Verify team exists
         team = await self.get_team_by_id(team_id)
         if not team:
@@ -423,16 +426,26 @@ class TeamService:
                 detail="Insufficient permissions to modify team"
             )
         
-        # Update fields
+        # Build update values dictionary
+        update_values = {
+            "updated_by": current_user.id,
+            "updated_at": datetime.utcnow()
+        }
+        
         if name is not None:
-            team.name = name
+            update_values["name"] = name
         if description is not None:
-            team.description = description
+            update_values["description"] = description
+        if project_id is not None:
+            # Empty string means clear the project_id (unassign from project)
+            update_values["project_id"] = project_id if project_id != "" else None
         
-        team.updated_by = current_user.id
-        team.updated_at = datetime.utcnow()
-        
+        # Use direct SQL update for reliability
+        stmt = sql_update(Team).where(Team.id == team_id).values(**update_values)
+        await self.db.execute(stmt)
         await self.db.commit()
+        
+        # Refresh the team object
         await self.db.refresh(team)
         
         return team

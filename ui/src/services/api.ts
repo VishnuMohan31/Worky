@@ -742,13 +742,21 @@ const api = {
   },
 
   // Assignment Operations - NEW
-  async getAssignments(entityType?: string, entityId?: string) {
-    const cacheKey = `assignments:${entityType || 'all'}:${entityId || 'all'}`
+  async getAssignments(filters?: { 
+    entity_type?: string, 
+    entity_id?: string, 
+    assignment_type?: string, 
+    user_id?: string 
+  }) {
+    const cacheKey = `assignments:${JSON.stringify(filters || {})}`
     
     return getCachedOrFetch(cacheKey, async () => {
       const params: any = {}
-      if (entityType) params.entity_type = entityType
-      if (entityId) params.entity_id = entityId
+      if (filters?.entity_type) params.entity_type = filters.entity_type
+      if (filters?.entity_id) params.entity_id = filters.entity_id
+      if (filters?.assignment_type) params.assignment_type = filters.assignment_type
+      if (filters?.user_id) params.user_id = filters.user_id
+      
       const response = await apiClient.get('/assignments/', { params })
       return response.data
     })
@@ -780,6 +788,14 @@ const api = {
   async getAvailableAssignees(entityType: string, entityId: string) {
     const response = await apiClient.get(`/assignments/available-assignees`, {
       params: { entity_type: entityType, entity_id: entityId }
+    })
+    return response.data
+  },
+
+  // Get eligible users for assignment (uses backend validation rules)
+  async getEligibleUsers(entityType: string, entityId: string, assignmentType: string) {
+    const response = await apiClient.get(`/validation/eligible-users/${entityType}/${entityId}`, {
+      params: { assignment_type: assignmentType }
     })
     return response.data
   },
@@ -927,7 +943,12 @@ export interface HierarchyAPI {
   getTeamMembers: (teamId: string) => Promise<any[]>
 
   // Assignment Operations
-  getAssignments: (entityType?: string, entityId?: string) => Promise<any[]>
+  getAssignments: (filters?: { 
+    entity_type?: string, 
+    entity_id?: string, 
+    assignment_type?: string, 
+    user_id?: string 
+  }) => Promise<any[]>
   createAssignment: (data: any) => Promise<any>
   updateAssignment: (id: string, data: any) => Promise<any>
   deleteAssignment: (id: string) => Promise<any>

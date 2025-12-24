@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import api from '../../services/api'
+import EnhancedAssignmentDisplay from '../assignments/EnhancedAssignmentDisplay'
 
 interface UseCaseModalProps {
   isOpen: boolean
@@ -119,6 +120,20 @@ export default function UseCaseModal({
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
+          </div>
+        )}
+
+        {/* Assignment Management - AT TOP */}
+        {isEditMode && (
+          <div className="mb-6 pb-4 border-b border-gray-200">
+            <EnhancedAssignmentDisplay
+              entityType="usecase"
+              entityId={useCase.id}
+              onAssignmentChange={() => {
+                // Refresh assignments if needed
+                console.log('Use case assignments updated')
+              }}
+            />
           </div>
         )}
 

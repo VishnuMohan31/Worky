@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Modal Rendering</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { border: 1px solid #ccc; padding: 15px; margin: 10px 0; }
+        .debug-title { font-weight: bold; color: #333; }
+        .debug-value { color: #666; margin-left: 20px; }
+        .condition { color: #007bff; }
+        .result { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Debug: Owner Assignment UI Visibility</h1>
+    
+    <div class="debug-section">
+        <div class="debug-title">Current Test Results:</div>
+        <div class="debug-value">✅ User is Admin: <span class="result">TRUE</span></div>
+        <div class="debug-value">✅ Backend API working: <span class="result">TRUE</span></div>
+        <div class="debug-value">✅ Owner assignment API working: <span class="result">TRUE</span></div>
+        <div class="debug-value">✅ Eligible users available: <span class="result">TRUE (1 user)</span></div>
+    </div>
+    
+    <div class="debug-section">
+        <div class="debug-title">UI Conditional Rendering Logic:</div>
+        <div class="debug-value">
+            <span class="condition">Condition:</span> {!isEditMode && isAdmin && (
+        </div>
+        <div class="debug-value">
+            <span class="condition">isEditMode:</span> FALSE (when creating new entity) ✅
+        </div>
+        <div class="debug-value">
+            <span class="condition">isAdmin:</span> TRUE (user role is Admin) ✅
+        </div>
+        <div class="debug-value">
+            <span class="condition">Result:</span> <span class="result">OwnerSelector SHOULD BE VISIBLE</span>
+        </div>
+    </div>
+    
+    <div class="debug-section">
+        <div class="debug-title">Possible Issues to Check:</div>
+        <div class="debug-value">1. Browser console errors preventing component render</div>
+        <div class="debug-value">2. CSS hiding the component (display: none, visibility: hidden)</div>
+        <div class="debug-value">3. Component mounting/unmounting issues</div>
+        <div class="debug-value">4. React state not updating correctly</div>
+        <div class="debug-value">5. Modal size constraints hiding the component</div>
+    </div>
+    
+    <div class="debug-section">
+        <div class="debug-title">Next Steps:</div>
+        <div class="debug-value">1. Open browser dev tools (F12)</div>
+        <div class="debug-value">2. Go to Console tab and check for JavaScript errors</div>
+        <div class="debug-value">3. Go to Elements tab and search for "OwnerSelector" or "Assign Owners"</div>
+        <div class="debug-value">4. Check if the component is rendered but hidden by CSS</div>
+        <div class="debug-value">5. Add console.log statements to debug component rendering</div>
+    </div>
+    
+    <div class="debug-section">
+        <div class="debug-title">Manual Test Instructions:</div>
+        <div class="debug-value">1. Open <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></div>
+        <div class="debug-value">2. Login with: admin@datalegos.com / password</div>
+        <div class="debug-value">3. Go to Programs page</div>
+        <div class="debug-value">4. Click "New Program" button</div>
+        <div class="debug-value">5. Look for "Assign Owners" section at the bottom of the form</div>
+        <div class="debug-value">6. Repeat for Projects page</div>
+    </div>
+</body>
+</html>

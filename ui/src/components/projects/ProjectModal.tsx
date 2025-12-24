@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import api from '../../services/api'
+import OwnerSelector from '../ownership/OwnerSelector'
 
 interface ProjectModalProps {
   isOpen: boolean
@@ -39,6 +40,7 @@ export default function ProjectModal({
     end_date: '',
     repository_url: ''
   })
+  const [selectedOwners, setSelectedOwners] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -68,6 +70,7 @@ export default function ProjectModal({
         repository_url: ''
       })
     }
+    setSelectedOwners([])
     setError('')
   }, [project, selectedProgramId, isOpen])
 
@@ -93,11 +96,37 @@ export default function ProjectModal({
     setError('')
 
     try {
+      let projectId: string
+      
       if (isEditMode) {
         await api.updateEntity('project', project.id, formData)
+        projectId = project.id
       } else {
-        await api.createEntity('project', formData)
+        const newProject = await api.createEntity('project', formData)
+        projectId = newProject.id
       }
+      
+      // Handle owner assignments for new projects only (edit mode handles assignments directly)
+      if (selectedOwners.length > 0 && !isEditMode) {
+        try {
+          // Create owner assignments
+          for (const ownerId of selectedOwners) {
+            await api.createAssignment({
+              entity_type: 'project',
+              entity_id: projectId,
+              user_id: ownerId,
+              assignment_type: 'owner'
+            })
+          }
+          console.log(`Successfully assigned ${selectedOwners.length} owners to project ${projectId}`)
+        } catch (ownerError) {
+          console.error('Failed to assign owners:', ownerError)
+          // Don't fail the entire operation, just show a warning
+          setError('Project created successfully, but failed to assign some owners. You can assign them later from the project details.')
+          return // Don't close modal immediately so user can see the message
+        }
+      }
+      
       onSuccess()
       onClose()
     } catch (err: any) {
@@ -121,6 +150,19 @@ export default function ProjectModal({
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
+          </div>
+        )}
+
+        {/* Owner Assignment - MOVED TO TOP */}
+        {isAdmin && (
+          <div className="mb-6 pb-4 border-b border-gray-200">
+            <OwnerSelector
+              entityType="project"
+              selectedOwners={selectedOwners}
+              onOwnersChange={setSelectedOwners}
+              disabled={loading}
+              existingEntityId={isEditMode ? project.id : undefined}
+            />
           </div>
         )}
 

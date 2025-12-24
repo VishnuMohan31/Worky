@@ -37,7 +37,10 @@ export default function EntityCard({ entity, type, onClick, onAssignmentChange }
     loadTimeoutRef.current = window.setTimeout(async () => {
       try {
         console.log(`Loading assignments for ${type}:${entity.id}`)
-        const response = await api.getAssignments(type, entity.id)
+        const response = await api.getAssignments({
+          entity_type: type,
+          entity_id: entity.id
+        })
         console.log(`Loaded ${response.length} assignments:`, response)
         
         // Filter to only active assignments to prevent duplicates
@@ -162,6 +165,7 @@ export default function EntityCard({ entity, type, onClick, onAssignmentChange }
                 entityType={type}
                 entityId={entity.id}
                 currentAssignment={currentAssignment}
+                allAssignments={assignments}
                 onAssignmentChange={handleAssignmentChange}
                 size="md"
               />

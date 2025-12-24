@@ -15,7 +15,8 @@ import EntityDetails from './EntityDetails'
 import EntityList from './EntityList'
 import MobileNavigation from './MobileNavigation'
 import SkeletonLoader from './SkeletonLoader'
-import { AssignmentDisplay } from '../assignments/AssignmentDisplay'
+import EnhancedAssignmentDisplay from '../assignments/EnhancedAssignmentDisplay'
+import OwnershipDisplay from '../ownership/OwnershipDisplay'
 
 interface HierarchyNavigatorProps {
   initialEntityId?: string
@@ -380,13 +381,19 @@ function HierarchyNavigatorInner({
             </div>
             <div style={baseStyles.paneContent}>
               <EntityDetails entity={parentEntity} type={parentType} compact />
-              {/* Assignment Display for Parent */}
+              {/* Assignment/Ownership Display for Parent */}
               <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
-                <AssignmentDisplay 
-                  entityType={parentType} 
-                  entityId={parentEntity.id}
-                  showActions={false}
-                />
+                {(parentType === 'client' || parentType === 'program' || parentType === 'project') ? (
+                  <OwnershipDisplay 
+                    entityType={parentType as 'client' | 'program' | 'project'}
+                    entityId={parentEntity.id}
+                  />
+                ) : (
+                  <EnhancedAssignmentDisplay 
+                    entityType={parentType as 'usecase' | 'userstory' | 'task' | 'subtask'}
+                    entityId={parentEntity.id}
+                  />
+                )}
               </div>
             </div>
           </div>

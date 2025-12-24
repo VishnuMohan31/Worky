@@ -14,7 +14,7 @@ class Team(Base):
     id = Column(String(50), primary_key=True)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    project_id = Column(String(50), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(String(50), ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

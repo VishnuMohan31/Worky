@@ -50,59 +50,99 @@ export default function UsersPage() {
       fullName: user.fullName || user.full_name || '',
       email: user.email || '',
       role: user.role || 'Developer',
-      isActive: user.isActive !== undefined ? user.isActive : true
+      isActive: user.isActive !== undefined ? user.isActive : (user.is_active !== undefined ? user.is_active : true)
     })
     setShowEditModal(true)
   }
 
   const handleCreateUser = async () => {
+    if (!formData.fullName.trim()) {
+      alert('Please enter a full name')
+      return
+    }
+    if (!formData.email.trim()) {
+      alert('Please enter an email address')
+      return
+    }
+    if (!formData.role) {
+      alert('Please select a role')
+      return
+    }
+
     try {
+      // Get first available client for new user
+      const clients = await api.getClients()
+      const clientId = clients?.clients?.[0]?.id || clients?.[0]?.id || 'CLI-001'
+      
       await api.createUser({
-        full_name: formData.fullName,
-        email: formData.email,
+        full_name: formData.fullName.trim(),
+        email: formData.email.trim(),
         role: formData.role,
-        password: 'defaultPassword123', // Default password - user should change on first login
-        client_id: currentUser?.clientId || 'CLI-001', // Use current user's client or default
+        password: 'password123', // Default password
+        client_id: clientId,
         language: 'en',
         theme: 'snow'
       })
+      
       await loadUsers()
       handleCloseModals()
-      alert('User created successfully! Default password: defaultPassword123')
-    } catch (error) {
+      alert('User created successfully! Default password: password123')
+    } catch (error: any) {
       console.error('Failed to create user:', error)
-      alert('Failed to create user. Please try again.')
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create user. Please try again.'
+      alert(errorMessage)
     }
   }
 
   const handleUpdateUser = async () => {
     if (!selectedUser) return
     
+    if (!formData.fullName.trim()) {
+      alert('Please enter a full name')
+      return
+    }
+    if (!formData.email.trim()) {
+      alert('Please enter an email address')
+      return
+    }
+    if (!formData.role) {
+      alert('Please select a role')
+      return
+    }
+    
     try {
       await api.updateUser(selectedUser.id, {
-        full_name: formData.fullName,
-        email: formData.email,
+        full_name: formData.fullName.trim(),
+        email: formData.email.trim(),
         role: formData.role,
         is_active: formData.isActive
       })
       await loadUsers()
       handleCloseModals()
       alert('User updated successfully!')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update user:', error)
-      alert('Failed to update user. Please try again.')
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to update user. Please try again.'
+      alert(errorMessage)
     }
   }
 
   const handleDeleteUser = async (user: any) => {
-    if (window.confirm(`Are you sure you want to delete user "${user.fullName || user.full_name}"?`)) {
+    if (user.id === currentUser?.id) {
+      alert('You cannot delete your own account')
+      return
+    }
+    
+    if (window.confirm(`Are you sure you want to permanently delete user "${user.fullName || user.full_name}"?\n\nThis action cannot be undone and will remove all user data.`)) {
       try {
         await api.deleteUser(user.id)
-        await loadUsers() // Reload the users list
-        alert('User deleted successfully!')
-      } catch (error) {
+        // Remove user from the list immediately
+        setUsers(prevUsers => prevUsers.filter(u => u.id !== user.id))
+        alert('User permanently deleted!')
+      } catch (error: any) {
         console.error('Failed to delete user:', error)
-        alert('Failed to delete user. Please try again.')
+        const errorMessage = error.response?.data?.detail || error.message || 'Failed to delete user. Please try again.'
+        alert(errorMessage)
       }
     }
   }
@@ -201,8 +241,8 @@ export default function UsersPage() {
                   </span>
                 </td>
                 <td className="p-4">
-                  <span className={`px-3 py-1 rounded text-sm ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {user.isActive ? 'Active' : 'Inactive'}
+                  <span className={`px-3 py-1 rounded text-sm ${(user.isActive || user.is_active) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {(user.isActive || user.is_active) ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td className="p-4">

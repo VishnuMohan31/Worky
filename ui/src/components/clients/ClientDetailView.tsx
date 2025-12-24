@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
+import OwnershipDisplay from '../ownership/OwnershipDisplay'
 
 interface ClientDetail {
   id: string
@@ -208,6 +209,37 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Client Information */}
             <div className="lg:col-span-2 space-y-6">
+              
+              {/* Ownership Section - TOP PRIORITY */}
+              <div 
+                className="rounded-lg p-6 border-l-4"
+                style={{ 
+                  backgroundColor: 'var(--card-background)',
+                  border: '1px solid var(--border-color)',
+                  borderLeftColor: '#3b82f6',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100">
+                    <span className="text-blue-600 text-lg font-semibold">👥</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-blue-700">Client Ownership</h3>
+                    <p className="text-sm text-gray-600">Manage who owns and is responsible for this client</p>
+                  </div>
+                </div>
+                
+                <OwnershipDisplay 
+                  entityType="client"
+                  entityId={client.id}
+                  onOwnershipChange={() => {
+                    console.log('Ownership changed for client', client.id)
+                    // Optionally refresh client data
+                  }}
+                />
+              </div>
+
               {/* Basic Information */}
               <div 
                 className="rounded-lg p-6"
@@ -584,6 +616,7 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                 </div>
               </div>
             </div>
+            
           </div>
         </div>
       </div>

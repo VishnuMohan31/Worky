@@ -2,7 +2,7 @@
  * EnhancedAssignmentDisplay Component
  * Simple inline display for multiple assignees (Use Case/User Story/Task/Subtask)
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../../services/api'
 
 interface Assignment {
@@ -28,12 +28,9 @@ interface EnhancedAssignmentDisplayProps {
   onAssignmentChange?: () => void
 }
 
+// Simplified assignment types - UseCase/UserStory/Task/Subtask use "assignee" from team members
 const ASSIGNMENT_TYPES = [
-  { value: 'developer', label: 'Developer', color: 'bg-green-100 text-green-800' },
-  { value: 'tester', label: 'Tester', color: 'bg-purple-100 text-purple-800' },
-  { value: 'designer', label: 'Designer', color: 'bg-pink-100 text-pink-800' },
-  { value: 'reviewer', label: 'Reviewer', color: 'bg-orange-100 text-orange-800' },
-  { value: 'lead', label: 'Lead', color: 'bg-blue-100 text-blue-800' }
+  { value: 'assignee', label: 'Assignee', color: 'bg-blue-100 text-blue-800' }
 ]
 
 export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssignmentChange }: EnhancedAssignmentDisplayProps) {
@@ -41,27 +38,35 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
   const [availableUsers, setAvailableUsers] = useState<User[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedRole, setSelectedRole] = useState('developer')
+  const [selectedRole, setSelectedRole] = useState('assignee')
   const [loading, setLoading] = useState(false)
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  
+  // Refs to prevent multiple simultaneous API calls
+  const loadingAssignmentsRef = useRef(false)
+  const loadingUsersRef = useRef(false)
 
-  // Load current assignments
-  useEffect(() => {
-    loadAssignments()
-  }, [entityType, entityId])
-
-  // Load available users when dropdown opens
-  useEffect(() => {
-    if (showDropdown) {
-      loadAvailableUsers()
+  // Load current assignments with useCallback to prevent unnecessary re-renders
+  const loadAssignments = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (loadingAssignmentsRef.current) {
+      console.log('Already loading assignments, skipping...')
+      return assignments
     }
-  }, [showDropdown])
-
-  const loadAssignments = async () => {
+    
+    loadingAssignmentsRef.current = true
     try {
-      const assignmentData = await api.getAssignments(entityType, entityId)
+      console.log(`Loading assignments for ${entityType}:${entityId}`)
+      const assignmentData = await api.getAssignments({
+        entity_type: entityType,
+        entity_id: entityId
+      })
+      console.log('Raw assignment data:', assignmentData)
+      
       const activeAssignments = assignmentData.filter((a: any) => 
         a.is_active && a.assignment_type !== 'owner'
       )
+      console.log('Active assignments (non-owner):', activeAssignments)
       
       const assignmentsData = activeAssignments.map((assignment: any) => ({
         id: assignment.user_id,
@@ -72,43 +77,95 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
         assignmentType: assignment.assignment_type || 'developer'
       }))
       
+      console.log('Processed assignments data:', assignmentsData)
       setAssignments(assignmentsData)
+      return assignmentsData
     } catch (error) {
       console.error('Failed to load assignments:', error)
+      setAssignments([])
+      return []
+    } finally {
+      loadingAssignmentsRef.current = false
     }
-  }
+  }, [entityType, entityId])
 
-  const loadAvailableUsers = async () => {
+  // Load available users with debouncing to prevent excessive API calls
+  const loadAvailableUsers = useCallback(async (currentAssignments?: Assignment[]) => {
+    // Prevent multiple simultaneous calls
+    if (loadingUsersRef.current) {
+      console.log('Already loading users, skipping...')
+      return
+    }
+    
+    loadingUsersRef.current = true
+    setLoadingUsers(true)
     try {
+      console.log('Loading available users...')
+      
+      // Use the provided assignments or current state
+      const assignmentsToUse = currentAssignments || assignments
+      console.log('Current assignments for filtering:', assignmentsToUse)
+      
       // Get available assignees for this entity
       const users = await api.getAvailableAssignees(entityType, entityId)
+      console.log('All available users from API:', users)
       
-      // Filter out users who are already assigned
-      const assignedIds = assignments.map(a => a.id)
+      // Filter out users who are already assigned with the SAME role as currently selected
+      const assignedUserIdsForSelectedRole = assignmentsToUse
+        .filter(a => a.assignmentType === selectedRole)
+        .map(a => a.id)
+      console.log(`Already assigned user IDs for role ${selectedRole}:`, assignedUserIdsForSelectedRole)
+      
       const available = users.filter((user: User) => 
-        !assignedIds.includes(user.id) && user.full_name
+        !assignedUserIdsForSelectedRole.includes(user.id) && user.full_name
       )
       
+      console.log('Filtered available users:', available)
       setAvailableUsers(available)
     } catch (error) {
       console.error('Failed to load available users:', error)
       // Fallback to all users if available assignees fails
       try {
         const allUsers = await api.getUsers()
-        const assignedIds = assignments.map(a => a.id)
+        const assignmentsToUse = currentAssignments || assignments
+        const assignedUserIdsForSelectedRole = assignmentsToUse
+          .filter(a => a.assignmentType === selectedRole)
+          .map(a => a.id)
         const available = allUsers.filter((user: User) => 
-          !assignedIds.includes(user.id) && user.full_name
+          !assignedUserIdsForSelectedRole.includes(user.id) && user.full_name
         )
+        console.log('Fallback: filtered available users from all users:', available)
         setAvailableUsers(available)
       } catch (fallbackError) {
         console.error('Failed to load users:', fallbackError)
+        setAvailableUsers([])
       }
+    } finally {
+      setLoadingUsers(false)
+      loadingUsersRef.current = false
     }
-  }
+  }, [entityType, entityId]) // REMOVED assignments dependency to prevent infinite loop
+
+  // Load assignments on mount and when entity changes
+  useEffect(() => {
+    loadAssignments()
+  }, [loadAssignments])
+
+  // Load available users when dropdown opens or role changes
+  useEffect(() => {
+    if (showDropdown && !loadingUsersRef.current) {
+      // Always reload assignments first, then load available users
+      loadAssignments().then((freshAssignments) => {
+        loadAvailableUsers(freshAssignments)
+      })
+    }
+  }, [showDropdown, selectedRole, loadAssignments, loadAvailableUsers])
 
   const handleAddAssignment = async (userId: string) => {
     setLoading(true)
     try {
+      console.log('Adding assignment:', { entityType, entityId, userId, selectedRole })
+      
       await api.createAssignment({
         entity_type: entityType,
         entity_id: entityId,
@@ -116,10 +173,19 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
         assignment_type: selectedRole
       })
       
+      console.log('Assignment created successfully')
+      
+      // Close dropdown and reset form
       setShowDropdown(false)
       setSearchTerm('')
-      setSelectedRole('developer')
-      await loadAssignments()
+      setSelectedRole('assignee')
+      
+      // Reload assignments and notify parent
+      const freshAssignments = await loadAssignments()
+      
+      // Update available users with fresh assignment data
+      await loadAvailableUsers(freshAssignments)
+      
       onAssignmentChange?.()
     } catch (error) {
       console.error('Failed to add assignment:', error)
@@ -134,8 +200,18 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
     
     setLoading(true)
     try {
+      console.log('Removing assignment:', assignmentId)
+      
       await api.deleteAssignment(assignmentId)
-      await loadAssignments()
+      
+      console.log('Assignment removed successfully')
+      
+      // Reload assignments and notify parent
+      const freshAssignments = await loadAssignments()
+      
+      // Update available users with fresh assignment data
+      await loadAvailableUsers(freshAssignments)
+      
       onAssignmentChange?.()
     } catch (error) {
       console.error('Failed to remove assignment:', error)
@@ -167,6 +243,9 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
     <div className="assignment-display">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-sm font-medium text-gray-700">Assigned:</span>
+        {loading && (
+          <span className="text-xs text-blue-600">Updating...</span>
+        )}
       </div>
       
       <div className="flex flex-wrap items-center gap-2">
@@ -203,6 +282,13 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
           {showDropdown && (
             <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
               <div className="p-3">
+                {/* Loading indicator */}
+                {loadingUsers && (
+                  <div className="mb-3 text-center">
+                    <div className="text-sm text-blue-600">Loading available users...</div>
+                  </div>
+                )}
+
                 {/* Search */}
                 <div className="mb-3">
                   <input
@@ -212,6 +298,7 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     autoFocus
+                    disabled={loadingUsers}
                   />
                 </div>
 
@@ -224,6 +311,7 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
                     value={selectedRole}
                     onChange={(e) => setSelectedRole(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={loadingUsers}
                   >
                     {ASSIGNMENT_TYPES.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -235,9 +323,13 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
 
                 {/* User List */}
                 <div className="max-h-48 overflow-y-auto">
-                  {filteredUsers.length === 0 ? (
+                  {loadingUsers ? (
+                    <div className="text-sm text-gray-500 text-center py-4">
+                      Loading users...
+                    </div>
+                  ) : filteredUsers.length === 0 ? (
                     <div className="text-sm text-gray-500 text-center py-2">
-                      {searchTerm ? 'No users found' : 'No available team members'}
+                      {searchTerm ? 'No users found matching your search' : 'No available team members'}
                     </div>
                   ) : (
                     filteredUsers.map((user) => (
@@ -245,7 +337,7 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
                         key={user.id}
                         onClick={() => handleAddAssignment(user.id)}
                         className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-md text-sm flex items-center justify-between"
-                        disabled={loading}
+                        disabled={loading || loadingUsers}
                       >
                         <div>
                           <div className="font-medium">{user.full_name}</div>
@@ -262,11 +354,19 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
                   )}
                 </div>
 
+                {/* Debug Info */}
+                <div className="mt-3 pt-2 border-t text-xs text-gray-500">
+                  <div>Current assignments: {assignments.length}</div>
+                  <div>Available users: {availableUsers.length}</div>
+                  <div>Filtered users: {filteredUsers.length}</div>
+                </div>
+
                 {/* Close Button */}
                 <div className="mt-3 pt-2 border-t">
                   <button
                     onClick={() => setShowDropdown(false)}
                     className="w-full px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                    disabled={loading}
                   >
                     Close
                   </button>

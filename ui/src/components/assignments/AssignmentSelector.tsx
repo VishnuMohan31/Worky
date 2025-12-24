@@ -56,16 +56,20 @@ export default function AssignmentSelector({
   }, [showAssignModal, entityType, entityId, newAssignment.assignment_type])
 
   function getDefaultAssignmentType(entityType: string): string {
-    if (entityType === 'client') return 'contact_person'
-    if (['program', 'project', 'usecase', 'userstory'].includes(entityType)) return 'owner'
-    if (['task', 'subtask'].includes(entityType)) return 'developer'
-    return 'developer'
+    // Client, Program, Project = Owner
+    if (['client', 'program', 'project'].includes(entityType)) return 'owner'
+    // UseCase, UserStory, Task, Subtask = Assignee (from team members)
+    if (['usecase', 'userstory', 'task', 'subtask'].includes(entityType)) return 'assignee'
+    return 'assignee'
   }
 
   const loadAssignments = async () => {
     try {
       setLoading(true)
-      const response = await api.getAssignments(entityType, entityId)
+      const response = await api.getAssignments({
+        entity_type: entityType,
+        entity_id: entityId
+      })
       setAssignments(response)
     } catch (error) {
       console.error('Failed to load assignments:', error)
@@ -132,8 +136,13 @@ export default function AssignmentSelector({
   const getAssignmentTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       'owner': 'Owner',
+      'assignee': 'Assignee',
       'contact_person': 'Contact Person',
-      'developer': 'Developer'
+      'developer': 'Developer',
+      'tester': 'Tester',
+      'designer': 'Designer',
+      'reviewer': 'Reviewer',
+      'lead': 'Lead'
     }
     return labels[type] || type
   }
@@ -142,10 +151,20 @@ export default function AssignmentSelector({
     switch (type) {
       case 'owner':
         return '🛡️'
+      case 'assignee':
+        return '👤'
       case 'contact_person':
         return '👤'
       case 'developer':
         return '💻'
+      case 'tester':
+        return '🧪'
+      case 'designer':
+        return '🎨'
+      case 'reviewer':
+        return '👁️'
+      case 'lead':
+        return '⭐'
       default:
         return '👤'
     }
@@ -155,10 +174,20 @@ export default function AssignmentSelector({
     switch (type) {
       case 'owner':
         return 'bg-red-100 text-red-800'
+      case 'assignee':
+        return 'bg-blue-100 text-blue-800'
       case 'contact_person':
         return 'bg-blue-100 text-blue-800'
       case 'developer':
         return 'bg-green-100 text-green-800'
+      case 'tester':
+        return 'bg-purple-100 text-purple-800'
+      case 'designer':
+        return 'bg-pink-100 text-pink-800'
+      case 'reviewer':
+        return 'bg-orange-100 text-orange-800'
+      case 'lead':
+        return 'bg-yellow-100 text-yellow-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -179,11 +208,17 @@ export default function AssignmentSelector({
     if (entityType === 'client') {
       types.push({ value: 'contact_person', label: 'Contact Person' })
     }
-    if (['program', 'project', 'usecase', 'userstory'].includes(entityType)) {
+    if (['program', 'project'].includes(entityType)) {
       types.push({ value: 'owner', label: 'Owner' })
     }
-    if (['task', 'subtask'].includes(entityType)) {
-      types.push({ value: 'developer', label: 'Developer' })
+    if (['usecase', 'userstory', 'task', 'subtask'].includes(entityType)) {
+      types.push(
+        { value: 'developer', label: 'Developer' },
+        { value: 'tester', label: 'Tester' },
+        { value: 'designer', label: 'Designer' },
+        { value: 'reviewer', label: 'Reviewer' },
+        { value: 'lead', label: 'Lead' }
+      )
     }
     return types
   }

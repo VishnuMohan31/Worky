@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
+import OwnershipDisplay from '../components/ownership/OwnershipDisplay'
 
 export default function ProgramDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -98,6 +99,18 @@ export default function ProgramDetailPage() {
 
       {/* Program Information */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Owner Management - AT TOP */}
+        <div className="lg:col-span-3 bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+          <OwnershipDisplay
+            entityType="program"
+            entityId={program.id}
+            onOwnershipChange={() => {
+              // Refresh program data if needed
+              console.log('Program ownership updated')
+            }}
+          />
+        </div>
+
         {/* Main Details */}
         <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Program Information</h2>

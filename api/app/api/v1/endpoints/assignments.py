@@ -67,21 +67,34 @@ async def create_assignment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new assignment - minimal implementation to avoid async context issues."""
+    """Create a new assignment - allows multiple users with same role, prevents duplicate user+role combinations."""
     
     try:
-        # Simple validation - user exists
+        # Validate user exists
         user_result = await db.execute(select(User).where(User.id == assignment_data.user_id))
         user = user_result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=400, detail="User not found")
         
-        # Check for existing assignment
+        # Use assignment service for role validation
+        assignment_service = AssignmentService(db)
+        validation_result = await assignment_service.validate_assignment(
+            entity_type=assignment_data.entity_type,
+            entity_id=assignment_data.entity_id,
+            user_id=assignment_data.user_id,
+            assignment_type=assignment_data.assignment_type
+        )
+        
+        if not validation_result["valid"]:
+            raise HTTPException(status_code=400, detail=validation_result["error"])
+        
+        # Check for existing assignment - ONLY prevent same user + same role combination
         existing_result = await db.execute(
             select(Assignment).where(
                 and_(
                     Assignment.entity_type == assignment_data.entity_type,
                     Assignment.entity_id == assignment_data.entity_id,
+                    Assignment.user_id == assignment_data.user_id,
                     Assignment.assignment_type == assignment_data.assignment_type,
                     Assignment.is_active == True
                 )
@@ -90,31 +103,24 @@ async def create_assignment(
         existing = existing_result.scalar_one_or_none()
         
         if existing:
-            if existing.user_id == assignment_data.user_id:
-                raise HTTPException(status_code=400, detail="Already assigned to this user")
-            # Update existing
-            existing.user_id = assignment_data.user_id
-            existing.updated_by = current_user.id
-            await db.commit()
-            assignment_id = existing.id
-        else:
-            # Create new
-            new_assignment = Assignment(
-                id=generate_id("ASSGN"),
-                entity_type=assignment_data.entity_type,
-                entity_id=assignment_data.entity_id,
-                user_id=assignment_data.user_id,
-                assignment_type=assignment_data.assignment_type,
-                created_by=current_user.id,
-                updated_by=current_user.id
-            )
-            db.add(new_assignment)
-            await db.commit()
-            assignment_id = new_assignment.id
+            raise HTTPException(status_code=400, detail="User is already assigned this role for this entity")
         
-        # Return simple response
+        # Create new assignment - ALWAYS CREATE NEW, NEVER UPDATE EXISTING
+        new_assignment = Assignment(
+            id=generate_id("ASSGN"),
+            entity_type=assignment_data.entity_type,
+            entity_id=assignment_data.entity_id,
+            user_id=assignment_data.user_id,
+            assignment_type=assignment_data.assignment_type,
+            created_by=current_user.id,
+            updated_by=current_user.id
+        )
+        db.add(new_assignment)
+        await db.commit()
+        
+        # Return response
         return AssignmentResponse(
-            id=assignment_id,
+            id=new_assignment.id,
             entity_type=assignment_data.entity_type,
             entity_id=assignment_data.entity_id,
             user_id=assignment_data.user_id,

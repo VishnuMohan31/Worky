@@ -74,9 +74,20 @@ Teams are project-scoped groups of users who can work on specific project elemen
 Assignments link users to specific hierarchy elements (tasks, user stories, etc.) with defined roles and responsibilities.
 
 **Assignment Types:**
-- **owner**: Primary responsibility for high-level elements
-- **developer**: Implementation responsibility for tasks/subtasks
-- **contact_person**: Client communication for client entities
+- **owner**: Primary responsibility for high-level elements (Client, Program, Project) - Multiple owners allowed
+- **assignee**: Work responsibility for lower-level elements (Use Case, User Story, Task, Subtask) - Team members only
+
+### Assignment Rules Matrix
+
+| Entity | Assignment Type | Who Handles | Selection Pool |
+|--------|-----------------|-------------|----------------|
+| Client | owner | Multiple Owners | Any eligible user (Admin, Owner, PM, Architect) |
+| Program | owner | Multiple Owners | Any eligible user |
+| Project | owner | Multiple Owners | Any eligible user |
+| Use Case | assignee | Team Members | Only from Project Team |
+| User Story | assignee | Team Members | Only from Project Team |
+| Task | assignee | Team Members | Only from Project Team |
+| Subtask | assignee | Team Members | Only from Project Team |
 
 ### Role-Based Validation
 
@@ -84,20 +95,21 @@ The system enforces strict role-based assignment rules:
 
 | Entity Type | Allowed Roles | Assignment Type |
 |-------------|---------------|-----------------|
-| Client | Contact Person | contact_person |
-| Program | Owner, Admin, Architect | owner |
-| Project | Owner, Admin, Architect | owner |
-| Use Case | Owner, Admin, Architect, Designer | owner |
-| User Story | Owner, Admin, Architect, Designer | owner |
-| Task | Developer | developer |
-| Subtask | Developer | developer |
+| Client | Owner, Admin, Architect, Project Manager | owner |
+| Program | Owner, Admin, Architect, Project Manager | owner |
+| Project | Owner, Admin, Architect, Project Manager | owner |
+| Use Case | Developer, Tester, Designer, Architect, Admin, Owner, PM, Lead, Manager, DevOps | assignee |
+| User Story | Developer, Tester, Designer, Architect, Admin, Owner, PM, Lead, Manager, DevOps | assignee |
+| Task | Developer, Tester, Designer, Architect, Admin, Owner, PM, Lead, Manager, DevOps | assignee |
+| Subtask | Developer, Tester, Designer, Architect, Admin, Owner, PM, Lead, Manager, DevOps | assignee |
 
 ### Project Isolation
 
-Users can only be assigned to entities within projects where they are team members. This ensures:
+**Important**: For Use Cases, User Stories, Tasks, and Subtasks, only members of the project's assigned team can be assigned as assignees. This ensures:
 - Data security and access control
 - Clear project boundaries
 - Proper resource allocation
+- Work is done by team members only
 
 ## API Reference
 

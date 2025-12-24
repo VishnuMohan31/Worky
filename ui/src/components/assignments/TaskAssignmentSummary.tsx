@@ -36,7 +36,10 @@ export default function TaskAssignmentSummary({
       
       if (entityType && entityId) {
         // Get assignments for specific entity
-        response = await api.getAssignments(entityType, entityId)
+        response = await api.getAssignments({
+          entity_type: entityType,
+          entity_id: entityId
+        })
       } else {
         // Get all assignments (could be filtered by project in future)
         response = await api.getAssignments()

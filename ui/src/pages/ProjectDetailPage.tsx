@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../contexts/LanguageContext'
 import api from '../services/api'
+import OwnershipDisplay from '../components/ownership/OwnershipDisplay'
 
 export default function ProjectDetailPage() {
   const { id } = useParams()
@@ -45,6 +46,23 @@ export default function ProjectDetailPage() {
               style={{ color: 'var(--primary-color)' }}>
         ← Back to Projects
       </button>
+
+      {/* Owner Management - AT TOP */}
+      <div className="rounded-lg p-6 shadow-md mb-6"
+           style={{ 
+             backgroundColor: 'var(--surface-color)',
+             border: '1px solid var(--border-color)',
+             borderLeft: '4px solid var(--primary-color)'
+           }}>
+        <OwnershipDisplay
+          entityType="project"
+          entityId={project.id}
+          onOwnershipChange={() => {
+            // Refresh project data if needed
+            console.log('Project ownership updated')
+          }}
+        />
+      </div>
 
       <div className="rounded-lg p-6 shadow-md mb-6"
            style={{ 

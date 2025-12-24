@@ -10,17 +10,18 @@ from pydantic import BaseModel, Field
 class TeamBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
-    project_id: str
+    project_id: Optional[str] = None  # Nullable - team can be unassigned
     is_active: bool = True
 
 
 class TeamCreate(TeamBase):
-    pass
+    project_id: str  # Required when creating a team
 
 
 class TeamUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
+    project_id: Optional[str] = None  # Can be set to a project ID or to empty string "" to clear
     is_active: Optional[bool] = None
 
 
@@ -69,7 +70,7 @@ class AssignmentBase(BaseModel):
     entity_type: str = Field(..., pattern="^(client|program|project|usecase|userstory|task|subtask)$")
     entity_id: str
     user_id: str
-    assignment_type: str = Field(..., pattern="^(owner|contact_person|developer)$")
+    assignment_type: str = Field(..., pattern="^(owner|contact_person|developer|tester|designer|reviewer|lead)$")
 
 
 class AssignmentCreate(AssignmentBase):
@@ -78,7 +79,7 @@ class AssignmentCreate(AssignmentBase):
 
 class AssignmentUpdate(BaseModel):
     user_id: Optional[str] = None
-    assignment_type: Optional[str] = Field(None, pattern="^(owner|contact_person|developer)$")
+    assignment_type: Optional[str] = Field(None, pattern="^(owner|contact_person|developer|tester|designer|reviewer|lead)$")
     is_active: Optional[bool] = None
 
 

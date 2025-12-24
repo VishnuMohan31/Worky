@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
+import EnhancedAssignmentDisplay from '../assignments/EnhancedAssignmentDisplay'
 
 interface UseCaseDetail {
   id: string
@@ -257,6 +258,25 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Assignment Management - AT TOP */}
+              <div 
+                className="rounded-lg p-6"
+                style={{ 
+                  backgroundColor: 'var(--background-color)',
+                  border: '1px solid var(--border-color)',
+                  borderLeft: '4px solid var(--primary-color)'
+                }}
+              >
+                <EnhancedAssignmentDisplay
+                  entityType="usecase"
+                  entityId={usecase.id}
+                  onAssignmentChange={() => {
+                    // Refresh assignments if needed
+                    console.log('Use case assignments updated')
+                  }}
+                />
+              </div>
+
               {/* Basic Information */}
               <div 
                 className="rounded-lg p-6"

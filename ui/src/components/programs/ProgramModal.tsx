@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import api from '../../services/api'
+import OwnerSelector from '../ownership/OwnerSelector'
 
 interface ProgramModalProps {
   isOpen: boolean
@@ -34,6 +35,7 @@ export default function ProgramModal({
     start_date: '',
     end_date: ''
   })
+  const [selectedOwners, setSelectedOwners] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -61,6 +63,7 @@ export default function ProgramModal({
         end_date: ''
       })
     }
+    setSelectedOwners([])
     setError('')
   }, [program, selectedClientId, isOpen])
 
@@ -86,11 +89,37 @@ export default function ProgramModal({
     setError('')
 
     try {
+      let programId: string
+      
       if (isEditMode) {
         await api.updateEntity('program', program.id, formData)
+        programId = program.id
       } else {
-        await api.createEntity('program', formData)
+        const newProgram = await api.createEntity('program', formData)
+        programId = newProgram.id
       }
+      
+      // Handle owner assignments for new programs only (edit mode handles assignments directly)
+      if (selectedOwners.length > 0 && !isEditMode) {
+        try {
+          // Create owner assignments
+          for (const ownerId of selectedOwners) {
+            await api.createAssignment({
+              entity_type: 'program',
+              entity_id: programId,
+              user_id: ownerId,
+              assignment_type: 'owner'
+            })
+          }
+          console.log(`Successfully assigned ${selectedOwners.length} owners to program ${programId}`)
+        } catch (ownerError) {
+          console.error('Failed to assign owners:', ownerError)
+          // Don't fail the entire operation, just show a warning
+          setError('Program created successfully, but failed to assign some owners. You can assign them later from the program details.')
+          return // Don't close modal immediately so user can see the message
+        }
+      }
+      
       onSuccess()
       onClose()
     } catch (err: any) {
@@ -141,6 +170,19 @@ export default function ProgramModal({
         )}
 
         <div className="space-y-4">
+          {/* Owner Assignment - MOVED TO TOP */}
+          {isAdmin && (
+            <div className="mb-6 pb-4 border-b border-gray-200">
+              <OwnerSelector
+                entityType="program"
+                selectedOwners={selectedOwners}
+                onOwnersChange={setSelectedOwners}
+                disabled={loading}
+                existingEntityId={isEditMode ? program.id : undefined}
+              />
+            </div>
+          )}
+
           {/* Client Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
