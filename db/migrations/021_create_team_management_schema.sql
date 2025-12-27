@@ -3,11 +3,12 @@
 -- Description: Add tables for team management and assignment tracking
 
 -- Create teams table
+-- Note: project_id is nullable to allow teams to be created before assigning to a project
 CREATE TABLE IF NOT EXISTS teams (
     id VARCHAR(50) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    project_id VARCHAR(50) NOT NULL,
+    project_id VARCHAR(50), -- Nullable: teams can exist without project assignment
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -80,19 +81,11 @@ CREATE INDEX IF NOT EXISTS idx_assignment_history_entity ON assignment_history(e
 CREATE INDEX IF NOT EXISTS idx_assignment_history_user ON assignment_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_assignment_history_date ON assignment_history(created_at);
 
--- Add unique constraint to prevent multiple assignments of same type to same entity
-CREATE UNIQUE INDEX IF NOT EXISTS idx_assignments_unique_owner 
-ON assignments(entity_type, entity_id, assignment_type) 
-WHERE assignment_type IN ('owner', 'contact_person') AND is_active = TRUE;
+-- Add unique constraint to prevent duplicate user-entity-type assignments
+-- This allows multiple owners/assignees but prevents same user from being assigned multiple times
+CREATE UNIQUE INDEX IF NOT EXISTS idx_assignments_unique_user_entity 
+ON assignments(entity_type, entity_id, user_id, assignment_type) 
+WHERE is_active = TRUE;
 
--- Insert sample team for existing project (if exists)
-INSERT INTO teams (id, name, description, project_id, created_by) 
-SELECT 
-    'TEAM-' || SUBSTRING(MD5(RANDOM()::TEXT), 1, 8),
-    p.name || ' Team',
-    'Default team for ' || p.name || ' project',
-    p.id,
-    '1' -- Admin user
-FROM projects p 
-WHERE p.id = (SELECT id FROM projects LIMIT 1)
-ON CONFLICT (id) DO NOTHING; -- Ignore if already exists
+-- Note: Sample team creation moved to seed data (999_seed_dev_data.sql)
+-- Teams can be created without project assignment and assigned later

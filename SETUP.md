@@ -1,27 +1,43 @@
 # Worky Setup Guide
 
-This guide will help you set up the Worky application from scratch.
+This guide will help you set up the Worky application from scratch on any platform.
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- Node.js 18+ (for UI development)
-- Python 3.11+ (for API development)
+- **Docker Desktop** (includes Docker and Docker Compose)
+- **Node.js 18+** (for UI development)
+- **Git** (for cloning the repository)
 
 ## Quick Start
 
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/datalegos/worky.git
 cd worky
 ```
 
 ### 2. Start All Services
 
+**Windows (PowerShell):**
+```powershell
+.\App_Development_scripts\start_all.ps1
+```
+
+**macOS/Linux (Bash):**
 ```bash
-# Start database, API, and UI
 ./App_Development_scripts/start_all.sh
+```
+
+**Alternative - Docker Compose Only (All Platforms):**
+```bash
+# Start database and API via Docker
+docker-compose up -d --build
+
+# Start UI separately (in a new terminal)
+cd ui
+npm install
+npm run dev
 ```
 
 This will:
@@ -173,6 +189,22 @@ The application comes with pre-loaded development data:
 
 ## Troubleshooting
 
+### Fresh Clone Issues
+
+**Problem**: Database schema errors after cloning to a new device
+```bash
+# The database is initialized from SQL files in db/migrations/
+# If you see errors, make sure to delete old volumes first:
+docker-compose down -v
+docker-compose up -d --build
+```
+
+**Problem**: Migration 029 not applied (for existing databases)
+```bash
+# Apply the fix migration manually:
+docker exec -i worky-postgres psql -U postgres -d worky < db/migrations/029_fix_team_assignment_schema.sql
+```
+
 ### Database Issues
 
 **Problem**: Database container won't start
@@ -180,7 +212,7 @@ The application comes with pre-loaded development data:
 # Check logs
 docker logs worky-postgres
 
-# Remove and recreate
+# Remove volumes and recreate (WARNING: destroys all data)
 docker-compose down -v
 docker-compose up -d db
 ```
@@ -190,8 +222,8 @@ docker-compose up -d db
 # Check if migrations directory is mounted
 docker exec worky-postgres ls /docker-entrypoint-initdb.d
 
-# Manually apply migrations
-./db/apply_migrations.sh
+# Manually apply all migrations
+docker exec worky-postgres psql -U postgres -d worky -c "\i /docker-entrypoint-initdb.d/021_create_team_management_schema.sql"
 ```
 
 **Problem**: Seed data not loaded
@@ -199,8 +231,8 @@ docker exec worky-postgres ls /docker-entrypoint-initdb.d
 # Check if users exist
 docker exec worky-postgres psql -U postgres -d worky -c "SELECT COUNT(*) FROM users;"
 
-# Load seed data manually
-./db/load_seed_data.sh
+# Load seed data manually (all platforms)
+docker exec -i worky-postgres psql -U postgres -d worky < db/seeds/dev_seed.sql
 ```
 
 ### API Issues
@@ -240,6 +272,31 @@ npm install
 npm run dev
 ```
 
+### Windows-Specific Issues
+
+**Problem**: Shell scripts (.sh) don't work on Windows
+```powershell
+# Use the PowerShell versions instead:
+.\App_Development_scripts\start_all.ps1
+.\App_Development_scripts\stop_all.ps1
+
+# Or run docker-compose directly:
+docker-compose up -d --build
+cd ui; npm run dev
+```
+
+**Problem**: Line ending issues with shell scripts (if using Git Bash/WSL)
+```bash
+# Convert line endings
+sed -i 's/\r$//' App_Development_scripts/*.sh
+```
+
+**Problem**: PowerShell execution policy blocks scripts
+```powershell
+# Run this as Administrator (one-time setup):
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
 ### Authentication Issues
 
 **Problem**: Password doesn't work
@@ -253,26 +310,32 @@ npm run dev
 
 All scripts are located in `App_Development_scripts/`:
 
-### Start Services
+### Windows (PowerShell)
+- `start_all.ps1` - Start all services (DB, API, UI)
+- `stop_all.ps1` - Stop all services
+
+### macOS/Linux (Bash)
 - `start_all.sh` - Start all services (DB, API, UI)
 - `start_db.sh` - Start database only
 - `start_api.sh` - Start API only
 - `start_ui.sh` - Start UI only
-- `start_ui_api.sh` - Start UI and API only
-
-### Stop Services
 - `stop_all.sh` - Stop all services
 - `stop_db.sh` - Stop database only
 - `stop_api.sh` - Stop API only
 - `stop_ui.sh` - Stop UI only
-- `stop_ui_api.sh` - Stop UI and API only
-
-### Restart Services
 - `restart_all.sh` - Restart all services
-- `restart_db.sh` - Restart database only
-- `restart_api.sh` - Restart API only
-- `restart_ui.sh` - Restart UI only
-- `restart_ui_api.sh` - Restart UI and API only
+
+### Cross-Platform (Docker)
+```bash
+# Start all Docker services
+docker-compose up -d --build
+
+# Stop all Docker services
+docker-compose down
+
+# View logs
+docker-compose logs -f
+```
 
 ## Next Steps
 
