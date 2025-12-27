@@ -8,7 +8,9 @@ This guide will help you set up the Worky application from scratch on any platfo
 - **Node.js 18+** (for UI development)
 - **Git** (for cloning the repository)
 
-## Quick Start
+## Quick Start (Fresh Installation)
+
+> ⚠️ **IMPORTANT**: For a fresh clone, delete any old Docker volumes first to ensure migrations run correctly.
 
 ### 1. Clone the Repository
 
@@ -17,7 +19,13 @@ git clone https://github.com/datalegos/worky.git
 cd worky
 ```
 
-### 2. Start All Services
+### 2. Clean Previous Volumes (if any)
+
+```bash
+docker-compose down -v
+```
+
+### 3. Start All Services
 
 **Windows (PowerShell):**
 ```powershell
@@ -39,6 +47,8 @@ cd ui
 npm install
 npm run dev
 ```
+
+> 📝 **Note**: Database migrations only run when the PostgreSQL container is created for the first time. If you have issues, run `docker-compose down -v` and try again.
 
 This will:
 - Start PostgreSQL database on port 5437

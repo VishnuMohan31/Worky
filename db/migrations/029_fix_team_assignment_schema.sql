@@ -82,5 +82,6 @@ UPDATE users
 SET primary_role = role 
 WHERE primary_role IS NULL AND role IS NOT NULL;
 
-RAISE NOTICE 'Migration 029_fix_team_assignment_schema completed successfully';
+-- Migration completed successfully
+DO $$ BEGIN RAISE NOTICE 'Migration 029_fix_team_assignment_schema completed successfully'; END $$;
 
