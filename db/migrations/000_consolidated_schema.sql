@@ -33,7 +33,13 @@ CREATE SEQUENCE IF NOT EXISTS team_members_id_seq START 1;
 CREATE SEQUENCE IF NOT EXISTS assignments_id_seq START 1;
 CREATE SEQUENCE IF NOT EXISTS assignment_history_id_seq START 1;
 CREATE SEQUENCE IF NOT EXISTS notifications_id_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS notification_preferences_id_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS notification_history_id_seq START 1;
 CREATE SEQUENCE IF NOT EXISTS decisions_id_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS todo_items_id_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS adhoc_notes_id_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS reminders_id_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS chat_messages_id_seq START 1;
 
 -- =====================================================
 -- SECTION 2: CREATE HELPER FUNCTIONS
@@ -71,15 +77,14 @@ CREATE TABLE IF NOT EXISTS clients (
     name VARCHAR(255) NOT NULL,
     short_description VARCHAR(500),
     long_description TEXT,
-    contact_name VARCHAR(255),
-    contact_email VARCHAR(255),
-    contact_phone VARCHAR(50),
+    email VARCHAR(255),
+    phone VARCHAR(50),
     is_active BOOLEAN DEFAULT true,
     is_deleted BOOLEAN DEFAULT false NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by VARCHAR(20),
-    updated_by VARCHAR(20)
+    updated_by VARCHAR(20),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- USERS table (depends on clients)
@@ -378,84 +383,93 @@ CREATE TABLE IF NOT EXISTS entity_history (
 CREATE TABLE IF NOT EXISTS organizations (
     id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('ORG', 'organizations_id_seq'),
     name VARCHAR(255) NOT NULL,
-    description TEXT,
     logo_url VARCHAR(500),
-    primary_color VARCHAR(7) DEFAULT '#3498db',
-    secondary_color VARCHAR(7) DEFAULT '#2c3e50',
-    is_active BOOLEAN DEFAULT true,
+    logo_data TEXT,
+    description TEXT,
+    website VARCHAR(500),
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    address TEXT,
+    is_active BOOLEAN DEFAULT true NOT NULL,
+    is_deleted BOOLEAN DEFAULT false NOT NULL,
+    created_by VARCHAR(20),
+    updated_by VARCHAR(20),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by VARCHAR(20) REFERENCES users(id),
-    updated_by VARCHAR(20) REFERENCES users(id)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- TODO_ITEMS table
 CREATE TABLE IF NOT EXISTS todo_items (
-    id VARCHAR(50) PRIMARY KEY,
+    id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('TODO', 'todo_items_id_seq'),
     user_id VARCHAR(20) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    due_date TIMESTAMP WITH TIME ZONE,
-    reminder_date TIMESTAMP WITH TIME ZONE,
-    priority VARCHAR(20) DEFAULT 'medium',
-    is_completed BOOLEAN DEFAULT false,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    entity_type VARCHAR(50),
-    entity_id VARCHAR(50),
-    is_public BOOLEAN DEFAULT false,
-    tags TEXT[],
-    position INTEGER DEFAULT 0,
+    target_date DATE NOT NULL,
+    visibility VARCHAR(10) NOT NULL DEFAULT 'private',
+    linked_entity_type VARCHAR(20),
+    linked_entity_id VARCHAR(20),
+    is_deleted BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT check_visibility CHECK (visibility IN ('public', 'private')),
+    CONSTRAINT check_entity_type CHECK (linked_entity_type IN ('task', 'subtask') OR linked_entity_type IS NULL)
 );
 
 -- ADHOC_NOTES table
 CREATE TABLE IF NOT EXISTS adhoc_notes (
-    id VARCHAR(50) PRIMARY KEY,
+    id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('NOTE', 'adhoc_notes_id_seq'),
     user_id VARCHAR(20) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     content TEXT,
-    is_pinned BOOLEAN DEFAULT false,
-    color VARCHAR(7) DEFAULT '#ffffff',
-    tags TEXT[],
-    position INTEGER DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
+    color VARCHAR(7) DEFAULT '#FFEB3B',
+    is_deleted BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT check_position_positive CHECK (position >= 0)
 );
 
 -- REMINDERS table
 CREATE TABLE IF NOT EXISTS reminders (
-    id VARCHAR(50) PRIMARY KEY,
-    todo_id VARCHAR(50) REFERENCES todo_items(id) ON DELETE CASCADE,
+    id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('REM', 'reminders_id_seq'),
     user_id VARCHAR(20) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    reminder_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id VARCHAR(20) NOT NULL,
+    message TEXT,
+    remind_at TIMESTAMP WITH TIME ZONE NOT NULL,
     is_sent BOOLEAN DEFAULT false,
-    sent_at TIMESTAMP WITH TIME ZONE,
+    created_via VARCHAR(20) DEFAULT 'chat',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- CHAT tables
 CREATE TABLE IF NOT EXISTS chat_messages (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('MSG', 'chat_messages_id_seq'),
+    session_id VARCHAR(50) NOT NULL,
     user_id VARCHAR(20) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_id VARCHAR(100) NOT NULL,
     role VARCHAR(20) NOT NULL,
     content TEXT NOT NULL,
-    intent VARCHAR(100),
+    intent_type VARCHAR(50),
     entities JSONB,
-    metadata JSONB,
+    actions JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS chat_audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id VARCHAR(20) NOT NULL REFERENCES users(id),
-    action VARCHAR(100) NOT NULL,
-    request_data JSONB,
+    request_id VARCHAR(50) NOT NULL UNIQUE,
+    user_id VARCHAR(20) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id VARCHAR(20) NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    session_id VARCHAR(50) NOT NULL,
+    query TEXT NOT NULL,
+    intent_type VARCHAR(50),
+    entities_accessed JSONB,
+    action_performed VARCHAR(100),
+    action_result VARCHAR(20),
     response_summary TEXT,
-    error_message TEXT,
-    duration_ms INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    ip_address VARCHAR(45),
+    user_agent TEXT
 );
 
 -- SPRINT_TASKS junction table
@@ -468,31 +482,67 @@ CREATE TABLE IF NOT EXISTS sprint_tasks (
     UNIQUE(sprint_id, task_id)
 );
 
+-- Create notification enums
+DO $$ BEGIN
+    CREATE TYPE notification_type AS ENUM (
+        'assignment_created', 'assignment_removed', 'team_member_added', 
+        'team_member_removed', 'assignment_conflict', 'bulk_assignment_completed', 
+        'bulk_assignment_failed'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE notification_status AS ENUM ('pending', 'sent', 'failed', 'read');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE notification_channel AS ENUM ('email', 'in_app', 'push');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- NOTIFICATIONS table
 CREATE TABLE IF NOT EXISTS notifications (
-    id VARCHAR(50) PRIMARY KEY,
+    id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('NOTIF', 'notifications_id_seq'),
     user_id VARCHAR(20) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type notification_type NOT NULL,
     title VARCHAR(255) NOT NULL,
-    message TEXT,
-    type VARCHAR(50) DEFAULT 'info',
+    message TEXT NOT NULL,
     entity_type VARCHAR(50),
-    entity_id VARCHAR(50),
-    is_read BOOLEAN DEFAULT false,
+    entity_id VARCHAR(20),
+    status notification_status DEFAULT 'pending' NOT NULL,
+    channel notification_channel DEFAULT 'in_app' NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    sent_at TIMESTAMP WITH TIME ZONE,
     read_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by VARCHAR(20) REFERENCES users(id)
+    created_by VARCHAR(20) REFERENCES users(id),
+    context_data TEXT
 );
 
 -- NOTIFICATION_PREFERENCES table
 CREATE TABLE IF NOT EXISTS notification_preferences (
-    id VARCHAR(50) PRIMARY KEY,
+    id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('NPREF', 'notification_preferences_id_seq'),
     user_id VARCHAR(20) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    notification_type VARCHAR(50) NOT NULL,
-    email_enabled BOOLEAN DEFAULT true,
-    in_app_enabled BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id, notification_type)
+    notification_type notification_type NOT NULL,
+    email_enabled BOOLEAN DEFAULT true NOT NULL,
+    in_app_enabled BOOLEAN DEFAULT true NOT NULL,
+    push_enabled BOOLEAN DEFAULT false NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- NOTIFICATION_HISTORY table
+CREATE TABLE IF NOT EXISTS notification_history (
+    id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('NHIST', 'notification_history_id_seq'),
+    notification_id VARCHAR(20) NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+    channel notification_channel NOT NULL,
+    status notification_status NOT NULL,
+    attempted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    delivered_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    error_code VARCHAR(50),
+    external_id VARCHAR(255)
 );
 
 -- DECISIONS table
@@ -581,7 +631,12 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, enti
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON notifications(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_entity ON notifications(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_notification_history_notification ON notification_history(notification_id);
+CREATE INDEX IF NOT EXISTS idx_notification_preferences_user_type ON notification_preferences(user_id, notification_type);
 
 CREATE INDEX IF NOT EXISTS idx_sprints_project ON sprints(project_id);
 CREATE INDEX IF NOT EXISTS idx_sprints_status ON sprints(status);

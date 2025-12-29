@@ -106,6 +106,17 @@ BEGIN
             ('SPR-000003', 'PRJ-000001', 'Sprint 3', 'Testing and bug fixes', '2025-01-29', '2025-02-11', 'Planning')
         ON CONFLICT (id) DO NOTHING;
 
+        -- Insert organization
+        INSERT INTO organizations (id, name, description, is_active, is_deleted) VALUES
+            ('ORG-000001', 'DataLegos Organization', 'Primary organization for project management', true, false)
+        ON CONFLICT (id) DO NOTHING;
+
+        -- Insert sample todo items
+        INSERT INTO todo_items (id, user_id, title, description, target_date, visibility, is_deleted) VALUES
+            ('TODO-000001', 'USR-000001', 'Complete project setup', 'Ensure all environments are configured', '2025-12-30', 'private', false),
+            ('TODO-000002', 'USR-000002', 'Code review', 'Review pull requests from team', '2025-12-29', 'private', false)
+        ON CONFLICT (id) DO NOTHING;
+
         -- Update sequences to start after seed data
         PERFORM setval('clients_id_seq', 4, false);
         PERFORM setval('users_id_seq', 9, false);
