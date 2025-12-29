@@ -82,7 +82,15 @@ export default function SubtaskModal({
       onClose()
     } catch (err: any) {
       // Handle API errors with user-friendly messages
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to save subtask'
+      const detail = err.response?.data?.detail
+      let errorMessage: string
+      if (Array.isArray(detail)) {
+        errorMessage = detail.map((e: any) => e.msg || e.message).join(', ')
+      } else if (typeof detail === 'string') {
+        errorMessage = detail
+      } else {
+        errorMessage = err.message || 'Failed to save subtask'
+      }
       setError(errorMessage)
       console.error('Subtask save error:', err)
     } finally {
@@ -105,7 +113,7 @@ export default function SubtaskModal({
 
   // Prepare initial form data for edit mode
   const initialData = subtask ? {
-    title: subtask.name,
+    name: subtask.name,
     task_id: subtask.task_id,
     short_description: subtask.short_description,
     long_description: subtask.long_description,

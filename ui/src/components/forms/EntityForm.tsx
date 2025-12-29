@@ -42,9 +42,11 @@ export default function EntityForm({
 }: EntityFormProps) {
   const { t } = useTranslation()
   
+  // Determine if we should use 'title' or 'name' based on initialData
+  const useTitleField = 'title' in initialData
+  
   const [formData, setFormData] = useState<EntityFormData>({
     name: '',
-    title: '',
     short_description: '',
     long_description: '',
     status: statusOptions[0],
@@ -71,11 +73,11 @@ export default function EntityForm({
     const newErrors: Record<string, string> = {}
     
     // Check either name or title (depending on entity type)
-    const displayName = formData.title || formData.name || ''
+    const displayName = useTitleField ? (formData.title || '') : (formData.name || '')
     if (!displayName || displayName.trim().length === 0) {
-      newErrors.name = formData.title ? 'Title is required' : 'Name is required'
+      newErrors.name = useTitleField ? 'Title is required' : 'Name is required'
     } else if (displayName.length > 255) {
-      newErrors.name = formData.title ? 'Title must be less than 255 characters' : 'Name must be less than 255 characters'
+      newErrors.name = useTitleField ? 'Title must be less than 255 characters' : 'Name must be less than 255 characters'
     }
     
     if (formData.short_description && formData.short_description.length > 500) {
@@ -122,15 +124,15 @@ export default function EntityForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Name/Title Field */}
       <div>
-        <label htmlFor={formData.title !== undefined ? 'title' : 'name'} className="block text-sm font-medium mb-2">
-          {formData.title !== undefined ? 'Title' : 'Name'} <span className="text-red-500">*</span>
+        <label htmlFor={useTitleField ? 'title' : 'name'} className="block text-sm font-medium mb-2">
+          {useTitleField ? 'Title' : 'Name'} <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
-          id={formData.title !== undefined ? 'title' : 'name'}
-          value={formData.title || formData.name || ''}
+          id={useTitleField ? 'title' : 'name'}
+          value={useTitleField ? (formData.title || '') : (formData.name || '')}
           onChange={(e) => {
-            if (formData.title !== undefined) {
+            if (useTitleField) {
               handleChange('title', e.target.value)
             } else {
               handleChange('name', e.target.value)
@@ -141,7 +143,7 @@ export default function EntityForm({
               ? 'border-red-500 focus:ring-red-500' 
               : 'border-gray-300 focus:ring-blue-500'
           }`}
-          placeholder={`Enter ${entityType.toLowerCase()} ${formData.title !== undefined ? 'title' : 'name'}`}
+          placeholder={`Enter ${entityType.toLowerCase()} ${useTitleField ? 'title' : 'name'}`}
           disabled={isLoading}
         />
         {errors.name && (

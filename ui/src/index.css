@@ -41,3 +41,17 @@ button {
 a {
   cursor: var(--cursor-pointer);
 }
+
+/* Form elements should have explicit white background to work with all themes */
+input,
+select,
+textarea {
+  background-color: #ffffff;
+  color: #1f2937;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: #f3f4f6;
+}

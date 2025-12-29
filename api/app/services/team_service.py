@@ -121,22 +121,34 @@ class TeamService:
                 detail="Insufficient permissions to modify team"
             )
         
-        # Check if user is already a member
+        # Check if user is already a member (active or inactive)
         existing_member_query = select(TeamMember).where(
             and_(
                 TeamMember.team_id == team_id,
-                TeamMember.user_id == user_id,
-                TeamMember.is_active == True
+                TeamMember.user_id == user_id
             )
         )
         existing_member_result = await self.db.execute(existing_member_query)
         existing_member = existing_member_result.scalar_one_or_none()
         
         if existing_member:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User is already a member of this team"
-            )
+            if existing_member.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="User is already a member of this team"
+                )
+            else:
+                # Reactivate the inactive member instead of creating a new one
+                existing_member.is_active = True
+                existing_member.role = role
+                await self.db.commit()
+                await self.db.refresh(existing_member)
+                
+                # Load the user relationship explicitly
+                await self.db.refresh(existing_member, ["user"])
+                
+                logger.info(f"Team member {user_id} reactivated in team {team_id} with role {role}")
+                return existing_member
         
         # Validate role
         valid_roles = ["Owner", "Developer", "Tester", "Architect", "Designer", "Contact Person", "Member", "Lead", "Manager"]

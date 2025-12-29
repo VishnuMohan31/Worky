@@ -1,42 +1,72 @@
 #!/bin/bash
-echo "🚀 Starting All Worky Services..."
-SCRIPT_DIR="$(dirname "$0")"
+# Start All Worky Services (Bash)
+# Usage: ./start_all.sh
 
-# Start Database
+echo "🚀 Starting All Worky Services..."
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Navigate to project root
+cd "$PROJECT_ROOT"
+
+# Start Database and API via Docker
 echo ""
-echo "1️⃣ Starting Database..."
-"$SCRIPT_DIR/start_db.sh"
+echo "1️⃣ Starting Database and API (Docker)..."
+docker-compose up -d --build
+
 if [ $? -ne 0 ]; then
-    echo "❌ Database failed to start"
+    echo "❌ Docker services failed to start"
     exit 1
 fi
 
-# Start API in background
+echo "✅ Database and API started"
+
+# Wait for services to be healthy
 echo ""
-echo "2️⃣ Starting API..."
-cd "$SCRIPT_DIR/../api"
-if [ ! -f .env ]; then
-    cp .env.example .env
+echo "2️⃣ Waiting for services to be healthy..."
+sleep 10
+
+# Check database
+if docker exec worky-postgres pg_isready -U postgres > /dev/null 2>&1; then
+    echo "✅ Database is healthy"
+else
+    echo "⚠️  Database may still be starting"
 fi
-mkdir -p ../logs
-nohup uvicorn app.main:app --reload --host 0.0.0.0 --port 8007 > ../logs/api.log 2>&1 &
-API_PID=$!
-echo "✓ API started (PID: $API_PID)"
 
-sleep 3
+# Check API
+if curl -s http://localhost:8007/health > /dev/null 2>&1; then
+    echo "✅ API is healthy"
+else
+    echo "⚠️  API may still be starting"
+fi
 
-# Start UI in background
+# Start UI
 echo ""
 echo "3️⃣ Starting UI..."
-cd "$SCRIPT_DIR/../ui"
-nohup npm run dev > ../logs/ui.log 2>&1 &
+cd "$PROJECT_ROOT/ui"
+
+# Install dependencies if node_modules doesn't exist
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing UI dependencies..."
+    npm install
+fi
+
+# Create logs directory if it doesn't exist
+mkdir -p "$PROJECT_ROOT/logs"
+
+# Start UI in background
+nohup npm run dev > "$PROJECT_ROOT/logs/ui.log" 2>&1 &
 UI_PID=$!
-echo "✓ UI started (PID: $UI_PID)"
+echo "✅ UI started (PID: $UI_PID)"
+
+# Return to project root
+cd "$PROJECT_ROOT"
 
 echo ""
-echo "=" * 60
+echo "============================================"
 echo "✅ All Worky Services Started!"
-echo "=" * 60
+echo "============================================"
 echo ""
 echo "📊 Services:"
 echo "   Database: localhost:5437 (Docker)"
@@ -48,9 +78,9 @@ echo "   Email:    admin@datalegos.com"
 echo "   Password: password"
 echo ""
 echo "📝 Logs:"
-echo "   API: tail -f logs/api.log"
+echo "   API: docker logs worky-api -f"
+echo "   DB:  docker logs worky-postgres -f"
 echo "   UI:  tail -f logs/ui.log"
-echo "   DB:  docker-compose logs -f db"
 echo ""
 echo "🛑 Stop:"
 echo "   $SCRIPT_DIR/stop_all.sh"

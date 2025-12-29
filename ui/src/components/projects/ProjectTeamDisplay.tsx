@@ -97,23 +97,13 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
     }
   }
 
-  const handleOpenAssignModal = async () => {
-    // First, refresh the current team to ensure we have the latest state
-    try {
-      setLoading(true)
-      const teams = await api.getTeams(projectId)
-      const currentTeam = teams && teams.length > 0 ? teams[0] : null
-      setTeam(currentTeam)
-      
-      setShowAssignModal(true)
-      setIsCreatingNew(!currentTeam) // Default to create new if no team exists
-      setSelectedTeamId('')
-      setNewTeamData({ name: '', description: '' })
-      setError('')
-      loadAllTeamsAndUsers()
-    } finally {
-      setLoading(false)
-    }
+  const handleOpenAssignModal = () => {
+    setShowAssignModal(true)
+    setIsCreatingNew(!team) // Default to create new if no team exists
+    setSelectedTeamId('')
+    setNewTeamData({ name: '', description: '' })
+    setError('')
+    loadAllTeamsAndUsers()
   }
 
   const handleAssignTeam = async () => {
@@ -121,22 +111,11 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
       setSubmitting(true)
       setError('')
 
-      // First, get the ACTUAL current team for this project (fresh from API)
-      const currentTeams = await api.getTeams(projectId)
-      const actualCurrentTeam = currentTeams && currentTeams.length > 0 ? currentTeams[0] : null
-
       if (isCreatingNew) {
         // Create a new team for this project
         if (!newTeamData.name.trim()) {
           setError('Team name is required')
           return
-        }
-        
-        // First, unassign the current team if one exists
-        if (actualCurrentTeam) {
-          await api.updateTeam(actualCurrentTeam.id, {
-            project_id: ''  // Empty string to clear project_id
-          })
         }
         
         await api.createTeam({
@@ -149,13 +128,6 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
         if (!selectedTeamId) {
           setError('Please select a team')
           return
-        }
-        
-        // First, unassign the current team if one exists
-        if (actualCurrentTeam && actualCurrentTeam.id !== selectedTeamId) {
-          await api.updateTeam(actualCurrentTeam.id, {
-            project_id: ''  // Empty string to clear project_id
-          })
         }
         
         // Update the selected team's project_id to this project

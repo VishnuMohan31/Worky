@@ -74,7 +74,7 @@ class UsecaseResponse(UsecaseBase):
 
 # User Story Schemas
 class UserStoryBase(BaseModel):
-    title: str
+    name: str
     short_description: Optional[str] = None
     long_description: Optional[str] = None
     acceptance_criteria: Optional[str] = None
@@ -89,7 +89,7 @@ class UserStoryCreate(UserStoryBase):
 
 
 class UserStoryUpdate(BaseModel):
-    title: Optional[str] = None
+    name: Optional[str] = None
     short_description: Optional[str] = None
     long_description: Optional[str] = None
     acceptance_criteria: Optional[str] = None
@@ -112,7 +112,7 @@ class UserStoryResponse(UserStoryBase):
 
 # Subtask Schemas
 class SubtaskBase(BaseModel):
-    title: str
+    name: str
     short_description: Optional[str] = None
     long_description: Optional[str] = None
     status: Optional[str] = "To Do"
@@ -128,7 +128,7 @@ class SubtaskCreate(SubtaskBase):
 
 
 class SubtaskUpdate(BaseModel):
-    title: Optional[str] = None
+    name: Optional[str] = None
     short_description: Optional[str] = None
     long_description: Optional[str] = None
     status: Optional[str] = None

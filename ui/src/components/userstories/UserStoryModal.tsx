@@ -39,7 +39,7 @@ export default function UserStoryModal({
   isAdmin
 }: UserStoryModalProps) {
   const [formData, setFormData] = useState({
-    title: '',
+    name: '',
     short_description: '',
     long_description: '',
     acceptance_criteria: '',
@@ -83,7 +83,7 @@ export default function UserStoryModal({
   useEffect(() => {
     if (userStory) {
       setFormData({
-        title: userStory.title || '',
+        name: userStory.name || userStory.title || '',
         short_description: userStory.short_description || userStory.shortDescription || '',
         long_description: userStory.long_description || userStory.longDescription || '',
         acceptance_criteria: userStory.acceptance_criteria || userStory.acceptanceCriteria || '',
@@ -95,7 +95,7 @@ export default function UserStoryModal({
       })
     } else {
       setFormData({
-        title: '',
+        name: '',
         short_description: '',
         long_description: '',
         acceptance_criteria: '',
@@ -112,8 +112,8 @@ export default function UserStoryModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.title.trim()) {
-      setError('User story title is required')
+    if (!formData.name.trim()) {
+      setError('User story name is required')
       return
     }
 
@@ -134,7 +134,14 @@ export default function UserStoryModal({
       onSuccess()
       onClose()
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Failed to save user story')
+      const detail = err.response?.data?.detail
+      if (Array.isArray(detail)) {
+        setError(detail.map((e: any) => e.msg || e.message).join(', '))
+      } else if (typeof detail === 'string') {
+        setError(detail)
+      } else {
+        setError(err.message || 'Failed to save user story')
+      }
     } finally {
       setLoading(false)
     }
@@ -186,12 +193,12 @@ export default function UserStoryModal({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Title *
+            Name *
           </label>
           <input
             type="text"
-            value={formData.title}
-            onChange={(e) => handleChange('title', e.target.value)}
+            value={formData.name}
+            onChange={(e) => handleChange('name', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="As a user, I want to..."
             required

@@ -203,7 +203,7 @@ export interface TaskFormData extends EntityFormData {
 }
 
 export interface SubtaskFormData {
-  title: string
+  name: string
   task_id: string
   short_description?: string
   long_description?: string

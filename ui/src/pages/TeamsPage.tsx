@@ -316,7 +316,7 @@ export default function TeamsPage() {
                     type="text"
                     value={newTeam.name}
                     onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -327,7 +327,7 @@ export default function TeamsPage() {
                   <textarea
                     value={newTeam.description}
                     onChange={(e) => setNewTeam({ ...newTeam, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={3}
                   />
                 </div>
@@ -338,7 +338,7 @@ export default function TeamsPage() {
                   <select
                     value={newTeam.project_id}
                     onChange={(e) => setNewTeam({ ...newTeam, project_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="">Select Project...</option>
@@ -384,7 +384,7 @@ export default function TeamsPage() {
                   <select
                     value={newMember.user_id}
                     onChange={(e) => setNewMember({ ...newMember, user_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="">Select User...</option>
@@ -404,7 +404,7 @@ export default function TeamsPage() {
                   <select
                     value={newMember.role}
                     onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Developer">Developer</option>
                     <option value="Tester">Tester</option>

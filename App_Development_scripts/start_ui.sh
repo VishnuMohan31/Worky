@@ -1,32 +1,37 @@
 #!/bin/bash
-echo "🎨 Starting Worky UI..."
+# Start UI Only (Bash)
+# Usage: ./start_ui.sh
 
-# Get the project root directory
-PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+echo "🎨 Starting UI..."
 
-# Stop any existing UI processes first
-echo "Checking for existing UI processes..."
-pkill -9 -f "vite.*worky" 2>/dev/null || true
-lsof -ti:3007 | xargs kill -9 2>/dev/null || true
-
-# Create logs directory if it doesn't exist
-mkdir -p "$PROJECT_ROOT/logs"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT/ui"
 
-# Start UI in background
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing dependencies..."
+    npm install
+fi
+
+# Create logs directory
+mkdir -p "$PROJECT_ROOT/logs"
+
+# Start UI
+echo "🚀 Starting Vite dev server..."
 nohup npm run dev > "$PROJECT_ROOT/logs/ui.log" 2>&1 &
 UI_PID=$!
 
-# Save PID to file
-echo $UI_PID > "$PROJECT_ROOT/logs/ui.pid"
-
 sleep 3
 
-# Check if process is running
-if ps -p $UI_PID > /dev/null; then
-    echo "✓ UI started (PID: $UI_PID)"
+# Check if UI started
+if curl -s http://localhost:3007 > /dev/null 2>&1; then
+    echo "✅ UI is ready on http://localhost:3007 (PID: $UI_PID)"
 else
-    echo "✗ UI failed to start. Check logs/ui.log"
-    exit 1
+    echo "✅ UI started (PID: $UI_PID)"
+    echo "   May take a few seconds to be ready"
 fi
+
+echo ""
+echo "📝 Logs: tail -f $PROJECT_ROOT/logs/ui.log"

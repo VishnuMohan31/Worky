@@ -3,6 +3,7 @@
  * Displays detailed information about an entity
  */
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { EntityType, getEntityDisplayName } from '../../stores/hierarchyStore'
 import EntityStatistics from './EntityStatistics'
 import AuditHistory from './AuditHistory'
@@ -22,6 +23,7 @@ interface EntityDetailsProps {
 }
 
 export default function EntityDetails({ entity, type, compact = false }: EntityDetailsProps) {
+  const queryClient = useQueryClient()
   const [showAuditHistory, setShowAuditHistory] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [showAssignments, setShowAssignments] = useState(false)
@@ -633,8 +635,9 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
               
               await api.updateEntity(type, entity.id, updateData)
               setIsEditModalOpen(false)
-              // Reload the page to refresh data
-              window.location.reload()
+              // Invalidate cache to refresh data without page reload
+              queryClient.invalidateQueries({ queryKey: ['entities'] })
+              queryClient.invalidateQueries({ queryKey: ['entity', type, entity.id] })
             } catch (error: any) {
               console.error('Failed to update entity:', error)
               

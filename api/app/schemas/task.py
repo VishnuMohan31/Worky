@@ -6,7 +6,7 @@ from decimal import Decimal
 
 
 class TaskBase(BaseModel):
-    title: str
+    name: str
     short_description: Optional[str] = None
     long_description: Optional[str] = None
     status: Optional[str] = "To Do"
@@ -24,7 +24,7 @@ class TaskCreate(TaskBase):
 
 
 class TaskUpdate(BaseModel):
-    title: Optional[str] = None
+    name: Optional[str] = None
     short_description: Optional[str] = None
     long_description: Optional[str] = None
     status: Optional[str] = None

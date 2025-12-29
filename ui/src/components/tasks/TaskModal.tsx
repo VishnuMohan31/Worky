@@ -45,7 +45,7 @@ export default function TaskModal({
   isAdmin
 }: TaskModalProps) {
   const [formData, setFormData] = useState({
-    title: '',
+    name: '',
     short_description: '',
     long_description: '',
     user_story_id: selectedUserStoryId || '',
@@ -83,7 +83,7 @@ export default function TaskModal({
   useEffect(() => {
     if (task) {
       setFormData({
-        title: task.title || '',
+        name: task.name || task.title || '',
         short_description: task.short_description || task.shortDescription || '',
         long_description: task.long_description || task.longDescription || '',
         user_story_id: task.user_story_id || task.userStoryId || '',
@@ -97,7 +97,7 @@ export default function TaskModal({
       })
     } else {
       setFormData({
-        title: '',
+        name: '',
         short_description: '',
         long_description: '',
         user_story_id: selectedUserStoryId || '',
@@ -152,8 +152,8 @@ export default function TaskModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.title.trim()) {
-      setError('Task title is required')
+    if (!formData.name.trim()) {
+      setError('Task name is required')
       return
     }
 
@@ -174,7 +174,14 @@ export default function TaskModal({
       onSuccess()
       onClose()
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Failed to save task')
+      const detail = err.response?.data?.detail
+      if (Array.isArray(detail)) {
+        setError(detail.map((e: any) => e.msg || e.message).join(', '))
+      } else if (typeof detail === 'string') {
+        setError(detail)
+      } else {
+        setError(err.message || 'Failed to save task')
+      }
     } finally {
       setLoading(false)
     }
@@ -220,21 +227,21 @@ export default function TaskModal({
               {programs.find(p => p.id === selectedProgramId)?.name} → 
               {projects.find(p => p.id === selectedProjectId)?.name} → 
               {usecases.find(uc => uc.id === selectedUseCaseId)?.name} → 
-              {userstories.find(us => us.id === selectedUserStoryId)?.title}
+              {userstories.find(us => us.id === selectedUserStoryId)?.name || userstories.find(us => us.id === selectedUserStoryId)?.title}
             </div>
           </div>
         )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Task Title *
+            Task Name *
           </label>
           <input
             type="text"
-            value={formData.title}
-            onChange={(e) => handleChange('title', e.target.value)}
+            value={formData.name}
+            onChange={(e) => handleChange('name', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter task title"
+            placeholder="Enter task name"
             required
           />
         </div>
@@ -252,7 +259,7 @@ export default function TaskModal({
             <option value="">Select user story...</option>
             {userstories.map((story) => (
               <option key={story.id} value={story.id}>
-                {story.title}
+                {story.name || story.title}
               </option>
             ))}
           </select>

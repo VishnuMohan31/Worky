@@ -31,7 +31,7 @@ export default function SubtaskForm({
   phases = []
 }: SubtaskFormProps) {
   const [formData, setFormData] = useState<SubtaskFormData>({
-    title: '',
+    name: '',
     task_id: taskId || '',
     short_description: '',
     long_description: '',
@@ -55,9 +55,9 @@ export default function SubtaskForm({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
     
-    // Validate Title (required)
-    if (!formData.title || formData.title.trim().length === 0) {
-      newErrors.title = 'This field is required'
+    // Validate Name (required)
+    if (!formData.name || formData.name.trim().length === 0) {
+      newErrors.name = 'This field is required'
     }
     
     // Validate Task ID (required)
@@ -113,7 +113,7 @@ export default function SubtaskForm({
       await onSubmit(formData)
       // Reset form on successful submission
       setFormData({
-        title: '',
+        name: '',
         task_id: taskId || '',
         short_description: '',
         long_description: '',
@@ -137,26 +137,26 @@ export default function SubtaskForm({
   
   return (
     <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-      {/* Title Field */}
+      {/* Name Field */}
       <div>
-        <label htmlFor="title" className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 text-gray-700">
-          Title <span className="text-red-500">*</span>
+        <label htmlFor="name" className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 text-gray-700">
+          Name <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
-          id="title"
-          value={formData.title}
-          onChange={(e) => handleChange('title', e.target.value)}
+          id="name"
+          value={formData.name}
+          onChange={(e) => handleChange('name', e.target.value)}
           className={`w-full px-3 py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 ${
-            errors.title 
+            errors.name 
               ? 'border-red-500 focus:ring-red-500' 
               : 'border-gray-300 focus:ring-blue-500'
           }`}
-          placeholder="Enter subtask title"
+          placeholder="Enter subtask name"
           disabled={isLoading}
         />
-        {errors.title && (
-          <p className="mt-1 text-xs sm:text-sm text-red-500">{errors.title}</p>
+        {errors.name && (
+          <p className="mt-1 text-xs sm:text-sm text-red-500">{errors.name}</p>
         )}
       </div>
       

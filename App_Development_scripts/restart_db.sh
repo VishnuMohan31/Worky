@@ -1,12 +1,27 @@
 #!/bin/bash
-echo "🔄 Restarting Worky Database..."
-cd "$(dirname "$0")/.."
+# Restart Database Only (Bash)
+# Usage: ./restart_db.sh
+
+echo "🔄 Restarting Database..."
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_ROOT"
+
 docker-compose restart db
-sleep 3
-docker-compose exec -T db pg_isready -U postgres
-if [ $? -eq 0 ]; then
-    echo "✅ Database restarted successfully"
-else
-    echo "❌ Database restart failed"
-    exit 1
-fi
+
+# Wait for database to be healthy
+echo "⏳ Waiting for database to be healthy..."
+for i in {1..30}; do
+    if docker exec worky-postgres pg_isready -U postgres > /dev/null 2>&1; then
+        echo ""
+        echo "✅ Database restarted and healthy"
+        exit 0
+    fi
+    echo -n "."
+    sleep 1
+done
+
+echo ""
+echo "⚠️  Database may still be restarting"

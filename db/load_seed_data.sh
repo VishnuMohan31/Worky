@@ -52,10 +52,10 @@ if [ "$USER_COUNT" -gt 0 ] && [ "$FORCE" = false ]; then
     exit 0
 fi
 
-# Load seed data
-echo -e "${YELLOW}Loading seed data from db/seeds/dev_data.sql...${NC}"
+# Load seed data (now integrated into migrations as 999_seed_dev_data.sql)
+echo -e "${YELLOW}Loading seed data from db/migrations/999_seed_dev_data.sql...${NC}"
 
-if docker exec -i $DB_CONTAINER psql -U $DB_USER -d $DB_NAME < db/seeds/dev_data.sql > /dev/null 2>&1; then
+if docker exec -i $DB_CONTAINER psql -U $DB_USER -d $DB_NAME < db/migrations/999_seed_dev_data.sql > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Seed data loaded successfully!${NC}"
     
     # Count loaded data

@@ -10,7 +10,7 @@ This guide will help you set up the Worky application from scratch on any platfo
 
 ## Quick Start (Fresh Installation)
 
-> ⚠️ **IMPORTANT**: For a fresh clone, delete any old Docker volumes first to ensure migrations run correctly.
+> ⚠️ **IMPORTANT**: For a fresh clone on a new device, always reset the database to ensure clean initialization.
 
 ### 1. Clone the Repository
 
@@ -19,10 +19,16 @@ git clone https://github.com/datalegos/worky.git
 cd worky
 ```
 
-### 2. Clean Previous Volumes (if any)
+### 2. Initialize Database (REQUIRED for new devices)
 
+**Windows (PowerShell):**
+```powershell
+.\db\init_database.ps1 -Reset
+```
+
+**macOS/Linux (Bash):**
 ```bash
-docker-compose down -v
+./db/init_database.sh --reset
 ```
 
 ### 3. Start All Services

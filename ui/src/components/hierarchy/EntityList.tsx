@@ -54,7 +54,7 @@ function TaskFormWithPhase({
 
   return (
     <EntityForm
-      initialData={{ title: '', phase_id: phaseId }}
+      initialData={{ name: '', phase_id: phaseId }}
       onSubmit={handleSubmit}
       onCancel={onCancel}
       isLoading={isLoading}
@@ -102,7 +102,7 @@ function SubtaskFormSimple({
   isLoading?: boolean
 }) {
   const [formData, setFormData] = useState({
-    title: '',
+    name: '',
     short_description: '',
     estimated_hours: 1,
     duration_days: 1,
@@ -113,8 +113,8 @@ function SubtaskFormSimple({
     e.preventDefault()
     
     // Validate required fields
-    if (!formData.title.trim()) {
-      alert('Title is required')
+    if (!formData.name.trim()) {
+      alert('Name is required')
       return
     }
     
@@ -137,7 +137,7 @@ function SubtaskFormSimple({
       await onSubmit({
         ...formData,
         task_id: parentId,
-        title: formData.title.trim()
+        name: formData.name.trim()
       })
     } catch (error) {
       console.error('Error submitting subtask form:', error)
@@ -147,16 +147,16 @@ function SubtaskFormSimple({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="title" className="block text-sm font-medium mb-2">
-          Title <span className="text-red-500">*</span>
+        <label htmlFor="name" className="block text-sm font-medium mb-2">
+          Name <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
-          id="title"
-          value={formData.title}
-          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter subtask title"
+          placeholder="Enter subtask name"
           required
           disabled={isLoading}
         />
@@ -277,15 +277,16 @@ export default function EntityList({
       }
       
       // Handle entity-specific field mappings
+      // Note: Tasks, user stories, and subtasks now use 'name' field (matching the API schema)
       if (entityType === 'task' || entityType === 'userstory' || entityType === 'subtask') {
-        // Tasks, user stories, and subtasks use 'title' instead of 'name'
-        if (data.name && !data.title) {
-          entityData.title = data.name
-          delete entityData.name
+        // Convert old 'title' field to 'name' if present (for backwards compatibility)
+        if (data.title && !data.name) {
+          entityData.name = data.title
+          delete entityData.title
         }
-        // Ensure title is set for these entity types
-        if (!entityData.title && !entityData.name) {
-          throw new Error('Title is required')
+        // Ensure name is set for these entity types
+        if (!entityData.name) {
+          throw new Error('Name is required')
         }
       }
       
@@ -332,26 +333,28 @@ export default function EntityList({
           throw new Error('Task ID is required for subtasks')
         }
         
-        // Subtasks use title instead of name
-        if (data.name && !data.title) {
-          entityData.title = data.name
-          delete entityData.name
+        // Subtasks use 'name' field (same as API schema)
+        // If title was provided but not name, convert it
+        if (data.title && !data.name) {
+          entityData.name = data.title
+          delete entityData.title
         }
         
-        // Ensure title is set (required field)
-        if (!entityData.title) {
-          entityData.title = data.title || data.name || 'New Subtask'
+        // Ensure name is set (required field)
+        if (!entityData.name) {
+          entityData.name = data.name || data.title || 'New Subtask'
         }
         
-        // Validate required title
-        if (!entityData.title || entityData.title.trim() === '') {
-          throw new Error('Title is required for subtasks')
+        // Validate required name
+        if (!entityData.name || entityData.name.trim() === '') {
+          throw new Error('Name is required for subtasks')
         }
         
         // Remove fields that subtasks don't use
         delete entityData.end_date
         delete entityData.start_date
         delete entityData.due_date
+        delete entityData.title  // API uses 'name', not 'title'
         
         // Ensure subtask-specific fields are properly set with defaults
         if (entityData.estimated_hours === undefined || entityData.estimated_hours === null || entityData.estimated_hours === '') {
@@ -399,8 +402,8 @@ export default function EntityList({
         })
         
         // Ensure required fields are present and valid
-        if (!entityData.title || entityData.title.trim() === '') {
-          throw new Error('Title is required for subtasks')
+        if (!entityData.name || entityData.name.trim() === '') {
+          throw new Error('Name is required for subtasks')
         }
         if (!entityData.task_id) {
           throw new Error('Task ID is required for subtasks')
@@ -436,15 +439,14 @@ export default function EntityList({
       // Additional validation for subtasks
       if (entityType === 'subtask') {
         
-        if (!entityData.title || !entityData.task_id) {
+        if (!entityData.name || !entityData.task_id) {
           throw new Error('Missing required fields for subtask creation')
         }
       }
       
       await createEntity.mutateAsync(entityData)
       setIsCreateModalOpen(false)
-      // Reload the page to refresh the entity list
-      window.location.reload()
+      // React Query will automatically refetch the data via cache invalidation
     } catch (error: any) {
       console.error('Failed to create entity:', error)
       
@@ -712,11 +714,7 @@ export default function EntityList({
           />
         ) : (
           <EntityForm
-            initialData={
-              entityType === 'userstory'
-                ? { title: '' } // Use title for user stories
-                : { name: '' }  // Use name for other entities
-            }
+            initialData={{ name: '' }}
             onSubmit={handleCreateEntity}
             onCancel={() => setIsCreateModalOpen(false)}
             isLoading={createEntity.isPending}

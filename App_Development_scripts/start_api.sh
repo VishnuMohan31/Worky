@@ -1,38 +1,36 @@
 #!/bin/bash
-echo "🚀 Starting Worky API..."
+# Start API Only (Bash)
+# Usage: ./start_api.sh
 
-# Get the project root directory
-PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+echo "🚀 Starting API..."
 
-# Stop any existing API processes first
-echo "Checking for existing API processes..."
-pkill -9 -f "uvicorn app.main:app" 2>/dev/null || true
-lsof -ti:8007 | xargs kill -9 2>/dev/null || true
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-cd "$PROJECT_ROOT/api"
+cd "$PROJECT_ROOT"
 
-# Check for .env file
-if [ ! -f .env ]; then
-    cp .env.example .env
-    echo "✓ Created .env file"
-fi
+# Start API via Docker (depends on database)
+docker-compose up -d api
 
-# Create logs directory if it doesn't exist
-mkdir -p "$PROJECT_ROOT/logs"
-
-# Start API in background
-nohup uvicorn app.main:app --reload --host 0.0.0.0 --port 8007 > "$PROJECT_ROOT/logs/api.log" 2>&1 &
-API_PID=$!
-
-# Save PID to file
-echo $API_PID > "$PROJECT_ROOT/logs/api.pid"
-
-sleep 2
-
-# Check if process is running
-if ps -p $API_PID > /dev/null; then
-    echo "✓ API started (PID: $API_PID)"
-else
-    echo "✗ API failed to start. Check logs/api.log"
+if [ $? -ne 0 ]; then
+    echo "❌ API failed to start"
     exit 1
 fi
+
+# Wait for API to be healthy
+echo "⏳ Waiting for API to be healthy..."
+sleep 5
+
+for i in {1..30}; do
+    if curl -s http://localhost:8007/health > /dev/null 2>&1; then
+        echo ""
+        echo "✅ API is ready on http://localhost:8007"
+        echo "📚 API Docs: http://localhost:8007/docs"
+        exit 0
+    fi
+    echo -n "."
+    sleep 2
+done
+
+echo ""
+echo "⚠️  API may still be starting. Check: docker logs worky-api"
