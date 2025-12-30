@@ -21,6 +21,10 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     role: Optional[str] = None
+    primary_role: Optional[str] = None
+    secondary_roles: Optional[list] = None
+    is_contact_person: Optional[bool] = None
+    client_id: Optional[str] = None
     language: Optional[str] = None
     theme: Optional[str] = None
     is_active: Optional[bool] = None
@@ -29,6 +33,9 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     id: str
     client_id: str
+    primary_role: Optional[str] = None
+    secondary_roles: Optional[list] = None
+    is_contact_person: Optional[bool] = False
     is_active: bool
     created_at: datetime
 

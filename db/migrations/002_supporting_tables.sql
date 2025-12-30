@@ -3,15 +3,38 @@
 -- Description: Dependencies, commits, bugs, documentation, and audit logs
 
 -- Dependencies table (supports all hierarchy levels)
-CREATE TABLE dependencies (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- NOTE: Updated to use VARCHAR(20) string IDs (migration 007 converted all IDs to strings)
+CREATE TABLE IF NOT EXISTS dependencies (
+    id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('DEP', 'dependencies_id_seq'),
     entity_type VARCHAR(50) NOT NULL CHECK (entity_type IN ('Program', 'Project', 'Usecase', 'UserStory', 'Task', 'Subtask')),
-    entity_id UUID NOT NULL,
+    entity_id VARCHAR(20) NOT NULL,
     depends_on_type VARCHAR(50) NOT NULL CHECK (depends_on_type IN ('Program', 'Project', 'Usecase', 'UserStory', 'Task', 'Subtask')),
-    depends_on_id UUID NOT NULL,
+    depends_on_id VARCHAR(20) NOT NULL,
     dependency_type VARCHAR(50) DEFAULT 'finish_to_start' CHECK (dependency_type IN ('finish_to_start', 'start_to_start', 'finish_to_finish', 'start_to_finish')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- If table exists with UUID columns, drop and recreate (for existing databases)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'dependencies' 
+        AND column_name = 'id' 
+        AND data_type = 'uuid'
+    ) THEN
+        DROP TABLE IF EXISTS dependencies CASCADE;
+        CREATE TABLE dependencies (
+            id VARCHAR(20) PRIMARY KEY DEFAULT generate_string_id('DEP', 'dependencies_id_seq'),
+            entity_type VARCHAR(50) NOT NULL CHECK (entity_type IN ('Program', 'Project', 'Usecase', 'UserStory', 'Task', 'Subtask')),
+            entity_id VARCHAR(20) NOT NULL,
+            depends_on_type VARCHAR(50) NOT NULL CHECK (depends_on_type IN ('Program', 'Project', 'Usecase', 'UserStory', 'Task', 'Subtask')),
+            depends_on_id VARCHAR(20) NOT NULL,
+            dependency_type VARCHAR(50) DEFAULT 'finish_to_start' CHECK (dependency_type IN ('finish_to_start', 'start_to_start', 'finish_to_finish', 'start_to_finish')),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    END IF;
+END $$;
 
 -- Commits table (Git integration)
 CREATE TABLE commits (

@@ -92,11 +92,13 @@ async def create_user(
     hashed_password = get_password_hash(user_data.password)
     
     # Create new user
+    # Set primary_role to match role (for backward compatibility)
     new_user = User(
         email=user_data.email,
         full_name=user_data.full_name,
         hashed_password=hashed_password,
         role=user_data.role,
+        primary_role=user_data.role,  # Sync primary_role with role
         client_id=user_data.client_id,
         language=user_data.language,
         theme=user_data.theme,
@@ -173,6 +175,17 @@ async def update_user(
         user.email = user_data.email
     if user_data.role is not None:
         user.role = user_data.role
+        # If primary_role not explicitly set, sync it with role
+        if user_data.primary_role is None:
+            user.primary_role = user_data.role
+    if user_data.primary_role is not None:
+        user.primary_role = user_data.primary_role
+    if user_data.secondary_roles is not None:
+        user.secondary_roles = user_data.secondary_roles
+    if user_data.is_contact_person is not None:
+        user.is_contact_person = user_data.is_contact_person
+    if user_data.client_id is not None:
+        user.client_id = user_data.client_id
     if user_data.language is not None:
         user.language = user_data.language
     if user_data.theme is not None:
@@ -214,60 +227,14 @@ async def delete_user(
     if user.id == current_user.id:
         raise ConflictException("Cannot delete your own account")
     
-    # Delete all related records first (to handle foreign key constraints)
-    
-    # Delete assignment history
+    # Delete related records that don't have CASCADE delete
+    # Most tables with ON DELETE CASCADE will be handled automatically
     await db.execute(
-        text("DELETE FROM assignment_history WHERE user_id = :user_id OR previous_user_id = :user_id"),
+        text("DELETE FROM entity_notes WHERE created_by = :user_id"),
         {"user_id": user_id}
     )
     
-    # Delete assignments
-    await db.execute(
-        text("DELETE FROM assignments WHERE user_id = :user_id"),
-        {"user_id": user_id}
-    )
-    
-    # Delete todo items
-    await db.execute(
-        text("DELETE FROM todo_items WHERE user_id = :user_id"),
-        {"user_id": user_id}
-    )
-    
-    # Delete notifications
-    await db.execute(
-        text("DELETE FROM notifications WHERE user_id = :user_id"),
-        {"user_id": user_id}
-    )
-    
-    # Delete notification preferences
-    await db.execute(
-        text("DELETE FROM notification_preferences WHERE user_id = :user_id"),
-        {"user_id": user_id}
-    )
-    
-    # Delete any other related records
-    await db.execute(
-        text("DELETE FROM adhoc_notes WHERE user_id = :user_id"),
-        {"user_id": user_id}
-    )
-    
-    await db.execute(
-        text("DELETE FROM chat_messages WHERE user_id = :user_id"),
-        {"user_id": user_id}
-    )
-    
-    await db.execute(
-        text("DELETE FROM chat_audit_logs WHERE user_id = :user_id"),
-        {"user_id": user_id}
-    )
-    
-    await db.execute(
-        text("DELETE FROM reminders WHERE user_id = :user_id"),
-        {"user_id": user_id}
-    )
-    
-    # Finally, delete the user permanently
+    # Delete the user (CASCADE will handle most other relationships)
     await db.delete(user)
     await db.commit()
     

@@ -24,10 +24,19 @@ else
     echo "✅ UI stopped"
 fi
 
+# Set up Docker commands (use Windows Docker if in WSL)
+if [ -f "/mnt/c/Program Files/Docker/Docker/resources/bin/docker-compose.exe" ]; then
+    DOCKER_COMPOSE="/mnt/c/Program Files/Docker/Docker/resources/bin/docker-compose.exe"
+elif command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+else
+    DOCKER_COMPOSE="docker compose"
+fi
+
 # Stop Docker services
 echo ""
 echo "2️⃣ Stopping Docker services (API and Database)..."
-docker-compose down
+"$DOCKER_COMPOSE" down
 
 if [ $? -eq 0 ]; then
     echo "✅ Docker services stopped"

@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     DATABASE_HOST: str = "localhost"
     DATABASE_PORT: int = 5437
     DATABASE_NAME: str = "worky"
-    DATABASE_USER: str = "worky_user"
-    DATABASE_PASSWORD: str = "worky_password"
+    DATABASE_USER: str = "postgres"
+    DATABASE_PASSWORD: str = "postgres"
     
     # Security
     SECRET_KEY: str = "your-secret-key-change-in-production"
