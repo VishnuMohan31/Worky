@@ -15,6 +15,9 @@ eggs/
 .eggs/
 lib/
 lib64/
+# Exception: Allow UI source lib directory (contains queryClient.ts)
+!ui/src/lib/
+!ui/src/lib/**
 parts/
 sdist/
 var/
@@ -41,9 +44,11 @@ build/
 .DS_Store
 
 # Environment variables
-# .env
-# .env.local
-# .env.*.local
+.env
+.env.local
+.env.production
+.env.*.local
+*.env
 
 # Logs
 *.log

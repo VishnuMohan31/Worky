@@ -83,6 +83,18 @@ chmod +x *.sh
 
 ## Troubleshooting
 
+### UI shows error screen on first load
+
+**This has been fixed!** The `queryClient.ts` file now safely handles environment variable initialization. If you still encounter this:
+
+1. Clear browser cache and hard refresh (Ctrl+Shift+R / Cmd+Shift+R)
+2. Restart the UI:
+   ```bash
+   ./stop_ui.sh
+   ./start_ui.sh
+   ```
+3. The fix ensures the app works on first load without requiring manual file edits
+
 ### Docker not running
 
 Make sure Docker Desktop is running before executing any scripts.

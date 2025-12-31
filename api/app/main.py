@@ -24,13 +24,17 @@ setup_logging(
 logger = StructuredLogger(__name__)
 
 # Create FastAPI app
+# Disable API docs in production for security
+docs_url = None if settings.ENVIRONMENT == "production" else "/docs"
+redoc_url = None if settings.ENVIRONMENT == "production" else "/redoc"
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     debug=settings.DEBUG,
     description="Worky Project Management Platform API",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url=docs_url,
+    redoc_url=redoc_url
 )
 
 # Custom middleware
@@ -41,7 +45,7 @@ app.add_middleware(RateLimitMiddleware, requests_per_minute=500)
 # This ensures CORS headers are added to all responses, including errors
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
@@ -67,7 +71,7 @@ async def startup_event():
         "Application starting",
         app_name=settings.APP_NAME,
         version=settings.APP_VERSION,
-        environment=settings.DEBUG and "development" or "production"
+        environment=settings.ENVIRONMENT
     )
     
     # Initialize chat service
@@ -130,13 +134,16 @@ async def shutdown_event():
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {
+    response = {
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "status": "running",
-        "docs": "/docs",
         "health": "/health"
     }
+    # Only expose docs URL in non-production environments
+    if settings.ENVIRONMENT != "production":
+        response["docs"] = "/docs"
+    return response
 
 
 @app.get("/health")

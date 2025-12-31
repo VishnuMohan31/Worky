@@ -46,8 +46,14 @@ The app will be available at `http://localhost:3000`
 ### Build for Production
 
 ```bash
+# Option 1: Use the production build script (recommended)
+../scripts/build-ui-prod.sh
+
+# Option 2: Manual build
 npm run build
 ```
+
+**Note**: The UI has been updated to handle environment variables safely. The `queryClient.ts` file now includes safe initialization that prevents errors on first load, especially on new devices. The application will work correctly without requiring manual file edits.
 
 ## Demo Credentials
 

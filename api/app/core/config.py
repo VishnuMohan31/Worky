@@ -20,8 +20,17 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS
-    CORS_ORIGINS: list = ["http://localhost:3007", "http://localhost:3008", "http://localhost:3000", "http://localhost:8007"]
+    # CORS - Can be comma-separated string or list
+    CORS_ORIGINS: str = "http://localhost:3007,http://localhost:3008,http://localhost:3000,http://localhost:8007"
+    
+    @property
+    def cors_origins_list(self) -> list:
+        """Parse CORS_ORIGINS string into list"""
+        if isinstance(self.CORS_ORIGINS, str):
+            return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        elif isinstance(self.CORS_ORIGINS, list):
+            return self.CORS_ORIGINS
+        return []
     
     # External Services
     GITHUB_TOKEN: Optional[str] = None

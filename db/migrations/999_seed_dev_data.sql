@@ -130,12 +130,12 @@ BEGIN
         ('SUB-000010', 'TSK-000009', 'Implement event handlers', 'Create WebSocket event handlers', 'In Progress', 'USR-000002', 8, 5);
 
         -- Insert bugs (using correct column names from the new schema)
-        INSERT INTO bugs (id, task_id, title, description, category, severity, priority, status, assignee_id, reporter_id, environment) VALUES
-        ('BUG-000001', 'TSK-000002', 'Login page not responsive on mobile', 'The login form breaks on screens smaller than 768px', 'UI', 'High', 'P1', 'Closed', 'USR-000009', 'USR-000006', 'Mobile Safari iOS 17'),
-        ('BUG-000002', 'TSK-000003', 'Task filter not working', 'Filtering tasks by status returns incorrect results', 'Backend', 'Medium', 'P2', 'In Progress', 'USR-000002', 'USR-000003', 'Chrome 120'),
-        ('BUG-000003', 'TSK-000008', 'Comments not saving', 'Comment submission fails silently', 'Backend', 'High', 'P1', 'Closed', 'USR-000002', 'USR-000006', 'Firefox 121'),
-        ('BUG-000004', 'TSK-000009', 'WebSocket connection drops', 'Connection drops after 5 minutes of inactivity', 'Backend', 'Medium', 'P1', 'New', 'USR-000002', 'USR-000005', 'Production'),
-        ('BUG-000005', 'TSK-000010', 'Chart rendering issue', 'Charts not rendering on Safari', 'UI', 'Low', 'P2', 'New', 'USR-000009', 'USR-000006', 'Safari 17');
+        INSERT INTO bugs (id, entity_type, entity_id, task_id, title, description, category, severity, priority, status, assignee_id, reported_by, reporter_id, environment) VALUES
+        ('BUG-000001', 'Task', 'TSK-000002', 'TSK-000002', 'Login page not responsive on mobile', 'The login form breaks on screens smaller than 768px', 'UI', 'High', 'P1', 'Closed', 'USR-000009', 'USR-000006', 'USR-000006', 'Mobile Safari iOS 17'),
+        ('BUG-000002', 'Task', 'TSK-000003', 'TSK-000003', 'Task filter not working', 'Filtering tasks by status returns incorrect results', 'Backend', 'Medium', 'P2', 'In Progress', 'USR-000002', 'USR-000003', 'USR-000003', 'Chrome 120'),
+        ('BUG-000003', 'Task', 'TSK-000008', 'TSK-000008', 'Comments not saving', 'Comment submission fails silently', 'Backend', 'High', 'P1', 'Closed', 'USR-000002', 'USR-000006', 'USR-000006', 'Firefox 121'),
+        ('BUG-000004', 'Task', 'TSK-000009', 'TSK-000009', 'WebSocket connection drops', 'Connection drops after 5 minutes of inactivity', 'Backend', 'Medium', 'P1', 'New', 'USR-000002', 'USR-000005', 'USR-000005', 'Production'),
+        ('BUG-000005', 'Task', 'TSK-000010', 'TSK-000010', 'Chart rendering issue', 'Charts not rendering on Safari', 'UI', 'Low', 'P2', 'New', 'USR-000009', 'USR-000006', 'USR-000006', 'Safari 17');
 
         -- Insert sprints
         INSERT INTO sprints (id, project_id, name, goal, start_date, end_date, status) VALUES

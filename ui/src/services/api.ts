@@ -149,9 +149,9 @@ const addAuthToken = (config: any) => {
   const fullUrl = config.baseURL + config.url
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
-    console.log('Adding auth token to request:', fullUrl, 'Token:', token.substring(0, 20) + '...')
+    // Token added to request (logging removed for production security)
   } else {
-    console.log('No token found for request:', fullUrl)
+    // No token found for request (logging removed for production)
   }
   return config
 }
@@ -163,12 +163,12 @@ safeApiClient.interceptors.request.use(addAuthToken)
 apiClient.interceptors.response.use(
   response => response,
   error => {
-    console.log('API Error:', error.config?.url, 'Status:', error.response?.status, 'Message:', error.response?.data)
+    // API Error logged (details removed for production security)
     
     // Redirect to login for any 401 error (unauthorized)
     if (error.response?.status === 401) {
       const url = error.config?.url || ''
-      console.log('401 Unauthorized for:', url, '- redirecting to login')
+      // 401 Unauthorized - redirecting to login
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
@@ -189,7 +189,7 @@ apiClient.interceptors.response.use(
 safeApiClient.interceptors.response.use(
   response => response,
   error => {
-    console.log('Safe API Error:', error.config?.url, 'Status:', error.response?.status, 'Message:', error.response?.data)
+    // Safe API Error (details removed for production)
     
     // Don't redirect to login for 401 errors - just log and reject
     if (error.response?.status === 401) {
@@ -766,7 +766,7 @@ const api = {
     const response = await apiClient.post('/assignments/', data)
     // Invalidate assignment cache - clear all assignment-related cache
     invalidateCache('assignments')
-    console.log('Assignment created successfully, cache invalidated')
+    // Assignment created successfully, cache invalidated
     return response.data
   },
 
@@ -781,7 +781,7 @@ const api = {
     const response = await apiClient.delete(`/assignments/${id}`)
     // Invalidate assignment cache - clear all assignment-related cache
     invalidateCache('assignments')
-    console.log('Assignment deleted successfully, cache invalidated')
+    // Assignment deleted successfully, cache invalidated
     return response.data
   },
 

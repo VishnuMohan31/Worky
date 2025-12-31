@@ -47,11 +47,14 @@ class TeamService:
         
         # Check if user has permission to create teams for this project
         # For now, allow Admin, Project Manager, and Architect roles
-        user_role = current_user.primary_role or current_user.role
-        if user_role not in ["Admin", "Project Manager", "Architect", "Owner"]:
+        # Check role field first (main role), then fall back to primary_role
+        # Admin users should always have role="Admin" regardless of primary_role
+        user_role = current_user.role if current_user.role else current_user.primary_role
+        allowed_roles = ["Admin", "Project Manager", "Architect", "Owner"]
+        if user_role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions to create teams"
+                detail=f"Insufficient permissions to create teams. User role: {user_role}, Required: {allowed_roles}"
             )
         
         # Check if team already exists for this project

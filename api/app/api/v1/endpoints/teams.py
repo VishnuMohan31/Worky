@@ -553,63 +553,6 @@ async def get_team(
     return TeamWithMembersResponse(**team_dict)
 
 
-@router.post("/", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
-async def create_team(
-    team_data: TeamCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Create a new team."""
-    
-    # Only admins can create teams
-    if current_user.role != "Admin":
-        raise AccessDeniedException("Only administrators can create teams")
-    
-    # Verify project exists
-    project_result = await db.execute(
-        select(Project).where(Project.id == team_data.project_id)
-    )
-    project = project_result.scalar_one_or_none()
-    
-    if not project:
-        raise ResourceNotFoundException("Project", team_data.project_id)
-    
-    # Check if team name is unique within the project
-    existing_team = await db.execute(
-        select(Team).where(
-            and_(
-                Team.project_id == team_data.project_id,
-                Team.name == team_data.name,
-                Team.is_active == True
-            )
-        )
-    )
-    if existing_team.scalar_one_or_none():
-        raise ValidationException(f"Team with name '{team_data.name}' already exists in this project")
-    
-    team = Team(
-        id=generate_id("TEAM"),
-        **team_data.dict(),
-        created_by=current_user.id,
-        updated_by=current_user.id
-    )
-    
-    db.add(team)
-    await db.commit()
-    await db.refresh(team)
-    
-    logger.log_activity(
-        action="create_team",
-        entity_type="team",
-        entity_id=team.id,
-        project_id=team.project_id
-    )
-    
-    team_dict = team.__dict__.copy()
-    team_dict['member_count'] = 0
-    return TeamResponse(**team_dict)
-
-
 @router.delete("/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_team(
     team_id: str,
