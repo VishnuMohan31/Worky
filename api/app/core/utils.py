@@ -39,5 +39,5 @@ def validate_entity_type(entity_type: str) -> bool:
 
 def validate_assignment_type(assignment_type: str) -> bool:
     """Validate if assignment type is supported."""
-    valid_types = ['owner', 'contact_person', 'developer']
+    valid_types = ['owner', 'contact_person', 'assignee', 'developer', 'tester', 'designer', 'reviewer', 'lead']
     return assignment_type.lower() in valid_types

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface Decision {
   id: string;
@@ -14,11 +14,22 @@ interface Decision {
 
 interface DecisionListProps {
   decisions: Decision[];
-  onStatusUpdate: (decisionId: string, newStatus: string) => void;
+  onStatusUpdate: (decisionId: string, newStatus: string, onCancel?: () => void) => void;
   isLoading: boolean;
 }
 
 const DecisionList: React.FC<DecisionListProps> = ({ decisions, onStatusUpdate, isLoading }) => {
+  // Track local status values to handle cancellation
+  const [localStatuses, setLocalStatuses] = useState<Record<string, string>>({});
+  
+  // Initialize local statuses when decisions change
+  useEffect(() => {
+    const statusMap: Record<string, string> = {};
+    decisions.forEach(decision => {
+      statusMap[decision.id] = decision.decision_status;
+    });
+    setLocalStatuses(statusMap);
+  }, [decisions]);
   const statusColors = {
     'Active': 'bg-green-100 text-green-800',
     'Canceled': 'bg-red-100 text-red-800',
@@ -106,8 +117,26 @@ const DecisionList: React.FC<DecisionListProps> = ({ decisions, onStatusUpdate, 
               {/* Status Update Dropdown */}
               <div className="ml-4 flex-shrink-0">
                 <select
-                  value={decision.decision_status}
-                  onChange={(e) => onStatusUpdate(decision.id, e.target.value)}
+                  value={localStatuses[decision.id] || decision.decision_status}
+                  onChange={(e) => {
+                    const newStatus = e.target.value;
+                    const originalValue = decision.decision_status;
+                    
+                    // Update local state immediately for visual feedback
+                    setLocalStatuses(prev => ({
+                      ...prev,
+                      [decision.id]: newStatus
+                    }));
+                    
+                    // Call the update handler (which will show confirmation)
+                    onStatusUpdate(decision.id, newStatus, () => {
+                      // If cancelled, restore original value
+                      setLocalStatuses(prev => ({
+                        ...prev,
+                        [decision.id]: originalValue
+                      }));
+                    });
+                  }}
                   className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   {statusOptions.map((status) => (

@@ -132,11 +132,13 @@ async def create_assignment(
             entity_name=f"{assignment_data.entity_type}:{assignment_data.entity_id}"
         )
         
-    except HTTPException:
+    except HTTPException as e:
+        # Log the error for debugging
+        logger.error(f"Assignment validation error: {e.detail}")
         raise
     except Exception as e:
-        print(f"Assignment error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to create assignment")
+        logger.error(f"Assignment error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create assignment: {str(e)}")
 
 
 @router.get("/", response_model=List[AssignmentResponse])
@@ -188,6 +190,7 @@ async def list_assignments(
             "is_active": assignment.is_active,
             "user_name": assignment.user.full_name if assignment.user else None,
             "user_email": assignment.user.email if assignment.user else None,
+            "user_role": assignment.user.role if assignment.user else None,
             "entity_name": entity_name
         }
         assignment_responses.append(AssignmentResponse(**assignment_dict))
@@ -523,6 +526,7 @@ async def assign_entity(
             "is_active": assignment.is_active,
             "user_name": assignment.user.full_name if assignment.user else None,
             "user_email": assignment.user.email if assignment.user else None,
+            "user_role": assignment.user.role if assignment.user else None,
             "entity_name": entity_name
         }
         
@@ -772,18 +776,37 @@ async def validate_assignment_permissions(
 ) -> None:
     """Validate that a user can be assigned to an entity based on team membership rules."""
     
-    # For tasks and subtasks, user must be a team member of the project
-    if entity_type in ['task', 'subtask']:
+    # For project-level entities (usecase, userstory, task, subtask), user must be a team member of the project
+    if entity_type in ['usecase', 'userstory', 'task', 'subtask']:
         # Get the project ID for this entity
         project_id = None
         
-        if entity_type == 'task':
+        if entity_type == 'usecase':
+            # Direct project relationship
+            usecase_result = await db.execute(
+                select(Usecase).where(Usecase.id == entity_id)
+            )
+            usecase = usecase_result.scalar_one_or_none()
+            if usecase:
+                project_id = usecase.project_id
+        
+        elif entity_type == 'userstory':
+            # UserStory -> UseCase -> Project
+            userstory_result = await db.execute(
+                select(UserStory).options(
+                    selectinload(UserStory.usecase)
+                ).where(UserStory.id == entity_id)
+            )
+            userstory = userstory_result.scalar_one_or_none()
+            if userstory and userstory.usecase:
+                project_id = userstory.usecase.project_id
+        
+        elif entity_type == 'task':
             # Task -> UserStory -> UseCase -> Project
             task_result = await db.execute(
                 select(Task).options(
                     selectinload(Task.user_story)
                     .selectinload(UserStory.usecase)
-                    .selectinload(Usecase.project)
                 ).where(Task.id == entity_id)
             )
             task = task_result.scalar_one_or_none()
@@ -797,7 +820,6 @@ async def validate_assignment_permissions(
                     selectinload(Subtask.task)
                     .selectinload(Task.user_story)
                     .selectinload(UserStory.usecase)
-                    .selectinload(Usecase.project)
                 ).where(Subtask.id == entity_id)
             )
             subtask = subtask_result.scalar_one_or_none()
@@ -881,6 +903,7 @@ async def update_assignment(
     assignment_dict = assignment.__dict__.copy()
     assignment_dict['user_name'] = assignment.user.full_name if assignment.user else None
     assignment_dict['user_email'] = assignment.user.email if assignment.user else None
+    assignment_dict['user_role'] = assignment.user.role if assignment.user else None
     assignment_dict['entity_name'] = await get_entity_name(
         assignment.entity_type, assignment.entity_id, db
     )

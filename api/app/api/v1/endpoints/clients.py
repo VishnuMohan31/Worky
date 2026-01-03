@@ -273,6 +273,7 @@ async def get_client_statistics(
             "id": str(client.id),
             "name": client.name,
             "description": client.short_description or "",
+            "long_description": client.long_description or "",
             "industry": "",  # Not in model yet
             "contact_email": client.email or "",
             "contact_phone": client.phone or "",

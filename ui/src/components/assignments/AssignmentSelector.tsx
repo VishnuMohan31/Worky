@@ -53,7 +53,7 @@ export default function AssignmentSelector({
     if (showAssignModal) {
       loadAvailableAssignees()
     }
-  }, [showAssignModal, entityType, entityId, newAssignment.assignment_type])
+  }, [showAssignModal, entityType, entityId, newAssignment.assignment_type, assignments])
 
   function getDefaultAssignmentType(entityType: string): string {
     // Client, Program, Project = Owner
@@ -82,7 +82,19 @@ export default function AssignmentSelector({
   const loadAvailableAssignees = async () => {
     try {
       const response = await api.getAvailableAssignees(entityType, entityId)
-      setAvailableAssignees(response)
+      
+      // Filter out users who are already assigned to this entity (regardless of assignment type)
+      const assignedUserIds = new Set(
+        assignments
+          .filter(a => a.is_active)
+          .map(a => a.user_id)
+      )
+      
+      const filteredAssignees = response.filter(
+        (user: any) => !assignedUserIds.has(user.id)
+      )
+      
+      setAvailableAssignees(filteredAssignees)
     } catch (error) {
       console.error('Failed to load available assignees:', error)
       alert('Failed to load available assignees')
@@ -105,11 +117,12 @@ export default function AssignmentSelector({
         assignment_type: newAssignment.assignment_type
       })
       
-      alert('Assignment created successfully')
+      alert('Assigned successfully')
       
+      // Reload assignments first to update the filter, then close modal and reset form
+      await loadAssignments()
       setShowAssignModal(false)
       setNewAssignment({ user_id: '', assignment_type: getDefaultAssignmentType(entityType) })
-      loadAssignments()
       onAssignmentChange?.()
     } catch (error: any) {
       console.error('Failed to create assignment:', error)
@@ -123,7 +136,7 @@ export default function AssignmentSelector({
     try {
       await api.deleteAssignment(assignmentId)
       
-      alert('Assignment removed successfully')
+      alert('Unassigned successfully')
       
       loadAssignments()
       onAssignmentChange?.()
@@ -212,13 +225,9 @@ export default function AssignmentSelector({
       types.push({ value: 'owner', label: 'Owner' })
     }
     if (['usecase', 'userstory', 'task', 'subtask'].includes(entityType)) {
-      types.push(
-        { value: 'developer', label: 'Developer' },
-        { value: 'tester', label: 'Tester' },
-        { value: 'designer', label: 'Designer' },
-        { value: 'reviewer', label: 'Reviewer' },
-        { value: 'lead', label: 'Lead' }
-      )
+      // For usecases, userstories, tasks, and subtasks, only use 'assignee' type
+      // Team members are assigned as assignees
+      types.push({ value: 'assignee', label: 'Assignee' })
     }
     return types
   }
@@ -248,24 +257,26 @@ export default function AssignmentSelector({
         size="md"
       >
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Type</label>
-            <select
-              value={newAssignment.assignment_type}
-              onChange={(e) => {
-                setNewAssignment({ ...newAssignment, assignment_type: e.target.value, user_id: '' })
-                // Reload available assignees when assignment type changes
-                setTimeout(loadAvailableAssignees, 100)
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {getAvailableAssignmentTypes(entityType).map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {getAvailableAssignmentTypes(entityType).length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Type</label>
+              <select
+                value={newAssignment.assignment_type}
+                onChange={(e) => {
+                  setNewAssignment({ ...newAssignment, assignment_type: e.target.value, user_id: '' })
+                  // Reload available assignees when assignment type changes
+                  setTimeout(loadAvailableAssignees, 100)
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {getAvailableAssignmentTypes(entityType).map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">User</label>

@@ -161,10 +161,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     try {
       // Call API to clear session on backend
+      // Note: If token is already removed (logout scenario), this will handle it gracefully
       await chatApi.clearSession(sessionId)
-      console.log('Session cleared on backend:', sessionId)
-    } catch (err) {
-      console.error('Failed to clear session on backend:', err)
+      // Only log success if we're not in a logout scenario (token still exists)
+      const token = localStorage.getItem('token')
+      if (token) {
+        console.log('Session cleared on backend:', sessionId)
+      }
+    } catch (err: any) {
+      // During logout, 401 errors are expected and handled gracefully
+      // Only log errors that aren't related to authentication
+      if (err?.response?.status !== 401) {
+        console.error('Failed to clear session on backend:', err)
+      }
       // Continue with local cleanup even if API call fails
     }
 

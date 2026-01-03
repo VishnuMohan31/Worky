@@ -8,6 +8,7 @@ from sqlalchemy import select, text
 
 from app.db.base import get_db
 from app.models.user import User
+from app.models.audit import AuditLog
 from app.schemas.user import UserResponse, UserUpdate, UserCreate
 from app.core.security import get_current_user, require_role, get_password_hash
 from app.core.exceptions import ResourceNotFoundException, ConflictException
@@ -15,6 +16,32 @@ from app.core.logging import StructuredLogger
 
 router = APIRouter()
 logger = StructuredLogger(__name__)
+
+
+async def create_audit_log(
+    db: AsyncSession,
+    user_id: str,
+    client_id: str,
+    action: str,
+    entity_type: str,
+    entity_id: str,
+    changes: dict = None
+):
+    """Create an audit log entry for user operations."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            client_id=client_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            changes=changes  # JSONB accepts dict directly
+        )
+        db.add(audit_log)
+        logger.debug(f"Audit log added for {action} on {entity_type} {entity_id}")
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}", exc_info=True)
+        # Don't fail the main operation if audit logging fails
 
 
 @router.get("/", response_model=List[UserResponse])
@@ -106,7 +133,24 @@ async def create_user(
     )
     
     db.add(new_user)
-    await db.commit()
+    await db.flush()  # Flush to get the ID without committing
+    
+    # Create audit log before committing
+    try:
+        await create_audit_log(
+            db=db,
+            user_id=str(current_user.id),
+            client_id=str(current_user.client_id),
+            action="CREATE",
+            entity_type="user",
+            entity_id=str(new_user.id),
+            changes={"email": new_user.email, "full_name": new_user.full_name, "role": new_user.role}
+        )
+    except Exception as e:
+        logger.error(f"Failed to create audit log for new user: {e}", exc_info=True)
+        # Continue even if audit log fails - don't rollback the user creation
+    
+    await db.commit()  # Commit both user and audit log
     await db.refresh(new_user)
     
     logger.log_activity(
@@ -168,33 +212,59 @@ async def update_user(
         if existing_user.scalar_one_or_none():
             raise ConflictException(f"User with email '{user_data.email}' already exists")
     
+    # Track changes for audit log
+    changes_dict = {}
+    
     # Update fields if provided
-    if user_data.full_name is not None:
+    if user_data.full_name is not None and user_data.full_name != user.full_name:
+        changes_dict["full_name"] = {"old": user.full_name, "new": user_data.full_name}
         user.full_name = user_data.full_name
-    if user_data.email is not None:
+    if user_data.email is not None and user_data.email != user.email:
+        changes_dict["email"] = {"old": user.email, "new": user_data.email}
         user.email = user_data.email
-    if user_data.role is not None:
+    if user_data.role is not None and user_data.role != user.role:
+        changes_dict["role"] = {"old": user.role, "new": user_data.role}
         user.role = user_data.role
         # If primary_role not explicitly set, sync it with role
         if user_data.primary_role is None:
             user.primary_role = user_data.role
-    if user_data.primary_role is not None:
+    if user_data.primary_role is not None and user_data.primary_role != user.primary_role:
+        changes_dict["primary_role"] = {"old": user.primary_role, "new": user_data.primary_role}
         user.primary_role = user_data.primary_role
     if user_data.secondary_roles is not None:
+        changes_dict["secondary_roles"] = {"old": user.secondary_roles, "new": user_data.secondary_roles}
         user.secondary_roles = user_data.secondary_roles
-    if user_data.is_contact_person is not None:
+    if user_data.is_contact_person is not None and user_data.is_contact_person != user.is_contact_person:
+        changes_dict["is_contact_person"] = {"old": user.is_contact_person, "new": user_data.is_contact_person}
         user.is_contact_person = user_data.is_contact_person
-    if user_data.client_id is not None:
+    if user_data.client_id is not None and user_data.client_id != user.client_id:
+        changes_dict["client_id"] = {"old": user.client_id, "new": user_data.client_id}
         user.client_id = user_data.client_id
-    if user_data.language is not None:
+    if user_data.language is not None and user_data.language != user.language:
+        changes_dict["language"] = {"old": user.language, "new": user_data.language}
         user.language = user_data.language
-    if user_data.theme is not None:
+    if user_data.theme is not None and user_data.theme != user.theme:
+        changes_dict["theme"] = {"old": user.theme, "new": user_data.theme}
         user.theme = user_data.theme
-    if user_data.is_active is not None:
+    if user_data.is_active is not None and user_data.is_active != user.is_active:
+        changes_dict["is_active"] = {"old": user.is_active, "new": user_data.is_active}
         user.is_active = user_data.is_active
     
     await db.commit()
     await db.refresh(user)
+    
+    # Create audit log if there were changes
+    if changes_dict:
+        await create_audit_log(
+            db=db,
+            user_id=str(current_user.id),
+            client_id=str(current_user.client_id),
+            action="UPDATE",
+            entity_type="user",
+            entity_id=user_id,
+            changes=changes_dict
+        )
+        await db.commit()  # Commit the audit log
     
     logger.log_activity(
         action="update_user",
@@ -232,6 +302,17 @@ async def delete_user(
     await db.execute(
         text("DELETE FROM entity_notes WHERE created_by = :user_id"),
         {"user_id": user_id}
+    )
+    
+    # Create audit log before deletion
+    await create_audit_log(
+        db=db,
+        user_id=str(current_user.id),
+        client_id=str(current_user.client_id),
+        action="DELETE",
+        entity_type="user",
+        entity_id=user_id,
+        changes={"deleted_user_email": user.email, "deleted_user_name": user.full_name}
     )
     
     # Delete the user (CASCADE will handle most other relationships)

@@ -48,10 +48,10 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
 
   // Load current assignments with useCallback to prevent unnecessary re-renders
   const loadAssignments = useCallback(async () => {
-    // Prevent multiple simultaneous calls
+    // Prevent multiple simultaneous calls, but allow if not currently loading
     if (loadingAssignmentsRef.current) {
       console.log('Already loading assignments, skipping...')
-      return assignments
+      return []
     }
     
     loadingAssignmentsRef.current = true
@@ -62,19 +62,41 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
         entity_id: entityId
       })
       console.log('Raw assignment data:', assignmentData)
+      console.log('Raw assignment data type:', typeof assignmentData, 'Is array:', Array.isArray(assignmentData))
       
-      const activeAssignments = assignmentData.filter((a: any) => 
-        a.is_active && a.assignment_type !== 'owner'
-      )
+      // Handle different response formats
+      let assignmentsArray: any[] = []
+      if (Array.isArray(assignmentData)) {
+        assignmentsArray = assignmentData
+      } else if (assignmentData && typeof assignmentData === 'object') {
+        // If it's an object, try to extract an array from common properties
+        if (Array.isArray(assignmentData.items)) {
+          assignmentsArray = assignmentData.items
+        } else if (Array.isArray(assignmentData.data)) {
+          assignmentsArray = assignmentData.data
+        } else {
+          console.warn('Unexpected assignment data format:', assignmentData)
+        }
+      }
+      
+      console.log('Assignments array:', assignmentsArray)
+      
+      // Filter for active assignments (exclude owner type for usecase/userstory/task/subtask)
+      const activeAssignments = assignmentsArray.filter((a: any) => {
+        const isActive = a.is_active === true || a.is_active === undefined
+        const isNotOwner = a.assignment_type !== 'owner'
+        console.log(`Assignment ${a.id}: is_active=${a.is_active}, assignment_type=${a.assignment_type}, passes=${isActive && isNotOwner}`)
+        return isActive && isNotOwner
+      })
       console.log('Active assignments (non-owner):', activeAssignments)
       
       const assignmentsData = activeAssignments.map((assignment: any) => ({
         id: assignment.user_id,
         assignmentId: assignment.id,
-        name: assignment.user_name || 'Unknown User',
-        email: assignment.user_email || '',
-        role: assignment.user_role || 'Member',
-        assignmentType: assignment.assignment_type || 'developer'
+        name: assignment.user_name || assignment.user?.full_name || 'Unknown User',
+        email: assignment.user_email || assignment.user?.email || '',
+        role: assignment.user_role || assignment.user?.role || 'Member',
+        assignmentType: assignment.assignment_type || 'assignee'
       }))
       
       console.log('Processed assignments data:', assignmentsData)
@@ -110,14 +132,12 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
       const users = await api.getAvailableAssignees(entityType, entityId)
       console.log('All available users from API:', users)
       
-      // Filter out users who are already assigned with the SAME role as currently selected
-      const assignedUserIdsForSelectedRole = assignmentsToUse
-        .filter(a => a.assignmentType === selectedRole)
-        .map(a => a.id)
-      console.log(`Already assigned user IDs for role ${selectedRole}:`, assignedUserIdsForSelectedRole)
+      // Filter out users who are already assigned (regardless of assignment type)
+      const assignedUserIds = assignmentsToUse.map(a => a.id)
+      console.log(`Already assigned user IDs:`, assignedUserIds)
       
       const available = users.filter((user: User) => 
-        !assignedUserIdsForSelectedRole.includes(user.id) && user.full_name
+        !assignedUserIds.includes(user.id) && user.full_name
       )
       
       console.log('Filtered available users:', available)
@@ -128,11 +148,9 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
       try {
         const allUsers = await api.getUsers()
         const assignmentsToUse = currentAssignments || assignments
-        const assignedUserIdsForSelectedRole = assignmentsToUse
-          .filter(a => a.assignmentType === selectedRole)
-          .map(a => a.id)
+        const assignedUserIds = assignmentsToUse.map(a => a.id)
         const available = allUsers.filter((user: User) => 
-          !assignedUserIdsForSelectedRole.includes(user.id) && user.full_name
+          !assignedUserIds.includes(user.id) && user.full_name
         )
         console.log('Fallback: filtered available users from all users:', available)
         setAvailableUsers(available)
@@ -148,8 +166,13 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
 
   // Load assignments on mount and when entity changes
   useEffect(() => {
+    // Reset loading flag when entity changes to allow fresh load
+    loadingAssignmentsRef.current = false
+    // Clear assignments immediately when entity changes
+    setAssignments([])
+    // Load assignments for the new entity
     loadAssignments()
-  }, [loadAssignments])
+  }, [entityType, entityId, loadAssignments])
 
   // Load available users when dropdown opens or role changes
   useEffect(() => {
@@ -305,7 +328,7 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
                 {/* Role Selection */}
                 <div className="mb-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Assignment Role:
+                    Select Team Member:
                   </label>
                   <select
                     value={selectedRole}
@@ -319,6 +342,9 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
                       </option>
                     ))}
                   </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Assign a team member to this task
+                  </p>
                 </div>
 
                 {/* User List */}
@@ -377,7 +403,7 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
         </div>
 
         {assignments.length === 0 && (
-          <span className="text-sm text-gray-500 italic">No assignments</span>
+          <span className="text-sm text-gray-500 italic">No assignees</span>
         )}
       </div>
     </div>

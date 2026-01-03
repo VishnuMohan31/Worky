@@ -82,50 +82,34 @@ export default function OwnershipDisplay({ entityType, entityId, onOwnershipChan
 
   const loadAvailableUsers = async () => {
     try {
-      console.log('Loading eligible users for ownership...')
+      console.log('Loading available users for ownership...')
       
-      // Use the backend validation endpoint to get only eligible users
-      // This ensures frontend and backend validation rules are always in sync
-      const eligibleUsers = await api.getEligibleUsers(entityType, entityId, 'owner')
-      console.log('Eligible users from backend:', eligibleUsers)
+      // Get all active users - any role can be assigned as owner
+      const users = await api.getUsers()
+      console.log('All users from API:', users)
       
       // Filter out users who are already owners
       const ownerIds = owners.map(o => o.id)
       
-      const available = eligibleUsers
-        .filter((user: any) => !ownerIds.includes(user.id) && user.full_name)
-        .map((user: any) => ({
+      const available = users
+        .filter((user: User) => 
+          !ownerIds.includes(user.id) && 
+          user.full_name &&
+          user.is_active
+        )
+        .map((user: User) => ({
           id: user.id,
           full_name: user.full_name,
           email: user.email,
-          role: user.role, // This is already the primary_role from backend
-          primary_role: user.role,
-          secondary_roles: []
+          role: user.role || user.primary_role || 'Member',
+          primary_role: user.primary_role || user.role,
+          secondary_roles: user.secondary_roles || []
         }))
       
       console.log('Available users for ownership:', available)
       setAvailableUsers(available)
     } catch (error: any) {
-      console.error('Failed to load eligible users:', error)
-      
-      // Fallback to old method if the validation endpoint fails
-      if (error.response?.status === 404 || error.response?.status === 500) {
-        console.log('Falling back to manual filtering...')
-        try {
-          const users = await api.getUsers()
-          const ownerIds = owners.map(o => o.id)
-          const eligibleRoles = ['Admin', 'Owner', 'Project Manager', 'Architect']
-          
-          const available = users.filter((user: User) => 
-            !ownerIds.includes(user.id) && 
-            user.full_name &&
-            eligibleRoles.includes(user.role)
-          )
-          setAvailableUsers(available)
-        } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError)
-        }
-      }
+      console.error('Failed to load users:', error)
       
       if (error.response?.status === 401) {
         console.log('Authentication failed, redirecting to login')
@@ -307,9 +291,9 @@ export default function OwnershipDisplay({ entityType, entityId, onOwnershipChan
                       'No users found matching your search'
                     ) : availableUsers.length === 0 ? (
                       <div>
-                        <p className="mb-2">No eligible users available</p>
+                        <p className="mb-2">No users available</p>
                         <p className="text-xs text-gray-400">
-                          Only Admin, Owner, Architect, and Project Manager roles can be assigned as owners
+                          Please create users first
                         </p>
                       </div>
                     ) : (
@@ -342,12 +326,7 @@ export default function OwnershipDisplay({ entityType, entityId, onOwnershipChan
               {/* Footer */}
               <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between items-center">
                 <span className="text-xs text-gray-500">
-                  {filteredUsers.length} eligible user{filteredUsers.length !== 1 ? 's' : ''} available
-                  {availableUsers.length === 0 && (
-                    <span className="block text-gray-400 mt-1">
-                      (Admin/Owner/Architect/PM roles only)
-                    </span>
-                  )}
+                  {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} available
                 </span>
                 <button
                   onClick={() => setShowDropdown(false)}

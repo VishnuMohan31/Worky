@@ -51,7 +51,7 @@ export const BulkAssignment: React.FC<BulkAssignmentProps> = ({
 }) => {
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
   const [selectedUser, setSelectedUser] = useState('');
-  const [assignmentType, setAssignmentType] = useState('developer');
+  const [assignmentType, setAssignmentType] = useState('assignee'); // Default, will be updated based on selected entities
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -191,11 +191,15 @@ export const BulkAssignment: React.FC<BulkAssignmentProps> = ({
     const uniqueTypes = [...new Set(entityTypes)];
     
     if (uniqueTypes.every(type => ['task', 'subtask'].includes(type!))) {
-      return [{ value: 'developer', label: 'Developer' }];
+      return [{ value: 'assignee', label: 'Assignee' }];
     }
     
-    if (uniqueTypes.every(type => ['usecase', 'userstory', 'project', 'program'].includes(type!))) {
+    if (uniqueTypes.every(type => ['project', 'program', 'client'].includes(type!))) {
       return [{ value: 'owner', label: 'Owner' }];
+    }
+    
+    if (uniqueTypes.every(type => ['usecase', 'userstory'].includes(type!))) {
+      return [{ value: 'assignee', label: 'Assignee' }];
     }
     
     if (uniqueTypes.every(type => type === 'client')) {
@@ -205,7 +209,7 @@ export const BulkAssignment: React.FC<BulkAssignmentProps> = ({
     // Mixed types - show all options
     return [
       { value: 'owner', label: 'Owner' },
-      { value: 'developer', label: 'Developer' },
+      { value: 'assignee', label: 'Assignee' },
       { value: 'contact_person', label: 'Contact Person' }
     ];
   };

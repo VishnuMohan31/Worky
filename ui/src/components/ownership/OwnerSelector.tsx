@@ -60,10 +60,9 @@ export default function OwnerSelector({ entityType, selectedOwners, onOwnersChan
     try {
       const users = await api.getUsers()
       
-      // Filter users by role compatibility for ownership
-      const eligibleRoles = ['Admin', 'Owner', 'Project Manager']
+      // Show all active users - any role can be assigned as owner
       const eligible = users.filter((user: User) => 
-        user.full_name && eligibleRoles.includes(user.role)
+        user.full_name && user.is_active
       )
       
       setAvailableUsers(eligible)
@@ -208,9 +207,9 @@ export default function OwnerSelector({ entityType, selectedOwners, onOwnersChan
                       'No users found matching your search'
                     ) : availableUsers.length === 0 ? (
                       <div>
-                        <p className="mb-1">No eligible users available</p>
+                        <p className="mb-1">No users available</p>
                         <p className="text-xs text-gray-400">
-                          Only Admin, Owner, and Project Manager roles can be assigned as owners
+                          Please create users first
                         </p>
                       </div>
                     ) : (
@@ -274,7 +273,7 @@ export default function OwnerSelector({ entityType, selectedOwners, onOwnersChan
 
       {/* Help Text */}
       <p className="mt-2 text-xs text-gray-500">
-        Select users who will be responsible for managing this {entityType}. Only Admin, Owner, and Project Manager roles can be assigned as owners.
+        Select users who will be responsible for managing this {entityType}. Multiple owners can be assigned.
       </p>
     </div>
   )

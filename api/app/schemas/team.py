@@ -70,7 +70,7 @@ class AssignmentBase(BaseModel):
     entity_type: str = Field(..., pattern="^(client|program|project|usecase|userstory|task|subtask)$")
     entity_id: str
     user_id: str
-    assignment_type: str = Field(..., pattern="^(owner|contact_person|developer|tester|designer|reviewer|lead)$")
+    assignment_type: str = Field(..., pattern="^(owner|assignee|contact_person|developer|tester|designer|reviewer|lead)$")
 
 
 class AssignmentCreate(AssignmentBase):
@@ -79,7 +79,7 @@ class AssignmentCreate(AssignmentBase):
 
 class AssignmentUpdate(BaseModel):
     user_id: Optional[str] = None
-    assignment_type: Optional[str] = Field(None, pattern="^(owner|contact_person|developer|tester|designer|reviewer|lead)$")
+    assignment_type: Optional[str] = Field(None, pattern="^(owner|assignee|contact_person|developer|tester|designer|reviewer|lead)$")
     is_active: Optional[bool] = None
 
 
@@ -89,6 +89,7 @@ class AssignmentResponse(AssignmentBase):
     is_active: bool
     user_name: Optional[str] = None
     user_email: Optional[str] = None
+    user_role: Optional[str] = None
     entity_name: Optional[str] = None
 
     class Config:

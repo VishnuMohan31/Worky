@@ -70,7 +70,19 @@ export default function TeamsPage() {
         api.getProjects(),
         api.getUsers()
       ])
-      setTeams(Array.isArray(teamsData) ? teamsData : [])
+      
+      // Handle paginated response from teams API
+      let teamsList = []
+      if (teamsData) {
+        if (Array.isArray(teamsData)) {
+          teamsList = teamsData
+        } else if (teamsData.items && Array.isArray(teamsData.items)) {
+          teamsList = teamsData.items
+        } else if (teamsData.data && Array.isArray(teamsData.data)) {
+          teamsList = teamsData.data
+        }
+      }
+      setTeams(teamsList)
       setProjects(Array.isArray(projectsData) ? projectsData.filter(p => p !== null) : [])
       setUsers(Array.isArray(usersData) ? usersData : [])
     } catch (error) {
@@ -95,13 +107,29 @@ export default function TeamsPage() {
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate required fields
+    if (!newTeam.name.trim()) {
+      alert('Please enter a team name')
+      return
+    }
+    if (!newTeam.project_id) {
+      alert('Please select a project')
+      return
+    }
+    
     try {
-      await api.createTeam(newTeam)
+      console.log('Creating team with data:', newTeam)
+      const createdTeam = await api.createTeam(newTeam)
+      console.log('Team created successfully:', createdTeam)
       setShowCreateModal(false)
       setNewTeam({ name: '', description: '', project_id: '' })
-      loadInitialData()
-    } catch (error) {
+      await loadInitialData()
+      alert('Team created successfully!')
+    } catch (error: any) {
       console.error('Failed to create team:', error)
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create team. Please try again.'
+      alert(`Error: ${errorMessage}`)
     }
   }
 

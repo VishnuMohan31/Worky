@@ -70,11 +70,19 @@ export default function UsersPage() {
     }
 
     try {
+      console.log('Creating user with data:', {
+        full_name: formData.fullName.trim(),
+        email: formData.email.trim(),
+        role: formData.role
+      })
+      
       // Get first available client for new user
       const clients = await api.getClients()
       const clientId = clients?.clients?.[0]?.id || clients?.[0]?.id || 'CLI-001'
       
-      await api.createUser({
+      console.log('Using client ID:', clientId)
+      
+      const newUser = await api.createUser({
         full_name: formData.fullName.trim(),
         email: formData.email.trim(),
         role: formData.role,
@@ -84,11 +92,14 @@ export default function UsersPage() {
         theme: 'snow'
       })
       
+      console.log('User created successfully:', newUser)
+      
       await loadUsers()
       handleCloseModals()
       alert('User created successfully! Default password: password123')
     } catch (error: any) {
       console.error('Failed to create user:', error)
+      console.error('Error details:', error.response?.data)
       const errorMessage = error.response?.data?.detail || error.message || 'Failed to create user. Please try again.'
       alert(errorMessage)
     }
@@ -321,11 +332,15 @@ export default function UsersPage() {
                   }}
                   value={formData.role}
                   onChange={(e) => setFormData({...formData, role: e.target.value})}>
-                  <option value="Developer">Developer</option>
-                  <option value="Project Manager">Project Manager</option>
-                  <option value="Tester">Tester</option>
-                  <option value="DevOps">DevOps</option>
                   <option value="Admin">Admin</option>
+                  <option value="Developer">Developer</option>
+                  <option value="Tester">Tester</option>
+                  <option value="Architect">Architect</option>
+                  <option value="Designer">Designer</option>
+                  <option value="Project Manager">Project Manager</option>
+                  <option value="DevOps">DevOps</option>
+                  <option value="Owner">Owner</option>
+                  <option value="Contact Person">Contact Person</option>
                 </select>
               </div>
             </div>
@@ -404,11 +419,15 @@ export default function UsersPage() {
                   }}
                   value={formData.role}
                   onChange={(e) => setFormData({...formData, role: e.target.value})}>
-                  <option value="Developer">Developer</option>
-                  <option value="Project Manager">Project Manager</option>
-                  <option value="Tester">Tester</option>
-                  <option value="DevOps">DevOps</option>
                   <option value="Admin">Admin</option>
+                  <option value="Developer">Developer</option>
+                  <option value="Tester">Tester</option>
+                  <option value="Architect">Architect</option>
+                  <option value="Designer">Designer</option>
+                  <option value="Project Manager">Project Manager</option>
+                  <option value="DevOps">DevOps</option>
+                  <option value="Owner">Owner</option>
+                  <option value="Contact Person">Contact Person</option>
                 </select>
               </div>
               <div>

@@ -8,6 +8,7 @@ interface ClientDetail {
   id: string
   name: string
   description: string
+  long_description?: string
   industry: string
   contact_email: string
   contact_phone: string
@@ -39,7 +40,7 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
   const [formData, setFormData] = useState({
     name: client.name,
     short_description: client.description,
-    long_description: '',
+    long_description: client.long_description || '',
     email: client.contact_email,
     phone: client.contact_phone,
     is_active: client.is_active
@@ -90,7 +91,7 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
     setFormData({
       name: client.name,
       short_description: client.description,
-      long_description: '',
+      long_description: client.long_description || '',
       email: client.contact_email,
       phone: client.contact_phone,
       is_active: client.is_active
@@ -356,7 +357,7 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                       />
                     ) : (
                       <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                        {formData.long_description || 'No detailed description provided'}
+                        {client.long_description || formData.long_description || 'No detailed description provided'}
                       </p>
                     )}
                   </div>

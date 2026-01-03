@@ -1,8 +1,10 @@
 """
 Main FastAPI application with middleware and exception handlers.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.logging import setup_logging, StructuredLogger
 from app.core.exceptions import (
@@ -56,6 +58,46 @@ app.add_middleware(
 # Exception handlers
 app.add_exception_handler(WorkyException, worky_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
+
+# Add handler for Pydantic validation errors to log them
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle Pydantic validation errors and log them for debugging."""
+    errors = exc.errors()
+    error_details = []
+    for error in errors:
+        error_details.append({
+            "field": ".".join(str(loc) for loc in error["loc"]),
+            "message": error["msg"],
+            "type": error["type"]
+        })
+    
+    # Get request body if available (only for POST/PUT/PATCH)
+    request_body = None
+    if request.method in ["POST", "PUT", "PATCH"]:
+        try:
+            body = await request.body()
+            request_body = body.decode('utf-8') if body else None
+        except Exception:
+            pass
+    
+    logger.error(
+        f"Validation error on {request.method} {request.url.path}",
+        extra={
+            "validation_errors": error_details,
+            "request_body": request_body,
+            "path": request.url.path,
+            "method": request.method
+        }
+    )
+    
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "detail": error_details,
+            "message": "Validation error: " + "; ".join([f"{e['field']}: {e['message']}" for e in error_details])
+        }
+    )
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")

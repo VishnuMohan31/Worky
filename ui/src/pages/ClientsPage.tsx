@@ -17,6 +17,7 @@ interface ClientDetail {
   id: string
   name: string
   description: string
+  long_description?: string
   industry: string
   contact_email: string
   contact_phone: string
@@ -118,7 +119,7 @@ export default function ClientsPage() {
     setFormData({
       name: client.name,
       short_description: client.description || '',
-      long_description: '',
+      long_description: client.long_description || '',
       email: client.contact_email || '',
       phone: client.contact_phone || '',
       is_active: client.is_active
@@ -576,9 +577,15 @@ export default function ClientsPage() {
         <ClientDetailView
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
-          onUpdate={() => {
-            loadStatistics()
-            setSelectedClient(null)
+          onUpdate={async () => {
+            // Reload statistics to get updated client data
+            const data = await api.getClientStatistics()
+            setStatistics(data)
+            // Update selectedClient with fresh data
+            const updatedClient = data.clients.find(c => c.id === selectedClient.id)
+            if (updatedClient) {
+              setSelectedClient(updatedClient)
+            }
           }}
         />
       )}

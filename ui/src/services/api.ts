@@ -697,10 +697,22 @@ const api = {
     return response.data
   },
 
-  // Team Management Operations - NEW
+  // Team Management Operations
   async getTeams(projectId?: string) {
-    const response = await apiClient.get('/teams/', { params: { project_id: projectId } })
-    return response.data.items || response.data || []
+    try {
+      const response = await apiClient.get('/teams/', { params: { project_id: projectId } })
+      // Handle paginated response - return items array or full response
+      if (response.data && response.data.items) {
+        return response.data.items
+      }
+      if (Array.isArray(response.data)) {
+        return response.data
+      }
+      return []
+    } catch (error: any) {
+      console.error('Error fetching teams:', error)
+      throw error
+    }
   },
 
   async getTeam(id: string) {

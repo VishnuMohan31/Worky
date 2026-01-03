@@ -82,7 +82,20 @@ const DecisionsPage: React.FC = () => {
   };
 
   // Update decision status
-  const handleStatusUpdate = async (decisionId: string, newStatus: string) => {
+  const handleStatusUpdate = async (decisionId: string, newStatus: string, onCancel?: () => void) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to change the decision status to "${newStatus}"?\n\nThis action will update the decision status permanently.`
+    );
+    
+    if (!confirmed) {
+      // User cancelled - call the cancel callback to restore dropdown value
+      if (onCancel) {
+        onCancel();
+      }
+      return; // Don't proceed with update
+    }
+    
     try {
       await api.put(`/decisions/${decisionId}/status`, {
         decision_status: newStatus
@@ -91,6 +104,10 @@ const DecisionsPage: React.FC = () => {
     } catch (error) {
       console.error('Error updating decision status:', error);
       alert('Failed to update decision status. Please try again.');
+      // On error, also restore the dropdown
+      if (onCancel) {
+        onCancel();
+      }
     }
   };
 

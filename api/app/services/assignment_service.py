@@ -284,17 +284,17 @@ class AssignmentService:
         Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
         """
         # Assignment rules matrix
-        # Client, Program, Project = Owner (multiple allowed)
+        # Client, Program, Project = Owner (multiple allowed, ANY role can be owner)
         # UseCase, UserStory, Task, Subtask = Assignee from Team Members
         assignment_rules = {
             "client": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Empty list means any role is allowed
             },
             "program": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Empty list means any role is allowed
             },
             "project": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Empty list means any role is allowed
             },
             "usecase": {
                 "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
@@ -320,6 +320,10 @@ class AssignmentService:
         
         # Get allowed roles for this assignment
         allowed_roles = assignment_rules[entity_type][assignment_type]
+        
+        # For owner assignments (client/program/project), allow any role (empty list means no restriction)
+        if assignment_type == "owner" and entity_type in ["client", "program", "project"]:
+            return {"valid": True}
         
         # Check user's primary role (fallback to role field for backward compatibility)
         user_primary_role = user.primary_role or user.role
@@ -486,14 +490,18 @@ class AssignmentService:
         users_result = await self.db.execute(users_query)
         all_users = users_result.scalars().all()
         
-        # Filter by role compatibility
-        eligible_users = []
-        for user in all_users:
-            role_validation = self.validate_role_compatibility(
-                user, entity_type, assignment_type
-            )
-            if role_validation["valid"]:
-                eligible_users.append(user)
+        # For owner assignments on client/program/project, return all active users (no role filtering)
+        if assignment_type == "owner" and entity_type in ["client", "program", "project"]:
+            eligible_users = list(all_users)
+        else:
+            # Filter by role compatibility for other assignment types
+            eligible_users = []
+            for user in all_users:
+                role_validation = self.validate_role_compatibility(
+                    user, entity_type, assignment_type
+                )
+                if role_validation["valid"]:
+                    eligible_users.append(user)
         
         # Cache the results
         cache_key = cache_service.eligible_users_key(entity_type, entity_id, assignment_type)

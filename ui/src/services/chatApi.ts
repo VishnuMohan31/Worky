@@ -150,17 +150,25 @@ chatApiClient.interceptors.request.use(config => {
 chatApiClient.interceptors.response.use(
   response => response,
   error => {
-    // Log error for debugging
-    console.error('Chat API Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      message: error.response?.data?.error?.message || error.message
-    })
-    
-    // Handle 401 Unauthorized
+    // Handle 401 Unauthorized - suppress logs during logout scenario
     if (error.response?.status === 401) {
+      // Check if we're in a logout scenario (token already removed)
+      const token = localStorage.getItem('token')
+      if (!token) {
+        // Token already removed - this is expected during logout, don't log as error
+        // Just return the error silently
+        return Promise.reject(error)
+      }
+      // Token exists but request failed - log warning
       console.warn('Chat API: Unauthorized - token may be invalid or expired')
       // Don't redirect here - let the component handle it
+    } else {
+      // Log other errors for debugging
+      console.error('Chat API Error:', {
+        url: error.config?.url,
+        status: error.response?.status,
+        message: error.response?.data?.error?.message || error.message
+      })
     }
     
     // Handle 429 Rate Limit
@@ -357,6 +365,16 @@ export async function clearSession(sessionId: string): Promise<{ success: boolea
       throw new Error('Session ID is required')
     }
     
+    // Check if token exists - if not, we're likely logging out, so skip API call
+    const token = localStorage.getItem('token')
+    if (!token) {
+      // Token already removed (logout scenario) - just return success without API call
+      return {
+        success: true,
+        message: 'Session cleared locally (logout)'
+      }
+    }
+    
     // Execute with retry logic (no retry for DELETE operations)
     const response = await chatApiClient.delete<{ success: boolean; message: string; session_id: string }>(
       `/session/${sessionId}`
@@ -367,7 +385,15 @@ export async function clearSession(sessionId: string): Promise<{ success: boolea
       message: response.data.message
     }
   } catch (error) {
-    console.error('clearSession error:', error)
+    // Handle 401 - Unauthorized (token expired/removed during logout)
+    if (error instanceof AxiosError && error.response?.status === 401) {
+      // During logout, token is removed before session clear - this is expected
+      // Don't log as error, just return success
+      return {
+        success: true,
+        message: 'Session cleared (token removed during logout)'
+      }
+    }
     
     // Handle 404 - session not found (consider it success)
     if (error instanceof AxiosError && error.response?.status === 404) {
@@ -377,6 +403,8 @@ export async function clearSession(sessionId: string): Promise<{ success: boolea
       }
     }
     
+    // Only log other errors (not 401/404)
+    console.error('clearSession error:', error)
     throw new Error(getErrorMessage(error))
   }
 }

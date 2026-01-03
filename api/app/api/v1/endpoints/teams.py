@@ -18,6 +18,7 @@ from app.schemas.team import (
 from app.core.security import get_current_user
 from app.core.exceptions import ResourceNotFoundException, AccessDeniedException, ValidationException
 from app.core.logging import StructuredLogger
+from app.core.utils import generate_id
 from app.services.team_service import TeamService
 from app.core.pagination import PaginationParams, PaginatedResponse, pagination_service
 
@@ -36,35 +37,52 @@ async def list_teams(
 ):
     """List teams with optional filters."""
     
-    query = select(Team).options(selectinload(Team.members))
+    # Check if user is Admin - prioritize role field over primary_role
+    is_admin = current_user.role == "Admin" or current_user.primary_role == "Admin"
+    
+    # Build base query for teams
+    base_query = select(Team)
     
     # Apply filters
+    filters = []
     if project_id:
-        query = query.where(Team.project_id == project_id)
+        filters.append(Team.project_id == project_id)
     if is_active is not None:
-        query = query.where(Team.is_active == is_active)
+        filters.append(Team.is_active == is_active)
     
-    # Non-admin users can only see teams they're members of or have access to
-    user_role = current_user.primary_role or current_user.role
-    if user_role != "Admin":
-        # Subquery to get team IDs where user is a member
+    # Non-admin users can only see teams they're members of
+    if not is_admin:
         member_teams_subquery = select(TeamMember.team_id).where(
             and_(
                 TeamMember.user_id == current_user.id,
                 TeamMember.is_active == True
             )
         )
-        query = query.where(Team.id.in_(member_teams_subquery))
+        filters.append(Team.id.in_(member_teams_subquery))
+    
+    # Apply filters to base query
+    if filters:
+        base_query = base_query.where(and_(*filters))
     
     # Create pagination parameters
     pagination = PaginationParams(page=page, per_page=per_page)
     
+    # Count query - use the same filters as base_query
+    count_query = select(func.count(Team.id))
+    if filters:
+        count_query = count_query.where(and_(*filters))
+    
+    # Execute count query
+    count_result = await db.execute(count_query)
+    total_count = count_result.scalar() or 0
+    
+    # Main query with selectinload for members
+    main_query = base_query.options(selectinload(Team.members))
+    
     # Get paginated results
-    items, total_count = await pagination_service.paginate_query(
-        db=db,
-        query=query,
-        pagination=pagination
-    )
+    paginated_query = main_query.offset(pagination.offset).limit(pagination.limit)
+    items_result = await db.execute(paginated_query)
+    items = items_result.scalars().all()
     
     # Convert to response format with member count
     team_responses = []
@@ -88,8 +106,11 @@ async def list_teams(
         entity_type="team",
         user_id=current_user.id,
         total_teams=total_count,
-        page=page
+        page=page,
+        items_count=len(team_responses)
     )
+    
+    logger.debug(f"List teams: found {total_count} teams, returning {len(team_responses)} items")
     
     # Return paginated response
     return PaginatedResponse.create(
@@ -142,10 +163,10 @@ async def create_team(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating team: {str(e)}")
+        logger.error(f"Error creating team: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create team"
+            detail=f"Failed to create team: {str(e)}"
         )
 
 

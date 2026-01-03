@@ -74,8 +74,8 @@ export default function EntityCard({ entity, type, onClick, onAssignmentChange }
     onAssignmentChange?.()
   }
 
-  // Find the current assignment for this entity
-  const currentAssignment = assignments.find((a: Assignment) => a.is_active && a.assignment_type === 'developer')
+  // Find the current assignment for this entity (tasks/subtasks use 'assignee' type)
+  const currentAssignment = assignments.find((a: Assignment) => a.is_active && a.assignment_type === 'assignee')
   
   // Get assigned person name
   const assignedPersonName = currentAssignment?.user_name || entity.assigned_to_name || null

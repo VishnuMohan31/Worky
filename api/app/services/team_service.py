@@ -57,9 +57,13 @@ class TeamService:
                 detail=f"Insufficient permissions to create teams. User role: {user_role}, Required: {allowed_roles}"
             )
         
-        # Check if team already exists for this project
+        # Check if team with same name already exists for this project
         existing_team_query = select(Team).where(
-            and_(Team.project_id == project_id, Team.is_active == True)
+            and_(
+                Team.project_id == project_id,
+                Team.name == name,
+                Team.is_active == True
+            )
         )
         existing_team_result = await self.db.execute(existing_team_query)
         existing_team = existing_team_result.scalar_one_or_none()
@@ -67,7 +71,7 @@ class TeamService:
         if existing_team:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Active team already exists for this project"
+                detail=f"An active team with the name '{name}' already exists for this project"
             )
         
         # Create new team
@@ -346,9 +350,9 @@ class TeamService:
         
         Requirements: 4.1, 4.2
         """
-        # Admin users have access to all teams
-        user_role = current_user.primary_role or current_user.role
-        if user_role == "Admin":
+        # Admin users have access to all teams - check role first, then primary_role
+        is_admin = current_user.role == "Admin" or current_user.primary_role == "Admin"
+        if is_admin:
             return True
         
         # Get team and check project access
@@ -357,7 +361,7 @@ class TeamService:
             return False
         
         # Check if user is a member of the team or has appropriate role
-        user_role = current_user.primary_role or current_user.role
+        user_role = current_user.role if current_user.role else current_user.primary_role
         if user_role in ["Project Manager", "Architect", "Owner"]:
             return True
         

@@ -93,15 +93,17 @@ class ValidationService:
         Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
         """
         # Assignment rules matrix
+        # Client, Program, Project = Owner (ANY role can be owner)
+        # UseCase, UserStory, Task, Subtask = Assignee from Team Members
         assignment_rules = {
             "client": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Empty list means any role is allowed
             },
             "program": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Empty list means any role is allowed
             },
             "project": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Empty list means any role is allowed
             },
             "usecase": {
                 "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
@@ -124,7 +126,11 @@ class ValidationService:
         if assignment_type not in assignment_rules[entity_type]:
             return False
         
-        # Check if user role is allowed
+        # For owner assignments (client/program/project), allow any role
+        if assignment_type == "owner" and entity_type in ["client", "program", "project"]:
+            return True
+        
+        # Check if user role is allowed for other assignment types
         allowed_roles = assignment_rules[entity_type][assignment_type]
         return user_role in allowed_roles
     
@@ -152,24 +158,26 @@ class ValidationService:
             return ValidationResult(False, "User is not active")
         
         # Validate role compatibility
-        if not self.validate_role_compatibility(user.primary_role, entity_type, assignment_type):
-            # Check secondary roles
-            role_compatible = False
-            if user.secondary_roles:
-                for role in user.secondary_roles:
-                    if self.validate_role_compatibility(role, entity_type, assignment_type):
-                        role_compatible = True
-                        break
-            
-            # Special case for contact person
-            if assignment_type == "contact_person" and user.is_contact_person:
-                role_compatible = True
-            
-            if not role_compatible:
-                return ValidationResult(
-                    False, 
-                    f"User role '{user.primary_role}' is not compatible with assignment type '{assignment_type}' for entity type '{entity_type}'"
-                )
+        # For owner assignments on client/program/project, any role is allowed (skip validation)
+        if not (assignment_type == "owner" and entity_type in ["client", "program", "project"]):
+            if not self.validate_role_compatibility(user.primary_role, entity_type, assignment_type):
+                # Check secondary roles
+                role_compatible = False
+                if user.secondary_roles:
+                    for role in user.secondary_roles:
+                        if self.validate_role_compatibility(role, entity_type, assignment_type):
+                            role_compatible = True
+                            break
+                
+                # Special case for contact person
+                if assignment_type == "contact_person" and user.is_contact_person:
+                    role_compatible = True
+                
+                if not role_compatible:
+                    return ValidationResult(
+                        False, 
+                        f"User role '{user.primary_role}' is not compatible with assignment type '{assignment_type}' for entity type '{entity_type}'"
+                    )
         
         # Validate team membership for project-level entities
         if entity_type in ["usecase", "userstory", "task", "subtask"]:
@@ -339,7 +347,11 @@ class ValidationService:
         users_result = await self.db.execute(users_query)
         all_users = users_result.scalars().all()
         
-        # Filter by role compatibility
+        # For owner assignments on client/program/project, return all active users (no role filtering)
+        if assignment_type == "owner" and entity_type in ["client", "program", "project"]:
+            return list(all_users)
+        
+        # Filter by role compatibility for other assignment types
         eligible_users = []
         for user in all_users:
             # Check primary role
@@ -486,13 +498,13 @@ class ValidationService:
         """
         return {
             "client": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Any role can be owner
             },
             "program": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Any role can be owner
             },
             "project": {
-                "owner": ["Owner", "Admin", "Architect", "Project Manager"]
+                "owner": []  # Any role can be owner
             },
             "usecase": {
                 "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager"]
