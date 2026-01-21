@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
+import DateInput from '../components/common/DateInput'
+import { formatDateForDisplay, formatDateForAPI } from '../utils/dateUtils'
 
 interface Project {
   id: string
@@ -176,9 +178,31 @@ export default function SprintConfigurationPage() {
       return
     }
 
-    if (new Date(sprintStartDate) >= new Date(sprintEndDate)) {
-      setError('Start date must be before end date')
-      return
+    // Date validation - handle both formats
+    try {
+      let startDate: Date
+      let endDate: Date
+      
+      if (sprintStartDate.includes('/')) {
+        const apiStartDate = formatDateForAPI(sprintStartDate)
+        startDate = new Date(apiStartDate + 'T00:00:00')
+      } else {
+        startDate = new Date(sprintStartDate + 'T00:00:00')
+      }
+      
+      if (sprintEndDate.includes('/')) {
+        const apiEndDate = formatDateForAPI(sprintEndDate)
+        endDate = new Date(apiEndDate + 'T00:00:00')
+      } else {
+        endDate = new Date(sprintEndDate + 'T00:00:00')
+      }
+      
+      if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && startDate >= endDate) {
+        setError('Start date must be before end date')
+        return
+      }
+    } catch (error) {
+      console.error('Date validation error:', error)
     }
 
     try {
@@ -521,16 +545,17 @@ export default function SprintConfigurationPage() {
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
                       Start Date <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={sprintStartDate}
-                      onChange={(e) => setSprintStartDate(e.target.value)}
+                      onChange={(value) => setSprintStartDate(value)}
                       className="w-full p-2 rounded border"
                       style={{
                         backgroundColor: 'var(--background-color)',
                         color: 'var(--text-color)',
                         borderColor: 'var(--border-color)'
                       }}
+                      placeholder="DD/MM/YYYY"
+                      required
                     />
                     <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                       Default date is calculated based on project configuration. You can modify it.
@@ -542,16 +567,18 @@ export default function SprintConfigurationPage() {
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-color)' }}>
                       End Date <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={sprintEndDate}
-                      onChange={(e) => setSprintEndDate(e.target.value)}
+                      onChange={(value) => setSprintEndDate(value)}
+                      min={sprintStartDate || undefined}
                       className="w-full p-2 rounded border"
                       style={{
                         backgroundColor: 'var(--background-color)',
                         color: 'var(--text-color)',
                         borderColor: 'var(--border-color)'
                       }}
+                      placeholder="DD/MM/YYYY"
+                      required
                     />
                     <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                       Default date is calculated based on project configuration. You can modify it.

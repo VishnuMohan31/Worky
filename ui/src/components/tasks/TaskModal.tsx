@@ -4,6 +4,7 @@
  */
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
+import DateInput from '../common/DateInput'
 import api from '../../services/api'
 import EnhancedAssignmentDisplay from '../assignments/EnhancedAssignmentDisplay'
 
@@ -218,8 +219,8 @@ export default function TaskModal({
           </div>
         )}
 
-        {/* Hierarchy Display */}
-        {selectedClientId && (
+        {/* Hierarchy Display - Dynamic based on formData.user_story_id */}
+        {selectedClientId && selectedProgramId && selectedProjectId && selectedUseCaseId && formData.user_story_id && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
             <div className="font-medium text-blue-900 mb-1">Creating task under:</div>
             <div className="text-blue-700">
@@ -227,7 +228,7 @@ export default function TaskModal({
               {programs.find(p => p.id === selectedProgramId)?.name} → 
               {projects.find(p => p.id === selectedProjectId)?.name} → 
               {usecases.find(uc => uc.id === selectedUseCaseId)?.name} → 
-              {userstories.find(us => us.id === selectedUserStoryId)?.name || userstories.find(us => us.id === selectedUserStoryId)?.title}
+              {userstories.find(us => us.id === formData.user_story_id)?.name || userstories.find(us => us.id === formData.user_story_id)?.title || 'Select user story...'}
             </div>
           </div>
         )}
@@ -395,11 +396,11 @@ export default function TaskModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Due Date
             </label>
-            <input
-              type="date"
+            <DateInput
               value={formData.due_date}
-              onChange={(e) => handleChange('due_date', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(value) => handleChange('due_date', value)}
+              className="w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="DD/MM/YYYY"
             />
           </div>
         </div>

@@ -2,15 +2,15 @@
 User endpoints for the Worky API.
 """
 from typing import List
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 
 from app.db.base import get_db
 from app.models.user import User
 from app.models.audit import AuditLog
-from app.schemas.user import UserResponse, UserUpdate, UserCreate
-from app.core.security import get_current_user, require_role, get_password_hash
+from app.schemas.user import UserResponse, UserUpdate, UserCreate, PasswordChangeRequest
+from app.core.security import get_current_user, require_role, get_password_hash, verify_password
 from app.core.exceptions import ResourceNotFoundException, ConflictException
 from app.core.logging import StructuredLogger
 
@@ -98,6 +98,47 @@ async def update_user_preferences(
     )
     
     return UserResponse.from_orm(current_user)
+
+
+@router.post("/me/change-password", response_model=dict)
+async def change_password(
+    password_data: PasswordChangeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Change current user's password."""
+    logger.info(f"Password change request received for user: {current_user.id}")
+    
+    # Verify current password
+    if not verify_password(password_data.current_password, current_user.hashed_password):
+        logger.warning(f"Password change failed: Incorrect current password for user {current_user.id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    
+    # Validate new password (minimum length check)
+    if len(password_data.new_password) < 6:
+        logger.warning(f"Password change failed: New password too short for user {current_user.id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 6 characters long"
+        )
+    
+    # Update password
+    current_user.hashed_password = get_password_hash(password_data.new_password)
+    
+    await db.commit()
+    await db.refresh(current_user)
+    
+    logger.log_activity(
+        action="change_password",
+        entity_type="user",
+        entity_id=current_user.id
+    )
+    
+    logger.info(f"Password changed successfully for user: {current_user.id}")
+    return {"message": "Password changed successfully"}
 
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)

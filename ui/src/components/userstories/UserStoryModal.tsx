@@ -178,15 +178,15 @@ export default function UserStoryModal({
           </div>
         )}
 
-        {/* Hierarchy Display */}
-        {selectedClientId && (
+        {/* Hierarchy Display - Dynamic based on formData.usecase_id */}
+        {selectedClientId && selectedProgramId && selectedProjectId && formData.usecase_id && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
             <div className="font-medium text-blue-900 mb-1">Creating user story under:</div>
             <div className="text-blue-700">
               {clients.find(c => c.id === selectedClientId)?.name} → 
               {programs.find(p => p.id === selectedProgramId)?.name} → 
               {projects.find(p => p.id === selectedProjectId)?.name} → 
-              {usecases.find(uc => uc.id === selectedUseCaseId)?.name}
+              {usecases.find(uc => uc.id === formData.usecase_id)?.name || 'Select use case...'}
             </div>
           </div>
         )}
@@ -308,9 +308,11 @@ export default function UserStoryModal({
               onChange={(e) => handleChange('status', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="To Do">To Do</option>
+              <option value="Planning">Planning</option>
               <option value="In Progress">In Progress</option>
-              <option value="Done">Done</option>
+              <option value="Completed">Completed</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Blocked">Blocked</option>
             </select>
           </div>
 

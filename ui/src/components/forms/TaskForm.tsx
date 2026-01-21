@@ -17,7 +17,7 @@ interface TaskFormProps {
   userStoryId?: string
 }
 
-const taskStatusOptions = ['To Do', 'In Progress', 'Done', 'Blocked']
+const taskStatusOptions = ['Planning', 'In Progress', 'Completed', 'Blocked', 'In Review', 'On-Hold', 'Canceled']
 const priorityOptions = ['High', 'Medium', 'Low']
 
 export default function TaskForm({

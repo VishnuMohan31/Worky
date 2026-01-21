@@ -151,11 +151,37 @@ export default function ProjectDetailPage() {
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'Done': return 'var(--success-color)'
-    case 'In Progress': return 'var(--info-color)'
-    case 'To Do': return 'var(--text-secondary)'
-    case 'Planning': return 'var(--warning-color)'
-    case 'Completed': return 'var(--success-color)'
-    default: return 'var(--text-secondary)'
+    // Planning phase - Yellow/Orange (Warning)
+    case 'Planning': 
+      return 'var(--warning-color)'
+    
+    // Active work - Blue (Info)
+    case 'In Progress': 
+      return 'var(--info-color)'
+    
+    // Completed work - Green (Success)
+    case 'Completed': 
+      return 'var(--success-color)'
+    
+    // Paused work - Gray (Secondary)
+    case 'On Hold': 
+      return 'var(--text-secondary)'
+    
+    // Blocked work - Red (Error)
+    case 'Blocked': 
+      return 'var(--error-color)'
+    
+    // Legacy statuses (for backward compatibility)
+    case 'Done': 
+      return 'var(--success-color)'
+    case 'To Do': 
+      return 'var(--warning-color)'
+    case 'In Review': 
+      return 'var(--info-color)'
+    case 'Cancelled': 
+      return 'var(--error-color)'
+    
+    default: 
+      return 'var(--text-secondary)'
   }
 }

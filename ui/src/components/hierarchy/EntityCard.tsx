@@ -36,18 +36,15 @@ export default function EntityCard({ entity, type, onClick, onAssignmentChange }
     // Debounce the API call
     loadTimeoutRef.current = window.setTimeout(async () => {
       try {
-        console.log(`Loading assignments for ${type}:${entity.id}`)
         const response = await api.getAssignments({
           entity_type: type,
           entity_id: entity.id
         })
-        console.log(`Loaded ${response.length} assignments:`, response)
         
         // Filter to only active assignments to prevent duplicates
         const activeAssignments = response.filter((a: Assignment) => a.is_active === true)
         setAssignments(activeAssignments)
       } catch (error) {
-        console.error('Failed to load assignments:', error)
         setAssignments([]) // Clear assignments on error
       }
     }, 100) // 100ms debounce
@@ -67,7 +64,6 @@ export default function EntityCard({ entity, type, onClick, onAssignmentChange }
   }, [loadAssignments, type])
 
   const handleAssignmentChange = () => {
-    console.log('Assignment changed, reloading assignments')
     // Clear current assignments immediately to prevent showing stale data
     setAssignments([])
     loadAssignments()

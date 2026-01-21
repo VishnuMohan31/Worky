@@ -12,7 +12,7 @@ from app.db.base import get_db
 from app.models.hierarchy import Project, Program
 from app.models.sprint import Sprint
 from app.models.user import User
-from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
+from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse, parse_ddmmyyyy_date, format_date_to_ddmmyyyy
 from app.core.security import get_current_user, require_role
 from app.core.exceptions import ResourceNotFoundException, AccessDeniedException
 from app.core.logging import StructuredLogger
@@ -22,6 +22,34 @@ from datetime import date, timedelta
 
 router = APIRouter()
 logger = StructuredLogger(__name__)
+
+
+def convert_dates_for_db(data_dict: dict) -> dict:
+    """Convert DD/MM/YYYY dates to date objects for database storage"""
+    converted = data_dict.copy()
+    
+    for field in ['start_date', 'end_date']:
+        if field in converted and converted[field]:
+            try:
+                converted[field] = parse_ddmmyyyy_date(converted[field])
+            except ValueError:
+                # If parsing fails, leave as is (will be caught by validation)
+                pass
+    
+    return converted
+
+
+def convert_dates_for_response(project) -> dict:
+    """Convert date objects to DD/MM/YYYY format for response"""
+    project_dict = ProjectResponse.from_orm(project).dict()
+    
+    # Convert dates to DD/MM/YYYY format
+    if project_dict.get('start_date'):
+        project_dict['start_date'] = format_date_to_ddmmyyyy(project.start_date)
+    if project_dict.get('end_date'):
+        project_dict['end_date'] = format_date_to_ddmmyyyy(project.end_date)
+    
+    return project_dict
 
 
 @router.get("/", response_model=List[ProjectResponse])
@@ -57,10 +85,10 @@ async def list_projects(
         filters={"program_id": str(program_id) if program_id else None, "status": status}
     )
     
-    # Build response with program name
+    # Build response with program name and convert dates to DD/MM/YYYY
     response_list = []
     for proj in projects:
-        proj_dict = ProjectResponse.from_orm(proj).dict()
+        proj_dict = convert_dates_for_response(proj)
         proj_dict["program_name"] = proj.program.name if proj.program else None
         response_list.append(ProjectResponse(**proj_dict))
     
@@ -211,8 +239,8 @@ async def get_project(
         entity_id=str(project_id)
     )
     
-    # Build response with program name
-    proj_dict = ProjectResponse.from_orm(project).dict()
+    # Build response with program name and convert dates to DD/MM/YYYY
+    proj_dict = convert_dates_for_response(project)
     proj_dict["program_name"] = project.program.name if project.program else None
     return ProjectResponse(**proj_dict)
 
@@ -238,8 +266,11 @@ async def create_project(
     if current_user.role != "Admin" and program.client_id != current_user.client_id:
         raise AccessDeniedException()
     
+    # Convert DD/MM/YYYY dates to date objects for database
+    project_dict = convert_dates_for_db(project_data.dict())
+    
     project = Project(
-        **project_data.dict(),
+        **project_dict,
         created_by=str(current_user.id),
         updated_by=str(current_user.id)
     )
@@ -262,8 +293,8 @@ async def create_project(
         repository_url=project.repository_url
     )
     
-    # Build response with program name
-    proj_dict = ProjectResponse.from_orm(project).dict()
+    # Build response with program name and convert dates to DD/MM/YYYY
+    proj_dict = convert_dates_for_response(project)
     proj_dict["program_name"] = project.program.name if project.program else None
     return ProjectResponse(**proj_dict)
 
@@ -304,7 +335,20 @@ async def update_project(
     old_sprint_starting_day = project.sprint_starting_day
     sprint_config_changed = False
     
-    update_data = project_data.dict(exclude_unset=True)
+    # Convert DD/MM/YYYY dates to date objects for database
+    update_data = convert_dates_for_db(project_data.dict(exclude_unset=True))
+    
+    # Additional date validation for update case
+    start_date = update_data.get('start_date', project.start_date)
+    end_date = update_data.get('end_date', project.end_date)
+    
+    # Validate date range if both dates exist
+    if start_date and end_date and end_date < start_date:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail="End date cannot be before start date"
+        )
     
     # Check if sprint config fields are being updated
     if 'sprint_length_weeks' in update_data or 'sprint_starting_day' in update_data:
@@ -359,8 +403,8 @@ async def update_project(
         repository_url=project.repository_url
     )
     
-    # Build response with program name
-    proj_dict = ProjectResponse.from_orm(project).dict()
+    # Build response with program name and convert dates to DD/MM/YYYY
+    proj_dict = convert_dates_for_response(project)
     proj_dict["program_name"] = project.program.name if project.program else None
     return ProjectResponse(**proj_dict)
 

@@ -4,8 +4,10 @@
  */
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
+import DateInput from '../common/DateInput'
 import api from '../../services/api'
 import OwnerSelector from '../ownership/OwnerSelector'
+import { formatDateForAPI } from '../../utils/dateUtils'
 
 interface ProgramModalProps {
   isOpen: boolean
@@ -49,8 +51,8 @@ export default function ProgramModal({
         long_description: program.long_description || '',
         client_id: program.client_id || '',
         status: program.status || 'Planning',
-        start_date: program.start_date || '',
-        end_date: program.end_date || ''
+        start_date: program.start_date || '', // Keep in YYYY-MM-DD format for DateInput
+        end_date: program.end_date || '' // Keep in YYYY-MM-DD format for DateInput
       })
     } else {
       setFormData({
@@ -83,6 +85,40 @@ export default function ProgramModal({
     if (!formData.client_id) {
       setError('Please select a client')
       return
+    }
+
+    // Date validation - handle both YYYY-MM-DD and DD/MM/YYYY formats
+    if (formData.start_date && formData.end_date) {
+      let startDate: Date
+      let endDate: Date
+      
+      try {
+        // Handle both formats
+        if (formData.start_date.includes('/')) {
+          // DD/MM/YYYY format
+          const apiStartDate = formatDateForAPI(formData.start_date)
+          startDate = new Date(apiStartDate + 'T00:00:00')
+        } else {
+          // YYYY-MM-DD format
+          startDate = new Date(formData.start_date + 'T00:00:00')
+        }
+        
+        if (formData.end_date.includes('/')) {
+          // DD/MM/YYYY format
+          const apiEndDate = formatDateForAPI(formData.end_date)
+          endDate = new Date(apiEndDate + 'T00:00:00')
+        } else {
+          // YYYY-MM-DD format
+          endDate = new Date(formData.end_date + 'T00:00:00')
+        }
+        
+        if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && endDate < startDate) {
+          setError('End date cannot be before start date')
+          return
+        }
+      } catch (error) {
+        console.error('Date validation error:', error)
+      }
     }
 
     setLoading(true)
@@ -131,6 +167,42 @@ export default function ProgramModal({
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError('')
+    }
+  }
+
+  // Helper function to check if dates are valid
+  const isDateRangeValid = () => {
+    if (!formData.start_date || !formData.end_date) return true
+    
+    try {
+      let startDate: Date
+      let endDate: Date
+      
+      // Handle both formats
+      if (formData.start_date.includes('/')) {
+        const apiStartDate = formatDateForAPI(formData.start_date)
+        startDate = new Date(apiStartDate + 'T00:00:00')
+      } else {
+        startDate = new Date(formData.start_date + 'T00:00:00')
+      }
+      
+      if (formData.end_date.includes('/')) {
+        const apiEndDate = formatDateForAPI(formData.end_date)
+        endDate = new Date(apiEndDate + 'T00:00:00')
+      } else {
+        endDate = new Date(formData.end_date + 'T00:00:00')
+      }
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return true
+      
+      return endDate >= startDate
+    } catch (error) {
+      return true
+    }
   }
 
   if (!isAdmin && isEditMode) {
@@ -279,25 +351,29 @@ export default function ProgramModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={formData.start_date}
-                onChange={(e) => handleChange('start_date', e.target.value)}
+                onChange={(value) => handleChange('start_date', value)}
                 disabled={!isAdmin}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="w-full px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                placeholder="DD/MM/YYYY"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 End Date
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={formData.end_date}
-                onChange={(e) => handleChange('end_date', e.target.value)}
+                onChange={(value) => handleChange('end_date', value)}
                 disabled={!isAdmin}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                min={formData.start_date || undefined}
+                className="w-full px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                placeholder="DD/MM/YYYY"
               />
+              {formData.start_date && formData.end_date && !isDateRangeValid() && (
+                <p className="text-red-500 text-xs mt-1">End date cannot be before start date</p>
+              )}
             </div>
           </div>
         </div>

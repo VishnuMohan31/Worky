@@ -11,6 +11,12 @@ from app.core.config import settings
 router = APIRouter()
 
 
+@router.get("/test-no-auth")
+async def test_no_auth():
+    """Test endpoint with no authentication required."""
+    return {"message": "Auth router test endpoint works without authentication", "status": "success"}
+
+
 @router.post("/login", response_model=Token, response_model_by_alias=True)
 async def login(
     credentials: LoginRequest,

@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import ChangePasswordModal from '../components/auth/ChangePasswordModal'
 
 export default function ProfilePage() {
   const { user } = useAuth()
   const { theme, setTheme } = useTheme()
   const { language, setLanguage, t } = useLanguage()
   const [editing, setEditing] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const themes = [
     { id: 'snow', name: t('snow'), icon: '❄️' },
@@ -138,11 +140,23 @@ export default function ProfilePage() {
         <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-color)' }}>
           Security
         </h2>
-        <button className="px-4 py-2 rounded-md"
-                style={{ backgroundColor: 'var(--warning-color)', color: 'white' }}>
+        <button 
+          className="px-4 py-2 rounded-md"
+          style={{ backgroundColor: 'var(--warning-color)', color: 'white' }}
+          onClick={() => setShowPasswordModal(true)}
+        >
           Change Password
         </button>
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onSuccess={() => {
+          // Success is handled in the modal itself
+        }}
+      />
     </div>
   )
 }

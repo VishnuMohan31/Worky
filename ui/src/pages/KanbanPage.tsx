@@ -114,11 +114,29 @@ export default function KanbanPage() {
   const columns = ['To Do', 'In Progress', 'Done']
 
   const getTasksByStatus = (status: string) => {
-    return tasks.filter(task => task.status === status)
+    switch (status) {
+      case 'To Do':
+        return tasks.filter(task => 
+          task.status === 'Planning' || 
+          task.status === 'On-Hold' ||
+          task.status === 'Blocked'
+        )
+      case 'In Progress':
+        return tasks.filter(task => 
+          task.status === 'In Progress' ||
+          task.status === 'In Review'
+        )
+      case 'Done':
+        return tasks.filter(task => 
+          task.status === 'Completed' || 
+          task.status === 'Canceled'
+        )
+      default:
+        return []
+    }
   }
 
   const handleDragStart = (e: React.DragEvent, task: Task) => {
-    console.log(`🚀 Starting drag for task "${task.title}" with status "${task.status}"`)
     setDraggedTask(task)
     e.dataTransfer.effectAllowed = 'move'
   }
@@ -126,50 +144,82 @@ export default function KanbanPage() {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
-    // Only log occasionally to avoid spam
-    if (Math.random() < 0.01) {
-      console.log(`🎯 Dragging over column`)
-    }
   }
 
   const handleDrop = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault()
     
-    console.log(`🔄 Attempting to drop task "${draggedTask?.title}" from "${draggedTask?.status}" to "${newStatus}"`)
-    
     if (!draggedTask) {
-      console.log('❌ No dragged task found')
       setDraggedTask(null)
       return
     }
     
-    if (draggedTask.status === newStatus) {
-      console.log('❌ Task already has this status, ignoring drop')
+    // Map Kanban column to actual task status that the backend accepts
+    let actualNewStatus: string
+    switch (newStatus) {
+      case 'To Do':
+        // Default to Planning when dropped in To Do column
+        actualNewStatus = 'Planning'
+        break
+      case 'In Progress':
+        actualNewStatus = 'In Progress'
+        break
+      case 'Done':
+        // Default to Completed when dropped in Done column
+        actualNewStatus = 'Completed'
+        break
+      default:
+        actualNewStatus = newStatus
+    }
+    
+    // Check if task is already in the target status group
+    const currentStatusGroup = getStatusGroup(draggedTask.status)
+    const targetStatusGroup = newStatus
+    
+    if (currentStatusGroup === targetStatusGroup) {
       setDraggedTask(null)
       return
     }
 
     try {
-      console.log(`📡 Calling API to update task ${draggedTask.id} status to ${newStatus}`)
-      // Update task status via API
-      await api.updateTask(draggedTask.id, { status: newStatus })
+      // Prepare update data - use the field names expected by the backend
+      const updateData = {
+        status: actualNewStatus
+      }
       
-      console.log(`✅ API call successful, updating local state`)
+      // Update task status via API
+      await api.updateTask(draggedTask.id, updateData)
+      
       // Update local state
       setTasks(tasks.map(task => 
         task.id === draggedTask.id 
-          ? { ...task, status: newStatus }
+          ? { ...task, status: actualNewStatus }
           : task
       ))
       
-      console.log(`✅ Task "${draggedTask.title}" successfully moved from "${draggedTask.status}" to "${newStatus}"`)
-    } catch (error) {
-      console.error('❌ Failed to update task status:', error)
-      console.error('Error details:', error)
-      alert(`Failed to update task status: ${error.message || error}`)
+    } catch (error: any) {
+      console.error('Failed to update task status:', error)
+      
+      // More detailed error message
+      let errorMessage = 'Failed to update task status'
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      alert(`${errorMessage}. Please check console for details.`)
     } finally {
       setDraggedTask(null)
     }
+  }
+  
+  // Helper function to determine which status group a status belongs to
+  const getStatusGroup = (status: string): string => {
+    if (status === 'Planning' || status === 'On-Hold' || status === 'Blocked') return 'To Do'
+    if (status === 'In Progress' || status === 'In Review') return 'In Progress'
+    if (status === 'Completed' || status === 'Canceled') return 'Done'
+    return 'To Do' // Default fallback
   }
 
   const handleTaskClick = (task: Task) => {
@@ -286,14 +336,8 @@ export default function KanbanPage() {
               minHeight: '500px' // Ensure adequate drop zone
             }}
             onDragOver={handleDragOver}
-            onDrop={(e) => {
-              console.log(`📥 Drop event triggered on column: ${column}`)
-              handleDrop(e, column)
-            }}
-            onDragEnter={(e) => {
-              e.preventDefault()
-              console.log(`🎯 Drag entered column: ${column}`)
-            }}
+            onDrop={(e) => handleDrop(e, column)}
+            onDragEnter={(e) => e.preventDefault()}
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold" style={{ color: 'var(--text-color)' }}>
@@ -533,9 +577,29 @@ function getPriorityColor(priority: string) {
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'Done': return 'var(--success-color)'
-    case 'In Progress': return 'var(--info-color)'
-    case 'To Do': return 'var(--text-secondary)'
-    default: return 'var(--text-secondary)'
+    // Completed statuses
+    case 'Completed': 
+      return 'var(--success-color)'
+    
+    // In Progress statuses
+    case 'In Progress': 
+    case 'In Review': 
+      return 'var(--info-color)'
+    
+    // Planning status
+    case 'Planning': 
+      return 'var(--warning-color)'
+    
+    // Hold/Blocked statuses
+    case 'On-Hold': 
+    case 'Blocked': 
+      return 'var(--text-secondary)'
+    
+    // Canceled status
+    case 'Canceled': 
+      return 'var(--error-color)'
+    
+    default: 
+      return 'var(--text-secondary)'
   }
 }

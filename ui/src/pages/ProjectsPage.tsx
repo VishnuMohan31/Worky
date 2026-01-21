@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import ProjectDetailView from '../components/projects/ProjectDetailView'
 import ProjectModal from '../components/projects/ProjectModal'
+import { formatDateForDisplay } from '../utils/dateUtils'
 
 export default function ProjectsPage() {
   const navigate = useNavigate()
@@ -121,7 +122,9 @@ export default function ProjectsPage() {
       } else if (sortBy === 'status') {
         comparison = (a.status || '').localeCompare(b.status || '')
       } else if (sortBy === 'date') {
-        comparison = new Date(a.startDate || 0).getTime() - new Date(b.startDate || 0).getTime()
+        const aDate = a.start_date || a.startDate || 0
+        const bDate = b.start_date || b.startDate || 0
+        comparison = new Date(aDate).getTime() - new Date(bDate).getTime()
       }
       return sortOrder === 'asc' ? comparison : -comparison
     })
@@ -432,10 +435,12 @@ export default function ProjectsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {project.startDate || '-'}
+                    {project.start_date ? formatDateForDisplay(project.start_date) : 
+                     project.startDate ? formatDateForDisplay(project.startDate) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {project.endDate || '-'}
+                    {project.end_date ? formatDateForDisplay(project.end_date) : 
+                     project.endDate ? formatDateForDisplay(project.endDate) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">

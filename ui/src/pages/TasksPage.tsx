@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import TaskModal from '../components/tasks/TaskModal'
+import { formatDateForDisplay } from '../utils/dateUtils'
 
 export default function TasksPage() {
   const navigate = useNavigate()
@@ -657,7 +658,7 @@ export default function TasksPage() {
                       {task.assigned_to_name || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {task.due_date ? new Date(task.due_date).toLocaleDateString() : '-'}
+                      {task.due_date ? formatDateForDisplay(task.due_date) : '-'}
                     </td>
                   </tr>
                 ))}

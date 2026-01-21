@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { useClickOutside } from '../../hooks/useClickOutside'
 
 interface HeaderProps {
   onChatToggle?: () => void
@@ -15,6 +16,37 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
   const [showThemeMenu, setShowThemeMenu] = useState(false)
   const [showLangMenu, setShowLangMenu] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+
+  // Close all dropdowns when clicking outside
+  const closeAllDropdowns = useCallback(() => {
+    setShowThemeMenu(false)
+    setShowLangMenu(false)
+    setShowUserMenu(false)
+  }, [])
+
+  // Refs for click outside detection
+  const themeMenuRef = useClickOutside<HTMLDivElement>(closeAllDropdowns)
+  const langMenuRef = useClickOutside<HTMLDivElement>(closeAllDropdowns)
+  const userMenuRef = useClickOutside<HTMLDivElement>(closeAllDropdowns)
+
+  // Handle dropdown toggle - close others when opening one
+  const handleThemeToggle = () => {
+    setShowLangMenu(false)
+    setShowUserMenu(false)
+    setShowThemeMenu(!showThemeMenu)
+  }
+
+  const handleLangToggle = () => {
+    setShowThemeMenu(false)
+    setShowUserMenu(false)
+    setShowLangMenu(!showLangMenu)
+  }
+
+  const handleUserToggle = () => {
+    setShowThemeMenu(false)
+    setShowLangMenu(false)
+    setShowUserMenu(!showUserMenu)
+  }
 
   const themes = [
     { id: 'snow', name: t('snow'), icon: '❄️' },
@@ -80,9 +112,9 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
         )}
         
         {/* Theme Selector */}
-        <div className="relative">
+        <div className="relative" ref={themeMenuRef}>
           <button
-            onClick={() => setShowThemeMenu(!showThemeMenu)}
+            onClick={handleThemeToggle}
             className="px-3 py-2 rounded-md transition-colors"
             style={{ 
               backgroundColor: 'var(--secondary-color)',
@@ -93,7 +125,7 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
           </button>
           
           {showThemeMenu && (
-            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg z-10"
+            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg z-50"
                  style={{ 
                    backgroundColor: 'var(--surface-color)',
                    border: '1px solid var(--border-color)'
@@ -120,9 +152,9 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
         </div>
 
         {/* Language Selector */}
-        <div className="relative">
+        <div className="relative" ref={langMenuRef}>
           <button
-            onClick={() => setShowLangMenu(!showLangMenu)}
+            onClick={handleLangToggle}
             className="px-3 py-2 rounded-md transition-colors"
             style={{ 
               backgroundColor: 'var(--secondary-color)',
@@ -133,7 +165,7 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
           </button>
           
           {showLangMenu && (
-            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg z-10"
+            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg z-50"
                  style={{ 
                    backgroundColor: 'var(--surface-color)',
                    border: '1px solid var(--border-color)'
@@ -160,9 +192,9 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
         </div>
 
         {/* User Menu */}
-        <div className="relative">
+        <div className="relative" ref={userMenuRef}>
           <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
+            onClick={handleUserToggle}
             className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{ backgroundColor: 'var(--primary-color)', color: 'white' }}
           >
@@ -170,7 +202,7 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
           </button>
           
           {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg z-10"
+            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg z-50"
                  style={{ 
                    backgroundColor: 'var(--surface-color)',
                    border: '1px solid var(--border-color)'

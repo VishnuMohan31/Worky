@@ -137,14 +137,14 @@ export default function UseCaseModal({
           </div>
         )}
 
-        {/* Hierarchy Display */}
-        {selectedClientId && selectedProgramId && selectedProjectId && (
+        {/* Hierarchy Display - Dynamic based on formData.project_id */}
+        {selectedClientId && selectedProgramId && formData.project_id && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
             <div className="font-medium text-blue-900 mb-1">Creating use case under:</div>
             <div className="text-blue-700">
               {clients.find(c => c.id === selectedClientId)?.name} → 
               {programs.find(p => p.id === selectedProgramId)?.name} → 
-              {projects.find(p => p.id === selectedProjectId)?.name}
+              {projects.find(p => p.id === formData.project_id)?.name || 'Select project...'}
             </div>
           </div>
         )}

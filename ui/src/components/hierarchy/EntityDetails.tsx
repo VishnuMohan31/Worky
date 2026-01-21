@@ -110,10 +110,45 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
     }
   }
 
-  // Format date for API (YYYY-MM-DD)
-  const formatDateForAPI = (date: string | Date | undefined): string | null => {
+  // Format date for API - converts to DD/MM/YYYY for tasks/subtasks, YYYY-MM-DD for others
+  const formatDateForAPI = (date: string | Date | undefined, entityType?: string): string | null => {
     if (!date) return null
     try {
+      // For tasks and subtasks, convert to DD/MM/YYYY format (API expects this)
+      if (entityType === 'task' || entityType === 'subtask') {
+        // If already in DD/MM/YYYY format, return as is
+        if (typeof date === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
+          return date
+        }
+        
+        // If in DD-MM-YYYY format, convert to DD/MM/YYYY
+        if (typeof date === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(date)) {
+          return date.replace(/-/g, '/')
+        }
+        
+        // Convert from YYYY-MM-DD to DD/MM/YYYY
+        let dateStr = ''
+        if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          const [year, month, day] = date.split('-')
+          dateStr = `${day}/${month}/${year}`
+        } else if (typeof date === 'string' && date.includes('T')) {
+          const datePart = date.split('T')[0]
+          if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+            const [year, month, day] = datePart.split('-')
+            dateStr = `${day}/${month}/${year}`
+          }
+        } else {
+          const dateObj = typeof date === 'string' ? new Date(date) : date
+          if (isNaN(dateObj.getTime())) return null
+          const day = String(dateObj.getDate()).padStart(2, '0')
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+          const year = dateObj.getFullYear()
+          dateStr = `${day}/${month}/${year}`
+        }
+        return dateStr
+      }
+      
+      // For other entities, use YYYY-MM-DD format
       // If already in YYYY-MM-DD format, return as is
       if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return date
@@ -482,27 +517,42 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
             assigned_to: entity.assigned_to || ''
           }}
           additionalFields={undefined}
+          currentStatus={entity.status}
+          restrictStatusTransitions={false} // DISABLED: Allow all status transitions
           onSubmit={async (data) => {
             setIsUpdating(true)
+            // Declare updateData outside try block so it's accessible in catch block
+            let updateData: any = null
             try {
-
-              
               // Map name/title based on entity type
-              const updateData: any = { ...data }
+              updateData = { ...data }
               
               // Handle field mapping for different entity types
-              if (type === 'userstory' || type === 'task' || type === 'subtask') {
-                // These entities use 'title' field
-                if (data.title) {
-                  updateData.title = data.title.trim()
-                } else if (data.name && !data.title) {
-                  updateData.title = data.name.trim()
+              if (type === 'task') {
+                // Tasks use 'name' field (not 'title')
+                if (data.name) {
+                  updateData.name = data.name.trim()
+                } else if (data.title && !data.name) {
+                  updateData.name = data.title.trim()
                 }
-                delete updateData.name
+                delete updateData.title
                 
-                // Validate title is not empty
-                if (!updateData.title || updateData.title === '') {
-                  throw new Error('Title is required')
+                // Validate name is not empty
+                if (!updateData.name || updateData.name === '') {
+                  throw new Error('Name is required')
+                }
+              } else if (type === 'userstory' || type === 'subtask') {
+                // User stories and subtasks use 'name' field (not 'title')
+                if (data.name) {
+                  updateData.name = data.name.trim()
+                } else if (data.title && !data.name) {
+                  updateData.name = data.title.trim()
+                }
+                delete updateData.title
+                
+                // Validate name is not empty
+                if (!updateData.name || updateData.name === '') {
+                  throw new Error('Name is required')
                 }
               } else {
                 // Other entities use 'name' field
@@ -520,26 +570,42 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
               }
               
               // Handle date formatting and field mapping
-              if (updateData.start_date) {
-                updateData.start_date = formatDateForAPI(updateData.start_date)
-              }
-              
-              // For tasks, always map end_date to due_date (tasks don't have end_date)
+              // For tasks, handle start_date and due_date
               if (type === 'task') {
-                if (updateData.end_date) {
-                  updateData.due_date = formatDateForAPI(updateData.end_date)
-                  delete updateData.end_date
+                // Handle start_date - only include if it has a value
+                if (updateData.start_date && updateData.start_date.trim() !== '') {
+                  updateData.start_date = formatDateForAPI(updateData.start_date, type)
+                } else {
+                  // Don't include start_date if it's empty
+                  delete updateData.start_date
                 }
-                if (updateData.due_date) {
-                  updateData.due_date = formatDateForAPI(updateData.due_date)
+                
+                // Always map end_date to due_date (tasks don't have end_date)
+                if (updateData.end_date && updateData.end_date.trim() !== '') {
+                  updateData.due_date = formatDateForAPI(updateData.end_date, type)
+                  delete updateData.end_date
+                } else if (updateData.due_date && updateData.due_date.trim() !== '') {
+                  updateData.due_date = formatDateForAPI(updateData.due_date, type)
+                } else {
+                  // Don't include due_date if it's empty
+                  delete updateData.due_date
                 }
               } else {
-                // For other entities, format end_date normally
-                if (updateData.end_date) {
-                  updateData.end_date = formatDateForAPI(updateData.end_date)
+                // For other entities, format dates normally
+                if (updateData.start_date && updateData.start_date.trim() !== '') {
+                  updateData.start_date = formatDateForAPI(updateData.start_date, type)
+                } else {
+                  delete updateData.start_date
                 }
-                if (updateData.due_date) {
-                  updateData.due_date = formatDateForAPI(updateData.due_date)
+                if (updateData.end_date && updateData.end_date.trim() !== '') {
+                  updateData.end_date = formatDateForAPI(updateData.end_date, type)
+                } else {
+                  delete updateData.end_date
+                }
+                if (updateData.due_date && updateData.due_date.trim() !== '') {
+                  updateData.due_date = formatDateForAPI(updateData.due_date, type)
+                } else {
+                  delete updateData.due_date
                 }
               }
               
@@ -565,16 +631,38 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
                 }
               } else if (type === 'task') {
                 // Tasks use estimated_hours and actual_hours
-                if (updateData.estimated_hours !== undefined && updateData.estimated_hours !== '') {
-                  updateData.estimated_hours = parseFloat(updateData.estimated_hours) || null
+                // Only include if they have valid numeric values
+                if (updateData.estimated_hours !== undefined && updateData.estimated_hours !== '' && updateData.estimated_hours !== null) {
+                  const hours = parseFloat(updateData.estimated_hours)
+                  if (!isNaN(hours) && hours >= 0) {
+                    updateData.estimated_hours = hours
+                  } else {
+                    delete updateData.estimated_hours
+                  }
+                } else {
+                  delete updateData.estimated_hours
                 }
-                if (updateData.actual_hours !== undefined && updateData.actual_hours !== '') {
-                  updateData.actual_hours = parseFloat(updateData.actual_hours) || null
+                
+                if (updateData.actual_hours !== undefined && updateData.actual_hours !== '' && updateData.actual_hours !== null) {
+                  const hours = parseFloat(updateData.actual_hours)
+                  if (!isNaN(hours) && hours >= 0) {
+                    updateData.actual_hours = hours
+                  } else {
+                    delete updateData.actual_hours
+                  }
+                } else {
+                  delete updateData.actual_hours
                 }
                 
                 // Remove subtask-specific fields
                 delete updateData.duration_days
                 delete updateData.scrum_points
+                
+                // Remove fields that TaskUpdate doesn't accept
+                delete updateData.story_points
+                delete updateData.acceptance_criteria
+                delete updateData.user_story_id  // Not allowed in updates
+                delete updateData.task_id  // Not applicable
               } else if (type === 'userstory') {
                 // User stories use story_points
                 if (updateData.story_points !== undefined && updateData.story_points !== '') {
@@ -601,37 +689,71 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
               }
               
               // Clean up data before sending to API
+              // Remove null, undefined, and empty string values (Pydantic handles Optional fields better when omitted)
               Object.keys(updateData).forEach(key => {
                 const value = updateData[key]
-                
-                // Convert empty strings to null for optional fields
-                if (value === '') {
-                  updateData[key] = null
-                }
                 
                 // Remove undefined values
                 if (value === undefined) {
                   delete updateData[key]
+                  return
                 }
                 
-                // Remove null values for fields that shouldn't be null
-                if (value === null && ['title', 'name'].includes(key)) {
-                  delete updateData[key]
+                // Remove null values - for Optional fields, it's better to omit them
+                if (value === null) {
+                  // Only keep null for fields that explicitly need to be cleared
+                  // For most optional fields, omit them instead
+                  if (!['name', 'title'].includes(key)) {
+                    delete updateData[key]
+                  }
+                  return
+                }
+                
+                // Remove empty strings
+                if (value === '' || (typeof value === 'string' && value.trim() === '')) {
+                  // Keep empty strings only for required fields (they'll be validated)
+                  if (!['name', 'title'].includes(key)) {
+                    delete updateData[key]
+                  }
+                  return
                 }
               })
               
               // Ensure required fields are present and valid
-              if (type === 'task' || type === 'userstory' || type === 'subtask') {
-                if (!updateData.title || updateData.title.trim() === '') {
-                  throw new Error('Title cannot be empty')
+              // All entities use 'name' field now
+              if (!updateData.name || updateData.name.trim() === '') {
+                throw new Error('Name cannot be empty')
+              }
+              
+              // For tasks, ensure we only send fields that TaskUpdate accepts
+              if (type === 'task') {
+                const allowedFields = [
+                  'name', 'short_description', 'long_description', 'status', 'priority',
+                  'phase_id', 'assigned_to', 'sprint_id', 'estimated_hours', 'actual_hours',
+                  'start_date', 'due_date'
+                ]
+                // Remove any fields not in the allowed list
+                Object.keys(updateData).forEach(key => {
+                  if (!allowedFields.includes(key)) {
+                    console.warn(`Removing field '${key}' from task update (not in TaskUpdate schema)`)
+                    delete updateData[key]
+                  }
+                })
+                
+                // Ensure phase_id, assigned_to, and sprint_id are strings or omitted
+                if (updateData.phase_id === null || updateData.phase_id === '') {
+                  delete updateData.phase_id
                 }
-              } else {
-                if (!updateData.name || updateData.name.trim() === '') {
-                  throw new Error('Name cannot be empty')
+                if (updateData.assigned_to === null || updateData.assigned_to === '') {
+                  delete updateData.assigned_to
+                }
+                if (updateData.sprint_id === null || updateData.sprint_id === '') {
+                  delete updateData.sprint_id
                 }
               }
               
-
+              // Log the data being sent for debugging
+              console.log('Updating entity:', type, entity.id, 'with data:', JSON.stringify(updateData, null, 2))
               
               await api.updateEntity(type, entity.id, updateData)
               setIsEditModalOpen(false)
@@ -640,6 +762,12 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
               queryClient.invalidateQueries({ queryKey: ['entity', type, entity.id] })
             } catch (error: any) {
               console.error('Failed to update entity:', error)
+              console.error('Error response:', error.response?.data)
+              if (updateData) {
+                console.error('Update data that was sent:', updateData)
+              } else {
+                console.error('Update data was not prepared (error occurred before data preparation)')
+              }
               
               let errorMessage = 'Failed to update entity'
               
@@ -656,15 +784,39 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
                 } else if (status === 404) {
                   errorMessage = 'Entity not found. It may have been deleted.'
                 } else if (status === 422) {
-                  if (data?.detail) {
+                  // Validation error - show detailed message
+                  console.error('=== VALIDATION ERROR DETAILS ===')
+                  console.error('Full error response:', JSON.stringify(data, null, 2))
+                  console.error('Error detail:', data?.detail)
+                  
+                  // Check for status transition error specifically
+                  if (data?.error?.message && data.error.message.includes('Invalid status transition')) {
+                    errorMessage = `Status Update Error: ${data.error.message}. Please select a valid status transition.`
+                  } else if (data?.error?.message) {
+                    errorMessage = `Validation Error: ${data.error.message}`
+                  } else if (data?.detail) {
                     if (Array.isArray(data.detail)) {
-                      errorMessage = data.detail.map((err: any) => `${err.loc?.join('.')}: ${err.msg}`).join(', ')
-                    } else {
+                      // Pydantic validation errors
+                      const errors = data.detail.map((err: any) => {
+                        const field = err.loc ? err.loc.slice(1).join('.') : 'unknown'
+                        const msg = err.msg || err.message || JSON.stringify(err)
+                        console.error(`  Field: ${field}, Error: ${msg}, Type: ${err.type}`)
+                        return `${field}: ${msg}`
+                      })
+                      errorMessage = errors.join('\n')
+                    } else if (typeof data.detail === 'string') {
                       errorMessage = data.detail
+                    } else if (data.detail.error) {
+                      errorMessage = data.detail.error
+                    } else {
+                      errorMessage = JSON.stringify(data.detail)
                     }
+                  } else if (data?.error) {
+                    errorMessage = typeof data.error === 'string' ? data.error : data.error.message || 'Validation error occurred'
                   } else {
                     errorMessage = 'Validation error. Please check your input.'
                   }
+                  console.error('=== END VALIDATION ERROR ===')
                 } else if (status === 500) {
                   errorMessage = 'Server error. Please try again later.'
                 } else {

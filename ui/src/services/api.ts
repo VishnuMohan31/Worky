@@ -146,12 +146,10 @@ const safeApiClient = axios.create(apiConfig)
 // Add auth token to requests for both clients
 const addAuthToken = (config: any) => {
   const token = localStorage.getItem('token')
-  const fullUrl = config.baseURL + config.url
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
-    // Token added to request (logging removed for production security)
   } else {
-    // No token found for request (logging removed for production)
+    console.warn('No authentication token found for request:', config.url)
   }
   return config
 }
@@ -189,19 +187,8 @@ apiClient.interceptors.response.use(
 safeApiClient.interceptors.response.use(
   response => response,
   error => {
-    // Safe API Error (details removed for production)
-    
-    // Don't redirect to login for 401 errors - just log and reject
-    if (error.response?.status === 401) {
-      const url = error.config?.url || ''
-      console.warn('401 Unauthorized for safe call:', url, '- NOT redirecting to login')
-    }
-    
-    // Handle 403 Forbidden - show access denied message
-    if (error.response?.status === 403) {
-      console.error('Access denied:', error.response.data)
-    }
-    
+    // Don't redirect to login for 401 errors - just reject
+    // Components will handle the error gracefully
     return Promise.reject(error)
   }
 )
@@ -219,6 +206,14 @@ const api = {
   async getCurrentUser() {
     const response = await apiClient.get('/auth/me')
     return transformUser(response.data)
+  },
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await apiClient.post('/users/me/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword
+    })
+    return response.data
   },
 
   // Generic Entity Operations
@@ -255,6 +250,32 @@ const api = {
       return response.data.map((uc: any) => transformUseCase(uc)).filter((uc: any) => uc !== null)
     }
     return response.data
+  },
+
+  // Safe version of getEntityList that doesn't trigger logout on 401
+  async getEntityListSafe(type: string, filters?: Record<string, any>) {
+    try {
+      const endpoint = this.getEntityEndpoint(type)
+      const response = await safeApiClient.get(`${endpoint}/`, { params: filters })
+      if (!Array.isArray(response.data)) {
+        return []
+      }
+      // Transform usecases to camelCase
+      if (type === 'usecase') {
+        return response.data.map((uc: any) => transformUseCase(uc)).filter((uc: any) => uc !== null)
+      }
+      return response.data
+    } catch (error: any) {
+      // If we get 401/403, just return empty array - don't trigger logout
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn(`Access denied to ${type} list - user may not have permission`)
+        return []
+      }
+      
+      // For other errors, also return empty array to prevent issues
+      console.warn(`Error fetching ${type} list:`, error.message)
+      return []
+    }
   },
 
   async createEntity(type: string, data: any) {
@@ -325,6 +346,22 @@ const api = {
     return response.data.clients || response.data
   },
 
+  // Safe version of getClients that doesn't trigger logout on 401
+  async getClientsSafe() {
+    try {
+      const response = await safeApiClient.get('/clients/')
+      // The clients endpoint returns paginated data with a 'clients' property
+      return response.data.clients || response.data
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('Access denied to clients list - user may not have permission')
+        return []
+      }
+      console.warn('Error fetching clients:', error.message)
+      return []
+    }
+  },
+
   async getClient(id: string) {
     const response = await apiClient.get(`/clients/${id}`)
     return response.data
@@ -356,6 +393,26 @@ const api = {
     return transformed
   },
 
+  // Safe version of getProjects that doesn't trigger logout on 401
+  async getProjectsSafe() {
+    try {
+      const response = await safeApiClient.get('/projects/')
+      if (!Array.isArray(response.data)) {
+        console.error('Projects API returned non-array response:', response.data)
+        return []
+      }
+      const transformed = response.data.map((p: any) => transformProject(p)).filter((p: any) => p !== null)
+      return transformed
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('Access denied to projects list - user may not have permission')
+        return []
+      }
+      console.warn('Error fetching projects:', error.message)
+      return []
+    }
+  },
+
   async getProject(id: string) {
     const response = await apiClient.get(`/projects/${id}`)
     return transformProject(response.data)
@@ -375,6 +432,21 @@ const api = {
   async getTasks(projectId?: string) {
     const response = await apiClient.get('/tasks/', { params: { projectId } })
     return response.data
+  },
+
+  // Safe version of getTasks that doesn't trigger logout on 401
+  async getTasksSafe(projectId?: string) {
+    try {
+      const response = await safeApiClient.get('/tasks/', { params: { projectId } })
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('Access denied to tasks list - user may not have permission')
+        return []
+      }
+      console.warn('Error fetching tasks:', error.message)
+      return []
+    }
   },
 
   async getTask(id: string) {
@@ -409,6 +481,21 @@ const api = {
     return response.data
   },
 
+  // Safe version of getUsers that doesn't trigger logout on 401
+  async getUsersSafe() {
+    try {
+      const response = await safeApiClient.get('/users/')
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('Access denied to users list - user may not have permission')
+        return []
+      }
+      console.warn('Error fetching users:', error.message)
+      return []
+    }
+  },
+
   async updateUserPreferences(data: any) {
     const response = await apiClient.put('/users/me/preferences', data)
     return response.data
@@ -441,6 +528,29 @@ const api = {
       isActive: phase.is_active,
       displayOrder: phase.order
     }))
+  },
+
+  // Safe version of getPhases that doesn't trigger logout on 401
+  async getPhasesSafe(includeInactive = false) {
+    try {
+      const response = await safeApiClient.get('/phases/', { params: { include_inactive: includeInactive } })
+      // Transform snake_case to camelCase
+      return response.data.map((phase: any) => ({
+        id: phase.id,
+        name: phase.name,
+        description: phase.short_description || phase.description || '',
+        color: phase.color,
+        isActive: phase.is_active,
+        displayOrder: phase.order
+      }))
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('Access denied to phases list - user may not have permission')
+        return []
+      }
+      console.warn('Error fetching phases:', error.message)
+      return []
+    }
   },
 
   async getPhase(id: string) {
@@ -528,17 +638,46 @@ const api = {
   // Safe version of getSubtasks that doesn't trigger logout on 401
   async getSubtasksSafe(taskId?: string) {
     try {
-      // Use the safe client that doesn't trigger logout on 401
-      const response = await safeApiClient.get('/subtasks', { params: { task_id: taskId } })
-      return response.data
-    } catch (error: any) {
-      // Don't let 401 errors propagate to avoid logout
-      if (error.response?.status === 401) {
-        console.warn('Access denied to subtasks - user may not have permission')
+      const token = localStorage.getItem('token')
+      if (!token) {
         return []
       }
-      // Re-throw other errors
-      throw error
+      
+      if (!taskId) {
+        return []
+      }
+      
+      // Try hierarchy endpoint first (more reliable)
+      try {
+        const response = await safeApiClient.get(`/hierarchy/tasks/${taskId}/subtasks`)
+        if (Array.isArray(response.data)) {
+          return response.data
+        }
+      } catch (hierarchyError: any) {
+        // If hierarchy endpoint fails, try the direct subtasks endpoint
+        try {
+          const response = await safeApiClient.get('/subtasks', { params: { task_id: taskId } })
+          if (Array.isArray(response.data)) {
+            return response.data
+          }
+        } catch (directError: any) {
+          // Both endpoints failed
+          if (directError.response?.status === 401 || directError.response?.status === 403) {
+            return []
+          }
+          throw directError
+        }
+      }
+      
+      return []
+    } catch (error: any) {
+      // If we get 401 or 403, return empty array (token expired or no permission)
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        return []
+      }
+      
+      // For other errors, return empty array
+      return []
     }
   },
 

@@ -21,3 +21,5 @@ ON CONFLICT (name) DO UPDATE SET
 -- Add comment explaining the phases
 COMMENT ON TABLE phases IS 'Phases represent different stages of work in the development lifecycle. Default phases: Development, Analysis, Design, Testing. Phases are required for user stories and tasks.';
 
+
+

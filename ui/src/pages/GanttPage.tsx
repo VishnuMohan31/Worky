@@ -74,7 +74,6 @@ export default function GanttPage() {
   const safeApiCall = async (apiFunction: () => Promise<any>, fallbackValue: any = []) => {
     try {
       const result = await apiFunction()
-      console.log('✅ Safe API call successful')
       return result
     } catch (error: any) {
       // Log the error but don't let it propagate to avoid logout
@@ -471,13 +470,9 @@ export default function GanttPage() {
           break
 
         case 'subtask':
-          console.log('🔍 Loading subtasks - User role:', currentUser?.role, 'Selected level:', selectedLevel, 'Task ID:', selectedTaskId)
-          
           // Check if user is admin or if we have a specific task selected
           if (currentUser?.role === 'Admin' || (selectedLevel === 'task' && selectedTaskId)) {
-            console.log('✅ User has permission to view subtasks, making API call...')
             const allSubtasks = await safeApiCall(() => api.getSubtasksSafe(selectedTaskId || undefined), [])
-            console.log('📊 Subtasks API response:', allSubtasks)
             
             if (selectedLevel === 'task' && selectedTaskId) {
               items = allSubtasks
@@ -506,10 +501,8 @@ export default function GanttPage() {
                 assignedToName: st.assignedToName || st.assigned_to_name
               }))
             }
-            console.log('✅ Processed subtasks items:', items.length)
           } else {
             // For non-admin users without a specific task selected, show empty array
-            console.log('❌ Subtasks view requires admin role or specific task selection - showing empty array')
             items = []
           }
           break
@@ -606,17 +599,42 @@ export default function GanttPage() {
   }
 
   const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'To Do': '#94a3b8',
-      'In Progress': '#3b82f6',
-      'Done': '#22c55e',
-      'Blocked': '#ef4444',
-      'Planning': '#94a3b8',
-      'Draft': '#94a3b8',
-      'Completed': '#22c55e',
-      'On Hold': '#f59e0b'
+    switch (status) {
+      // Planning phase - Yellow/Orange (Warning)
+      case 'Planning': 
+        return '#f59e0b' // warning color
+      
+      // Active work - Blue (Info)
+      case 'In Progress': 
+        return '#3b82f6' // info color
+      
+      // Completed work - Green (Success)
+      case 'Completed': 
+        return '#22c55e' // success color
+      
+      // Paused work - Gray (Secondary)
+      case 'On Hold': 
+        return '#6b7280' // secondary color
+      
+      // Blocked work - Red (Error)
+      case 'Blocked': 
+        return '#ef4444' // error color
+      
+      // Legacy statuses (for backward compatibility)
+      case 'Done': 
+        return '#22c55e' // success color
+      case 'To Do': 
+        return '#f59e0b' // warning color
+      case 'In Review': 
+        return '#3b82f6' // info color
+      case 'Draft': 
+        return '#94a3b8' // neutral
+      case 'Cancelled': 
+        return '#ef4444' // error color
+      
+      default: 
+        return '#94a3b8' // neutral
     }
-    return colors[status] || '#94a3b8'
   }
 
   const exportToPDF = () => {
@@ -766,8 +784,6 @@ export default function GanttPage() {
               value={selectedDurationLevel}
               onChange={(e) => {
                 const newLevel = e.target.value as DurationLevel
-                console.log('🎯 Duration level changed to:', newLevel, 'User role:', currentUser?.role)
-                console.log('🎯 Available levels:', availableDurationLevels)
                 setSelectedDurationLevel(newLevel)
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

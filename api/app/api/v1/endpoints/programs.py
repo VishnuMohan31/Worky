@@ -6,18 +6,47 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from uuid import UUID
+from datetime import date
 
 from app.db.base import get_db
 from app.models.hierarchy import Program
 from app.models.client import Client
 from app.models.user import User
-from app.schemas.hierarchy import ProgramCreate, ProgramUpdate, ProgramResponse
+from app.schemas.hierarchy import ProgramCreate, ProgramUpdate, ProgramResponse, parse_ddmmyyyy_date, format_date_to_ddmmyyyy
 from app.core.security import get_current_user, require_role
 from app.core.exceptions import ResourceNotFoundException, AccessDeniedException
 from app.core.logging import StructuredLogger
 
 router = APIRouter()
 logger = StructuredLogger(__name__)
+
+
+def convert_dates_for_db(data_dict: dict) -> dict:
+    """Convert DD/MM/YYYY dates to date objects for database storage"""
+    converted = data_dict.copy()
+    
+    for field in ['start_date', 'end_date']:
+        if field in converted and converted[field]:
+            try:
+                converted[field] = parse_ddmmyyyy_date(converted[field])
+            except ValueError:
+                # If parsing fails, leave as is (will be caught by validation)
+                pass
+    
+    return converted
+
+
+def convert_dates_for_response(program) -> dict:
+    """Convert date objects to DD/MM/YYYY format for response"""
+    program_dict = ProgramResponse.from_orm(program).dict()
+    
+    # Convert dates to DD/MM/YYYY format
+    if program_dict.get('start_date'):
+        program_dict['start_date'] = format_date_to_ddmmyyyy(program.start_date)
+    if program_dict.get('end_date'):
+        program_dict['end_date'] = format_date_to_ddmmyyyy(program.end_date)
+    
+    return program_dict
 
 
 @router.get("/", response_model=List[ProgramResponse])
@@ -47,7 +76,13 @@ async def list_programs(
     result = await db.execute(query)
     programs = result.scalars().all()
     
-    return [ProgramResponse.from_orm(prog) for prog in programs]
+    # Convert dates to DD/MM/YYYY format for response
+    response_list = []
+    for prog in programs:
+        prog_dict = convert_dates_for_response(prog)
+        response_list.append(ProgramResponse(**prog_dict))
+    
+    return response_list
 
 
 @router.get("/{program_id}", response_model=ProgramResponse)
@@ -81,7 +116,9 @@ async def get_program(
         entity_id=str(program_id)
     )
     
-    return ProgramResponse.from_orm(program)
+    # Convert dates to DD/MM/YYYY format for response
+    prog_dict = convert_dates_for_response(program)
+    return ProgramResponse(**prog_dict)
 
 
 @router.post("/", response_model=ProgramResponse, status_code=status.HTTP_201_CREATED)
@@ -105,8 +142,11 @@ async def create_program(
     if current_user.role != "Admin" and program_data.client_id != current_user.client_id:
         raise AccessDeniedException()
     
+    # Convert DD/MM/YYYY dates to date objects for database
+    program_dict = convert_dates_for_db(program_data.dict())
+    
     program = Program(
-        **program_data.dict(),
+        **program_dict,
         created_by=str(current_user.id),
         updated_by=str(current_user.id)
     )
@@ -122,7 +162,9 @@ async def create_program(
         client_id=str(program.client_id)
     )
     
-    return ProgramResponse.from_orm(program)
+    # Convert dates back to DD/MM/YYYY format for response
+    prog_dict = convert_dates_for_response(program)
+    return ProgramResponse(**prog_dict)
 
 
 @router.put("/{program_id}", response_model=ProgramResponse)
@@ -151,8 +193,23 @@ async def update_program(
     if current_user.role != "Admin" and program.client_id != current_user.client_id:
         raise AccessDeniedException()
     
+    # Convert DD/MM/YYYY dates to date objects for database
+    update_data = convert_dates_for_db(program_data.dict(exclude_unset=True))
+    
+    # Get current dates if not being updated (for validation)
+    start_date = update_data.get('start_date', program.start_date)
+    end_date = update_data.get('end_date', program.end_date)
+    
+    # Validate date range if both dates exist
+    if start_date and end_date and end_date < start_date:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail="End date cannot be before start date"
+        )
+    
     # Update fields
-    for field, value in program_data.dict(exclude_unset=True).items():
+    for field, value in update_data.items():
         setattr(program, field, value)
     
     program.updated_by = str(current_user.id)
@@ -166,7 +223,9 @@ async def update_program(
         entity_id=str(program_id)
     )
     
-    return ProgramResponse.from_orm(program)
+    # Convert dates back to DD/MM/YYYY format for response
+    prog_dict = convert_dates_for_response(program)
+    return ProgramResponse(**prog_dict)
 
 
 @router.delete("/{program_id}", status_code=status.HTTP_204_NO_CONTENT)

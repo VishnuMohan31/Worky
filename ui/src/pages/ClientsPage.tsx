@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import ClientDetailView from '../components/clients/ClientDetailView'
 import OwnerSelector from '../components/ownership/OwnerSelector'
+import { formatDateForDisplay } from '../utils/dateUtils'
 
 interface ClientStatistics {
   total_clients: number
@@ -37,6 +39,7 @@ interface ClientDetail {
 
 export default function ClientsPage() {
   const { t } = useLanguage()
+  const { user } = useAuth()
   const [statistics, setStatistics] = useState<ClientStatistics | null>(null)
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -53,6 +56,8 @@ export default function ClientsPage() {
     is_active: true
   })
   const [selectedOwners, setSelectedOwners] = useState<string[]>([])
+  
+  const isAdmin = user?.role === 'Admin'
 
   useEffect(() => {
     loadStatistics()
@@ -97,6 +102,11 @@ export default function ClientsPage() {
   }
 
   const handleCreateClick = () => {
+    if (!isAdmin) {
+      alert('Only Admin users can create clients')
+      return
+    }
+    
     setEditingClient(null)
     setFormData({
       name: '',
@@ -129,6 +139,29 @@ export default function ClientsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Check admin role first
+    if (!isAdmin) {
+      alert('Only Admin users can create or edit clients')
+      return
+    }
+    
+    // Frontend validation
+    if (!formData.name.trim()) {
+      alert('Client name is required')
+      return
+    }
+    
+    if (formData.name.trim().length < 2) {
+      alert('Client name must be at least 2 characters long')
+      return
+    }
+    
+    if (formData.email && formData.email.trim() && (!formData.email.includes('@') || !formData.email.includes('.'))) {
+      alert('Please enter a valid email address')
+      return
+    }
+    
     setSubmitting(true)
     
     try {
@@ -140,7 +173,9 @@ export default function ClientsPage() {
         clientId = editingClient.id
       } else {
         // Create new client
+        console.log('Creating client with data:', formData)
         const newClient = await api.createClient(formData)
+        console.log('Client created successfully:', newClient)
         clientId = newClient.id
       }
       
@@ -178,9 +213,19 @@ export default function ClientsPage() {
       
       // Reload statistics to show the updated/new client
       await loadStatistics()
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Failed to ${editingClient ? 'update' : 'create'} client:`, error)
-      alert(`Failed to ${editingClient ? 'update' : 'create'} client. Please try again.`)
+      
+      // Extract error message from response
+      let errorMessage = `Failed to ${editingClient ? 'update' : 'create'} client. Please try again.`
+      
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      alert(errorMessage)
     } finally {
       setSubmitting(false)
     }
@@ -215,9 +260,18 @@ export default function ClientsPage() {
           {t('clients')}
         </h1>
         <button 
-          className="px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
-          style={{ backgroundColor: 'var(--primary-color)', color: 'white' }}
+          className={`px-4 py-2 rounded-md transition-opacity ${
+            isAdmin 
+              ? 'hover:opacity-90' 
+              : 'opacity-50 cursor-not-allowed'
+          }`}
+          style={{ 
+            backgroundColor: isAdmin ? 'var(--primary-color)' : '#ccc', 
+            color: 'white' 
+          }}
           onClick={handleCreateClick}
+          disabled={!isAdmin}
+          title={!isAdmin ? 'Only Admin users can create clients' : ''}
         >
           + Create Client
         </button>
@@ -371,6 +425,12 @@ export default function ClientsPage() {
               </button>
             </div>
 
+            {!isAdmin && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
+                Note: Only Admin users can create or edit clients.
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 {/* Client Name */}
@@ -389,9 +449,10 @@ export default function ClientsPage() {
                     onMouseUp={(e) => e.stopPropagation()}
                     onSelect={(e) => e.stopPropagation()}
                     required
-                    className="w-full px-4 py-2 rounded-md border"
+                    disabled={!isAdmin}
+                    className={`w-full px-4 py-2 rounded-md border ${!isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     style={{ 
-                      backgroundColor: 'var(--background-color)',
+                      backgroundColor: !isAdmin ? '#f3f4f6' : 'var(--background-color)',
                       borderColor: 'var(--border-color)',
                       color: 'var(--text-color)'
                     }}
@@ -414,9 +475,10 @@ export default function ClientsPage() {
                     onMouseDown={(e) => e.stopPropagation()}
                     onMouseUp={(e) => e.stopPropagation()}
                     onSelect={(e) => e.stopPropagation()}
-                    className="w-full px-4 py-2 rounded-md border"
+                    disabled={!isAdmin}
+                    className={`w-full px-4 py-2 rounded-md border ${!isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     style={{ 
-                      backgroundColor: 'var(--background-color)',
+                      backgroundColor: !isAdmin ? '#f3f4f6' : 'var(--background-color)',
                       borderColor: 'var(--border-color)',
                       color: 'var(--text-color)'
                     }}
@@ -440,9 +502,10 @@ export default function ClientsPage() {
                     onMouseUp={(e) => e.stopPropagation()}
                     onSelect={(e) => e.stopPropagation()}
                     rows={4}
-                    className="w-full px-4 py-2 rounded-md border"
+                    disabled={!isAdmin}
+                    className={`w-full px-4 py-2 rounded-md border ${!isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     style={{ 
-                      backgroundColor: 'var(--background-color)',
+                      backgroundColor: !isAdmin ? '#f3f4f6' : 'var(--background-color)',
                       borderColor: 'var(--border-color)',
                       color: 'var(--text-color)'
                     }}
@@ -470,9 +533,10 @@ export default function ClientsPage() {
                     onSelect={handleInputEvent}
                     onKeyDown={handleInputEvent}
                     onKeyUp={handleInputEvent}
-                    className="w-full px-4 py-2 rounded-md border"
+                    disabled={!isAdmin}
+                    className={`w-full px-4 py-2 rounded-md border ${!isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     style={{ 
-                      backgroundColor: 'var(--background-color)',
+                      backgroundColor: !isAdmin ? '#f3f4f6' : 'var(--background-color)',
                       borderColor: 'var(--border-color)',
                       color: 'var(--text-color)'
                     }}
@@ -500,9 +564,10 @@ export default function ClientsPage() {
                     onSelect={handleInputEvent}
                     onKeyDown={handleInputEvent}
                     onKeyUp={handleInputEvent}
-                    className="w-full px-4 py-2 rounded-md border"
+                    disabled={!isAdmin}
+                    className={`w-full px-4 py-2 rounded-md border ${!isAdmin ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     style={{ 
-                      backgroundColor: 'var(--background-color)',
+                      backgroundColor: !isAdmin ? '#f3f4f6' : 'var(--background-color)',
                       borderColor: 'var(--border-color)',
                       color: 'var(--text-color)'
                     }}
@@ -517,7 +582,8 @@ export default function ClientsPage() {
                     name="is_active"
                     checked={formData.is_active}
                     onChange={handleInputChange}
-                    className="w-4 h-4 rounded"
+                    disabled={!isAdmin}
+                    className={`w-4 h-4 rounded ${!isAdmin ? 'cursor-not-allowed' : ''}`}
                     style={{ accentColor: 'var(--primary-color)' }}
                   />
                   <label className="ml-2 text-sm" style={{ color: 'var(--text-color)' }}>
@@ -554,12 +620,12 @@ export default function ClientsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-md hover:opacity-90"
+                  className={`px-4 py-2 rounded-md ${isAdmin ? 'hover:opacity-90' : 'cursor-not-allowed opacity-50'}`}
                   style={{ 
-                    backgroundColor: 'var(--primary-color)',
+                    backgroundColor: isAdmin ? 'var(--primary-color)' : '#ccc',
                     color: 'white'
                   }}
-                  disabled={submitting}
+                  disabled={submitting || !isAdmin}
                 >
                   {submitting 
                     ? (editingClient ? 'Updating...' : 'Creating...') 

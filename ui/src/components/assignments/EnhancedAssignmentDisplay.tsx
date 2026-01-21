@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../../services/api'
+import Modal from '../common/Modal'
 
 interface Assignment {
   id: string
@@ -36,7 +37,7 @@ const ASSIGNMENT_TYPES = [
 export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssignmentChange }: EnhancedAssignmentDisplayProps) {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [availableUsers, setAvailableUsers] = useState<User[]>([])
-  const [showDropdown, setShowDropdown] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRole, setSelectedRole] = useState('assignee')
   const [loading, setLoading] = useState(false)
@@ -174,15 +175,15 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
     loadAssignments()
   }, [entityType, entityId, loadAssignments])
 
-  // Load available users when dropdown opens or role changes
+  // Load available users when modal opens or role changes
   useEffect(() => {
-    if (showDropdown && !loadingUsersRef.current) {
+    if (showModal && !loadingUsersRef.current) {
       // Always reload assignments first, then load available users
       loadAssignments().then((freshAssignments) => {
         loadAvailableUsers(freshAssignments)
       })
     }
-  }, [showDropdown, selectedRole, loadAssignments, loadAvailableUsers])
+  }, [showModal, selectedRole, loadAssignments, loadAvailableUsers])
 
   const handleAddAssignment = async (userId: string) => {
     setLoading(true)
@@ -198,8 +199,8 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
       
       console.log('Assignment created successfully')
       
-      // Close dropdown and reset form
-      setShowDropdown(false)
+      // Close modal and reset form
+      setShowModal(false)
       setSearchTerm('')
       setSelectedRole('assignee')
       
@@ -247,7 +248,8 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
   // Filter users based on search term
   const filteredUsers = availableUsers.filter(user =>
     user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Get color for assignment type
@@ -260,6 +262,22 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
   const getAssignmentTypeLabel = (type: string) => {
     const assignmentType = ASSIGNMENT_TYPES.find(t => t.value === type)
     return assignmentType?.label || type
+  }
+
+  // Get user initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
+  // Handle modal close
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setSearchTerm('')
   }
 
   return (
@@ -292,115 +310,143 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
         ))}
 
         {/* Add Assignment Button */}
-        <div className="relative">
-          <button
-            onClick={() => setShowDropdown(!showDropdown)}
-            className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors"
-            disabled={loading}
-          >
-            + Assign
-          </button>
+        <button
+          onClick={() => setShowModal(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-100 transition-colors border border-blue-200"
+          disabled={loading}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Assign
+        </button>
 
-          {/* Dropdown */}
-          {showDropdown && (
-            <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-              <div className="p-3">
-                {/* Loading indicator */}
-                {loadingUsers && (
-                  <div className="mb-3 text-center">
-                    <div className="text-sm text-blue-600">Loading available users...</div>
-                  </div>
-                )}
+        {/* Assignment Modal */}
+        <Modal
+          isOpen={showModal}
+          onClose={handleCloseModal}
+          title="Assign Team Members"
+          size="md"
+        >
+          <div className="space-y-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search by name, email, or role..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+                disabled={loadingUsers}
+              />
+            </div>
 
-                {/* Search */}
-                <div className="mb-3">
-                  <input
-                    type="text"
-                    placeholder="🔍 Search team members..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    autoFocus
-                    disabled={loadingUsers}
-                  />
-                </div>
+            {/* Role Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Assignment Type
+              </label>
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loadingUsers}
+              >
+                {ASSIGNMENT_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                {/* Role Selection */}
-                <div className="mb-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Select Team Member:
-                  </label>
-                  <select
-                    value={selectedRole}
-                    onChange={(e) => setSelectedRole(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={loadingUsers}
-                  >
-                    {ASSIGNMENT_TYPES.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Assign a team member to this task
-                  </p>
-                </div>
-
-                {/* User List */}
-                <div className="max-h-48 overflow-y-auto">
-                  {loadingUsers ? (
-                    <div className="text-sm text-gray-500 text-center py-4">
-                      Loading users...
-                    </div>
-                  ) : filteredUsers.length === 0 ? (
-                    <div className="text-sm text-gray-500 text-center py-2">
-                      {searchTerm ? 'No users found matching your search' : 'No available team members'}
-                    </div>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <button
-                        key={user.id}
-                        onClick={() => handleAddAssignment(user.id)}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-md text-sm flex items-center justify-between"
-                        disabled={loading || loadingUsers}
-                      >
-                        <div>
-                          <div className="font-medium">{user.full_name}</div>
-                          <div className="text-gray-500 text-xs">{user.email}</div>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs text-gray-400">({user.role})</span>
-                          {user.is_team_member && (
-                            <div className="text-xs text-green-600">Team Member</div>
-                          )}
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-
-                {/* Debug Info */}
-                <div className="mt-3 pt-2 border-t text-xs text-gray-500">
-                  <div>Current assignments: {assignments.length}</div>
-                  <div>Available users: {availableUsers.length}</div>
-                  <div>Filtered users: {filteredUsers.length}</div>
-                </div>
-
-                {/* Close Button */}
-                <div className="mt-3 pt-2 border-t">
-                  <button
-                    onClick={() => setShowDropdown(false)}
-                    className="w-full px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-                    disabled={loading}
-                  >
-                    Close
-                  </button>
+            {/* Loading State */}
+            {loadingUsers && (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="text-sm text-gray-500">Loading available team members...</p>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+
+            {/* User List */}
+            {!loadingUsers && (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {filteredUsers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <p className="mt-2 text-sm text-gray-500">
+                      {searchTerm ? 'No team members found matching your search' : 'No available team members'}
+                    </p>
+                  </div>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => handleAddAssignment(user.id)}
+                      className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={loading || loadingUsers}
+                    >
+                      <div className="flex items-center space-x-3">
+                        {/* Avatar */}
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                            {getInitials(user.full_name)}
+                          </div>
+                        </div>
+                        
+                        {/* User Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {user.full_name}
+                            </p>
+                            {user.is_team_member && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                Team
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 truncate mt-0.5">
+                            {user.email}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {user.role}
+                          </p>
+                        </div>
+
+                        {/* Arrow Icon */}
+                        <div className="flex-shrink-0">
+                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Footer Info */}
+            {!loadingUsers && filteredUsers.length > 0 && (
+              <div className="pt-3 border-t border-gray-200">
+                <p className="text-xs text-gray-500 text-center">
+                  {filteredUsers.length} {filteredUsers.length === 1 ? 'team member' : 'team members'} available
+                </p>
+              </div>
+            )}
+          </div>
+        </Modal>
 
         {assignments.length === 0 && (
           <span className="text-sm text-gray-500 italic">No assignees</span>

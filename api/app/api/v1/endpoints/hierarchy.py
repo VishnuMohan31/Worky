@@ -558,6 +558,9 @@ async def update_task(
     current_user: User = Depends(get_current_user)
 ):
     """Update a task."""
+    print(f"🔥🔥🔥 DEBUG: HIERARCHY TASK UPDATE ENDPOINT CALLED - task_id={task_id}")
+    print(f"🔥🔥🔥 DEBUG: task_data={task_data}")
+    
     service = HierarchyService(db)
     task = await service.update_task(task_id, task_data, current_user)
     

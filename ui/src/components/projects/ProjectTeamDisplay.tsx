@@ -142,21 +142,6 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
     }
   }
 
-
-  const handleRemoveMember = async (userId: string) => {
-    if (!team) return
-    
-    if (!confirm('Are you sure you want to remove this member from the team?')) return
-    
-    try {
-      await api.removeTeamMember(team.id, userId)
-      loadProjectTeam() // Refresh
-    } catch (error: any) {
-      console.error('Failed to remove team member:', error)
-      alert(error.response?.data?.detail || 'Failed to remove team member')
-    }
-  }
-
   // Filter teams that could be assigned (all teams except the currently assigned one)
   const availableTeams = allTeams.filter(t => t.id !== team?.id)
 
@@ -383,7 +368,7 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
           {teamMembers.map((member) => (
             <div
               key={member.id}
-              className="flex items-center space-x-3 p-3 rounded-lg border group"
+              className="flex items-center space-x-3 p-3 rounded-lg border"
               style={{ 
                 backgroundColor: 'var(--surface-color)',
                 borderColor: 'var(--border-color)'
@@ -417,15 +402,6 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
                   Joined: {new Date(member.joined_at).toLocaleDateString()}
                 </p>
               </div>
-
-              {/* Remove button - shows on hover */}
-              <button
-                onClick={() => handleRemoveMember(member.user_id)}
-                className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs rounded bg-red-100 text-red-600 hover:bg-red-200 transition-all"
-                title="Remove from team"
-              >
-                ✕
-              </button>
             </div>
           ))}
         </div>

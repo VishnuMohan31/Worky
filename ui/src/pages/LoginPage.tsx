@@ -3,8 +3,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@datalegos.com')
-  const [password, setPassword] = useState('password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -105,10 +105,6 @@ export default function LoginPage() {
             {loading ? t('loading') : t('login')}
           </button>
         </form>
-        
-        <div className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
-          Demo credentials: admin@datalegos.com / password
-        </div>
       </div>
     </div>
   )

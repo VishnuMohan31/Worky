@@ -2,8 +2,9 @@
  * Generic Entity Form Component
  * Reusable form for creating/editing entities with common fields
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getAllowedStatusTransitions, VALID_TASK_STATUSES } from '../../utils/statusTransitions'
 
 export interface EntityFormData {
   name?: string
@@ -26,9 +27,11 @@ interface EntityFormProps {
   entityType?: string
   statusOptions?: string[]
   additionalFields?: React.ReactNode
+  currentStatus?: string | null // Current status for filtering transitions (for tasks/subtasks)
+  restrictStatusTransitions?: boolean // Whether to restrict status options based on current status
 }
 
-const defaultStatusOptions = ['Planning', 'In Progress', 'Completed', 'On Hold', 'Blocked']
+const defaultStatusOptions = ['Planning', 'In Progress', 'Completed', 'Blocked', 'In Review', 'On-Hold', 'Canceled']
 
 export default function EntityForm({
   initialData = {},
@@ -38,7 +41,9 @@ export default function EntityForm({
   mode = 'create',
   entityType = 'Entity',
   statusOptions = defaultStatusOptions,
-  additionalFields
+  additionalFields,
+  currentStatus,
+  restrictStatusTransitions = false
 }: EntityFormProps) {
   const { t } = useTranslation()
   
@@ -60,6 +65,31 @@ export default function EntityForm({
   
   // Use a ref to track if initialData has actually changed
   const prevInitialDataRef = useRef<string>('')
+  
+  // Filter status options based on current status if in edit mode and restrictions are enabled
+  // Also ensure current status is always included in the options
+  const filteredStatusOptions = useMemo(() => {
+    // Get all available status options - include current status if it's not in the default list
+    const currentStatusValue = currentStatus || initialData?.status
+    let allOptions = [...statusOptions]
+    
+    // If current status exists and is not in the options list, add it
+    if (currentStatusValue && !allOptions.includes(currentStatusValue)) {
+      allOptions = [currentStatusValue, ...allOptions]
+    }
+    
+    // If restrictions are enabled and we're in edit mode, filter the options
+    if (mode === 'edit' && restrictStatusTransitions && currentStatusValue) {
+      const allowedTransitions = getAllowedStatusTransitions(currentStatusValue)
+      const filtered = allOptions.filter(option => allowedTransitions.includes(option))
+      // Always include current status even if filtering
+      if (filtered.length > 0) {
+        return filtered
+      }
+    }
+    
+    return allOptions
+  }, [mode, restrictStatusTransitions, currentStatus, initialData?.status, statusOptions])
   
   useEffect(() => {
     const currentInitialDataStr = JSON.stringify(initialData || {})
@@ -198,18 +228,28 @@ export default function EntityForm({
       <div>
         <label htmlFor="status" className="block text-sm font-medium mb-2">
           Status
+          {mode === 'edit' && restrictStatusTransitions && filteredStatusOptions.length < statusOptions.length && (
+            <span className="ml-2 text-xs text-gray-500 font-normal">
+              (Only valid transitions shown)
+            </span>
+          )}
         </label>
         <select
           id="status"
-          value={formData.status || statusOptions[0]}
+          value={formData.status || filteredStatusOptions[0] || statusOptions[0]}
           onChange={(e) => handleChange('status', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={isLoading}
         >
-          {statusOptions.map(option => (
+          {filteredStatusOptions.map(option => (
             <option key={option} value={option}>{option}</option>
           ))}
         </select>
+        {mode === 'edit' && restrictStatusTransitions && filteredStatusOptions.length < statusOptions.length && (
+          <p className="mt-1 text-xs text-gray-500">
+            Some status options are hidden because they are not valid transitions from the current status.
+          </p>
+        )}
       </div>
       
       {/* Date Range */}

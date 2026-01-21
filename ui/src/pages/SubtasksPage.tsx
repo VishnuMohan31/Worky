@@ -14,6 +14,14 @@ export default function SubtasksPage() {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   
+  // Helper function to safely format numbers
+  const formatNumber = (value: any, decimals: number = 1): string => {
+    if (value == null) return '-'
+    const num = typeof value === 'number' ? value : Number(value)
+    if (isNaN(num)) return '-'
+    return num.toFixed(decimals)
+  }
+  
   // Hierarchy selections
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [selectedProgramId, setSelectedProgramId] = useState<string>('')
@@ -47,6 +55,7 @@ export default function SubtasksPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingSubtask, setEditingSubtask] = useState<Subtask | null>(null)
+  const [authError, setAuthError] = useState(false)
   
   const isAdmin = user?.role === 'Admin'
 
@@ -55,8 +64,8 @@ export default function SubtasksPage() {
     const loadUsersAndPhases = async () => {
       try {
         const [usersData, phasesData] = await Promise.all([
-          api.getUsers(),
-          api.getPhases()
+          api.getUsersSafe(),
+          api.getPhasesSafe()
         ])
         setUsers(usersData)
         setPhases(phasesData)
@@ -71,7 +80,7 @@ export default function SubtasksPage() {
   useEffect(() => {
     const loadClients = async () => {
       try {
-        const clientsData = await api.getClients()
+        const clientsData = await api.getClientsSafe()
         setClients(clientsData)
         
         // Parse URL parameters
@@ -85,60 +94,76 @@ export default function SubtasksPage() {
         // If task is passed but parent hierarchy isn't, resolve it
         if (taskParam && (!clientParam || !programParam || !projectParam || !usecaseParam || !userstoryParam)) {
           try {
-            const allTasks = await api.getTasks()
+            const allTasks = await api.getTasksSafe()
             const task = allTasks.find((t: any) => t.id === taskParam)
             if (task) {
               const taskUserStoryId = task.userStoryId || task.user_story_id
               if (taskUserStoryId && !userstoryParam) {
                 // Find the user story to get usecase, project, program, client
-                const allStories = await api.getEntityList('userstory')
-                const story = allStories.find((s: any) => s.id === taskUserStoryId)
-                if (story) {
-                  const storyUseCaseId = story.usecaseId || story.usecase_id
-                  if (storyUseCaseId && !usecaseParam) {
-                    const allUseCases = await api.getEntityList('usecase')
-                    const usecase = allUseCases.find((uc: any) => uc.id === storyUseCaseId)
-                    if (usecase) {
-                      const usecaseProjectId = usecase.projectId || usecase.project_id
-                      if (usecaseProjectId && !projectParam) {
-                        const allProjects = await api.getProjects()
-                        const project = allProjects.find((p: any) => p.id === usecaseProjectId)
-                        if (project) {
-                          const projectProgramId = project.programId || project.program_id
-                          if (projectProgramId) {
-                            const allPrograms = await api.getEntityList('program')
-                            const program = allPrograms.find((p: any) => p.id === projectProgramId)
-                            if (program) {
-                              const programClientId = program.client_id || program.clientId
-                              if (programClientId && !clientParam) {
-                                setSelectedClientId(programClientId)
+                try {
+                  const allStories = await api.getEntityListSafe('userstory')
+                  const story = allStories.find((s: any) => s.id === taskUserStoryId)
+                  if (story) {
+                    const storyUseCaseId = story.usecaseId || story.usecase_id
+                    if (storyUseCaseId && !usecaseParam) {
+                      try {
+                        const allUseCases = await api.getEntityListSafe('usecase')
+                        const usecase = allUseCases.find((uc: any) => uc.id === storyUseCaseId)
+                        if (usecase) {
+                          const usecaseProjectId = usecase.projectId || usecase.project_id
+                          if (usecaseProjectId && !projectParam) {
+                            try {
+                              const allProjects = await api.getProjectsSafe()
+                              const project = allProjects.find((p: any) => p.id === usecaseProjectId)
+                              if (project) {
+                                const projectProgramId = project.programId
+                                if (projectProgramId) {
+                                  try {
+                                    const allPrograms = await api.getEntityListSafe('program')
+                                    const program = allPrograms.find((p: any) => p.id === projectProgramId)
+                                    if (program) {
+                                      const programClientId = program.client_id || program.clientId
+                                      if (programClientId && !clientParam) {
+                                        setSelectedClientId(programClientId)
+                                      }
+                                      if (!programParam) {
+                                        setSelectedProgramId(projectProgramId)
+                                      }
+                                    }
+                                  } catch (programErr) {
+                                    console.warn('Failed to load programs for hierarchy resolution:', programErr)
+                                  }
+                                }
+                                if (!projectParam) {
+                                  setSelectedProjectId(usecaseProjectId)
+                                }
                               }
-                              if (!programParam) {
-                                setSelectedProgramId(projectProgramId)
-                              }
+                            } catch (projectErr) {
+                              console.warn('Failed to load projects for hierarchy resolution:', projectErr)
                             }
                           }
-                          if (!projectParam) {
-                            setSelectedProjectId(usecaseProjectId)
+                          if (!usecaseParam) {
+                            setSelectedUseCaseId(storyUseCaseId)
                           }
                         }
-                      }
-                      if (!usecaseParam) {
-                        setSelectedUseCaseId(storyUseCaseId)
+                      } catch (usecaseErr) {
+                        console.warn('Failed to load usecases for hierarchy resolution:', usecaseErr)
                       }
                     }
+                    if (!userstoryParam) {
+                      setSelectedUserStoryId(taskUserStoryId)
+                    }
                   }
-                  if (!userstoryParam) {
-                    setSelectedUserStoryId(taskUserStoryId)
-                  }
+                } catch (storyErr) {
+                  console.warn('Failed to load user stories for hierarchy resolution:', storyErr)
                 }
               }
               if (taskParam) {
                 setSelectedTaskId(taskParam)
               }
             }
-          } catch (err) {
-            console.error('Failed to resolve task hierarchy:', err)
+          } catch (taskErr) {
+            console.warn('Failed to load tasks for hierarchy resolution:', taskErr)
           }
         }
         
@@ -172,7 +197,7 @@ export default function SubtasksPage() {
       
       setLoadingPrograms(true)
       try {
-        const allPrograms = await api.getEntityList('program')
+        const allPrograms = await api.getEntityListSafe('program')
         // Check both camelCase and snake_case for client_id
         const filteredPrograms = allPrograms.filter((p: any) => 
           (p.clientId === selectedClientId || p.client_id === selectedClientId)
@@ -201,12 +226,12 @@ export default function SubtasksPage() {
       
       setLoadingProjects(true)
       try {
-        const allProjects = await api.getProjects()
-        // Check both camelCase and snake_case for program_id
-        const filteredProjects = allProjects.filter((p: any) => 
-          (p.programId === selectedProgramId || p.program_id === selectedProgramId)
-        )
-        setProjects(filteredProjects)
+        const allProjects = await api.getProjectsSafe()
+        // Check both camelCase and snake_case for program_id, filter out nulls
+        const filteredProjects = allProjects
+          .filter((p: any) => p !== null) // Filter out null values first
+          .filter((p: any) => (p.programId === selectedProgramId))
+        setProjects(filteredProjects as any[])
       } catch (err) {
         console.error('Failed to load projects:', err)
       } finally {
@@ -230,7 +255,7 @@ export default function SubtasksPage() {
       
       setLoadingUseCases(true)
       try {
-        const allUseCases = await api.getEntityList('usecase')
+        const allUseCases = await api.getEntityListSafe('usecase')
         // Check both camelCase and snake_case for project_id
         const filteredUseCases = allUseCases.filter((uc: any) => 
           (uc.projectId === selectedProjectId || uc.project_id === selectedProjectId)
@@ -259,7 +284,7 @@ export default function SubtasksPage() {
       
       setLoadingUserStories(true)
       try {
-        const allStories = await api.getEntityList('userstory')
+        const allStories = await api.getEntityListSafe('userstory')
         // Check both camelCase and snake_case for usecase_id
         const filteredStories = allStories.filter((s: any) => 
           (s.usecaseId === selectedUseCaseId || s.usecase_id === selectedUseCaseId)
@@ -288,7 +313,7 @@ export default function SubtasksPage() {
       
       setLoadingTasks(true)
       try {
-        const allTasks = await api.getTasks()
+        const allTasks = await api.getTasksSafe()
         // Check both camelCase and snake_case for user_story_id
         const filteredTasks = allTasks.filter((t: any) => 
           (t.userStoryId === selectedUserStoryId || t.user_story_id === selectedUserStoryId)
@@ -313,14 +338,27 @@ export default function SubtasksPage() {
       
       setLoadingSubtasks(true)
       try {
-        const allSubtasks = await api.getSubtasks()
-        // Check both camelCase and snake_case for task_id
-        const filteredSubtasks = allSubtasks.filter((st: any) => 
-          (st.taskId === selectedTaskId || st.task_id === selectedTaskId)
-        )
-        setSubtasks(filteredSubtasks)
-      } catch (err) {
-        console.error('Failed to load subtasks:', err)
+        // Use safe API call that doesn't trigger logout on permission errors
+        const allSubtasks = await api.getSubtasksSafe(selectedTaskId)
+        
+        // If we get a valid array response, filter it
+        if (Array.isArray(allSubtasks)) {
+          // Check both camelCase and snake_case for task_id
+          const filteredSubtasks = allSubtasks.filter((st: any) => 
+            (st.taskId === selectedTaskId || st.task_id === selectedTaskId)
+          )
+          setSubtasks(filteredSubtasks)
+        } else {
+          // If response is not an array, set empty array
+          setSubtasks([])
+        }
+      } catch (err: any) {
+        // Check if this is an authentication error
+        if (err.response?.status === 401) {
+          setAuthError(true)
+        }
+        // Always set empty array on error
+        setSubtasks([])
       } finally {
         setLoadingSubtasks(false)
       }
@@ -582,6 +620,52 @@ export default function SubtasksPage() {
         </div>
       </div>
 
+      {/* Show authentication error modal - blocks interaction */}
+      {authError && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <svg className="h-10 w-10 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <h3 className="ml-3 text-lg font-medium text-gray-900">
+                Session Expired
+              </h3>
+            </div>
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-2">
+                Your authentication session has expired after 30 minutes of inactivity.
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>To view subtasks, you must log in again.</strong>
+              </p>
+              <p className="text-xs text-gray-500">
+                This is a security measure to protect your account.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  localStorage.removeItem('token')
+                  window.location.href = '/login'
+                }}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Go to Login
+              </button>
+              <button
+                onClick={() => setAuthError(false)}
+                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Show message if selections not made */}
       {!hasRequiredSelections && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
@@ -703,13 +787,13 @@ export default function SubtasksPage() {
                           {getPhaseName(subtask.phase_id)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {subtask.estimated_hours ? subtask.estimated_hours.toFixed(1) : '-'}
+                          {formatNumber(subtask.estimated_hours)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {subtask.duration_days || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {subtask.scrum_points ? subtask.scrum_points.toFixed(1) : '-'}
+                          {formatNumber(subtask.scrum_points)}
                         </td>
                       </tr>
                     ))}
@@ -752,17 +836,17 @@ export default function SubtasksPage() {
                       <div>
                         <span className="text-gray-500">Est. Hours:</span>
                         <span className="ml-1 text-gray-900">
-                          {subtask.estimated_hours ? subtask.estimated_hours.toFixed(1) : '-'}
+                          {formatNumber(subtask.estimated_hours)}
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-500">Duration:</span>
                         <span className="ml-1 text-gray-900">{subtask.duration_days || '-'} days</span>
                       </div>
-                      {subtask.scrum_points && (
+                      {subtask.scrum_points != null && (
                         <div>
                           <span className="text-gray-500">Points:</span>
-                          <span className="ml-1 text-gray-900">{subtask.scrum_points.toFixed(1)}</span>
+                          <span className="ml-1 text-gray-900">{formatNumber(subtask.scrum_points)}</span>
                         </div>
                       )}
                     </div>
@@ -772,7 +856,23 @@ export default function SubtasksPage() {
               
               {filteredSubtasks.length === 0 && (
                 <div className="text-center py-12">
-                  <p className="text-sm sm:text-base text-gray-500">No subtasks found for this task</p>
+                  <div className="text-blue-600 mb-2">
+                    <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                  </div>
+                  <p className="text-sm sm:text-base text-gray-600 font-medium mb-1">
+                    No subtasks available for this task
+                  </p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    {!isAdmin 
+                      ? "You can only view subtasks that are assigned to you. Contact your administrator if you need access to other subtasks." 
+                      : "No subtasks have been created for this task yet. Click 'New Subtask' to create one."
+                    }
+                  </p>
+                  <p className="text-xs text-gray-400 italic">
+                    💡 If you believe there should be subtasks here, try refreshing the page or logging in again.
+                  </p>
                 </div>
               )}
             </div>
@@ -785,9 +885,21 @@ export default function SubtasksPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={async () => {
-          const allSubtasks = await api.getSubtasks()
-          const filteredSubtasks = allSubtasks.filter((st: any) => st.task_id === selectedTaskId)
-          setSubtasks(filteredSubtasks)
+          try {
+            // Use safe API call that doesn't trigger logout on permission errors
+            const allSubtasks = await api.getSubtasksSafe(selectedTaskId)
+            
+            // If we get a valid array response, filter it
+            if (Array.isArray(allSubtasks)) {
+              const filteredSubtasks = allSubtasks.filter((st: any) => st.task_id === selectedTaskId)
+              setSubtasks(filteredSubtasks)
+            } else {
+              setSubtasks([])
+            }
+          } catch (err: any) {
+            // Always set empty array on error
+            setSubtasks([])
+          }
         }}
         subtask={editingSubtask}
         selectedClientId={selectedClientId}

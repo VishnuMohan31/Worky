@@ -21,26 +21,41 @@ export default function DashboardPage() {
     try {
       console.log('Loading dashboard data...')
       
-      // Load data with individual error handling
+      // Load data with individual error handling using safe methods
       const [projects, tasks, bugs, users] = await Promise.all([
-        api.getProjects().then(data => { console.log('Projects:', data); return data }).catch(err => { console.error('Projects error:', err); return [] }),
-        api.getTasks().then(data => { console.log('Tasks:', data); return data }).catch(err => { console.error('Tasks error:', err); return [] }),
+        api.getProjectsSafe().then(data => { console.log('Projects:', data); return data }).catch(err => { console.error('Projects error:', err); return [] }),
+        api.getTasksSafe().then(data => { console.log('Tasks:', data); return data }).catch(err => { console.error('Tasks error:', err); return [] }),
         api.getBugs().then(data => { console.log('Bugs:', data); return data }).catch(err => { console.error('Bugs error:', err); return [] }),
-        api.getUsers().then(data => { console.log('Users:', data); return data }).catch(err => { console.error('Users error:', err); return [] })
+        api.getUsersSafe().then(data => { console.log('Users:', data); return data }).catch(err => { console.error('Users error:', err); return [] })
       ])
 
       console.log('All data loaded successfully')
 
       setStats({
-        totalProjects: projects.length,
-        activeTasks: tasks.filter((t: any) => t.status !== 'Done').length,
-        openBugs: Array.isArray(bugs) ? bugs.filter((b: any) => b.status === 'Open').length : 0,
-        teamMembers: users.length
+        totalProjects: Array.isArray(projects) ? projects.length : 0,
+        activeTasks: Array.isArray(tasks) ? tasks.filter((t: any) => 
+          t.status !== 'Completed' && 
+          t.status !== 'Canceled'
+        ).length : 0,
+        openBugs: Array.isArray(bugs) ? bugs.filter((b: any) => 
+          b.status === 'Open' || 
+          b.status === 'New' || 
+          b.status === 'Planning'
+        ).length : 0,
+        teamMembers: Array.isArray(users) ? users.length : 0
       })
 
-      setRecentTasks(tasks.slice(0, 5))
+      setRecentTasks(Array.isArray(tasks) ? tasks.slice(0, 5) : [])
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
+      // Set default values on error
+      setStats({
+        totalProjects: 0,
+        activeTasks: 0,
+        openBugs: 0,
+        teamMembers: 0
+      })
+      setRecentTasks([])
     } finally {
       setLoading(false)
     }
@@ -147,9 +162,37 @@ function StatCard({ title, value, icon, color }: any) {
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'Done': return 'var(--success-color)'
-    case 'In Progress': return 'var(--info-color)'
-    case 'To Do': return 'var(--text-secondary)'
-    default: return 'var(--text-secondary)'
+    // Planning phase - Yellow/Orange (Warning)
+    case 'Planning': 
+      return 'var(--warning-color)'
+    
+    // Active work - Blue (Info)
+    case 'In Progress': 
+      return 'var(--info-color)'
+    
+    // Completed work - Green (Success)
+    case 'Completed': 
+      return 'var(--success-color)'
+    
+    // Paused work - Gray (Secondary)
+    case 'On Hold': 
+      return 'var(--text-secondary)'
+    
+    // Blocked work - Red (Error)
+    case 'Blocked': 
+      return 'var(--error-color)'
+    
+    // Legacy statuses (for backward compatibility)
+    case 'Done': 
+      return 'var(--success-color)'
+    case 'To Do': 
+      return 'var(--warning-color)'
+    case 'In Review': 
+      return 'var(--info-color)'
+    case 'Cancelled': 
+      return 'var(--error-color)'
+    
+    default: 
+      return 'var(--text-secondary)'
   }
 }

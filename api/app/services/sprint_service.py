@@ -208,7 +208,7 @@ class SprintService:
             select(func.count(Task.id))
             .where(
                 Task.sprint_id == sprint_id,
-                Task.status == "Done",
+                Task.status == "Completed",
                 Task.is_deleted == False
             )
         )
@@ -228,7 +228,7 @@ class SprintService:
             select(func.count(Task.id))
             .where(
                 Task.sprint_id == sprint_id,
-                Task.status == "To Do",
+                Task.status == "Planning",
                 Task.is_deleted == False
             )
         )

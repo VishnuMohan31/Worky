@@ -278,8 +278,8 @@ export type Entity = Client | Program | Project | UseCase | UserStory | Task | S
 
 // Status options
 export const STATUS_OPTIONS = {
-  planning: ['Planning', 'In Progress', 'Completed', 'On Hold', 'Blocked'],
-  task: ['To Do', 'In Progress', 'Done', 'Blocked'],
+  planning: ['Planning', 'In Progress', 'Completed', 'Blocked', 'In Review', 'On-Hold', 'Canceled'],
+  task: ['Planning', 'In Progress', 'Completed', 'Blocked', 'In Review', 'On-Hold', 'Canceled'],
   bug: ['New', 'Assigned', 'In Progress', 'Fixed', 'Verified', 'Closed']
 } as const
 

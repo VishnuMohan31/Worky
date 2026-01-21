@@ -22,6 +22,9 @@ interface Task {
   assigned_to?: string
   due_date?: string
   sprint_id?: string
+  name?: string
+  short_description?: string
+  long_description?: string
 }
 
 export default function SprintPage() {
@@ -33,6 +36,7 @@ export default function SprintPage() {
   const [sprintTasks, setSprintTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Task[]>([])
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [sprintTasksSearchQuery, setSprintTasksSearchQuery] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [loadingSprints, setLoadingSprints] = useState(false)
   const [loadingTasks, setLoadingTasks] = useState(false)
@@ -79,13 +83,17 @@ export default function SprintPage() {
   const loadSprints = async () => {
     setLoadingSprints(true)
     try {
+      console.log('Loading sprints for project:', selectedProjectId)
       const data = await api.getProjectSprints(selectedProjectId, false)
+      console.log('Sprints loaded:', data)
       setSprints(data)
       if (data.length > 0 && !selectedSprintId) {
+        console.log('Auto-selecting first sprint:', data[0].id)
         setSelectedSprintId(data[0].id)
       }
     } catch (error) {
       console.error('Failed to load sprints:', error)
+      setSprints([]) // Set empty array on error
     } finally {
       setLoadingSprints(false)
     }
@@ -94,10 +102,13 @@ export default function SprintPage() {
   const loadSprintTasks = async () => {
     setLoadingTasks(true)
     try {
+      console.log('Loading tasks for sprint:', selectedSprintId)
       const data = await api.getSprintTasks(selectedSprintId)
+      console.log('Sprint tasks loaded:', data)
       setSprintTasks(data)
     } catch (error) {
       console.error('Failed to load sprint tasks:', error)
+      setSprintTasks([]) // Set empty array on error
     } finally {
       setLoadingTasks(false)
     }
@@ -105,20 +116,25 @@ export default function SprintPage() {
 
   const loadAllTasks = async () => {
     try {
-      const data = await api.getTasks()
-      // Filter tasks that belong to this project's hierarchy
-      // For now, just get all tasks - you may want to filter by project
+      // Get tasks filtered by the selected project
+      const data = await api.getTasks(selectedProjectId)
+      console.log('Loaded tasks for project:', selectedProjectId, data)
       setAllTasks(data)
     } catch (error) {
       console.error('Failed to load tasks:', error)
+      setAllTasks([]) // Set empty array on error
     }
   }
 
   const handleAssignTask = async (taskId: string) => {
     try {
       await api.assignTaskToSprint(selectedSprintId, taskId)
-      await loadSprintTasks()
-      await loadAllTasks()
+      // Reload all data to get updated counts
+      await Promise.all([
+        loadSprintTasks(),
+        loadAllTasks(),
+        loadSprints() // This will refresh sprint statistics
+      ])
     } catch (error: any) {
       console.error('Failed to assign task:', error)
       alert(error.response?.data?.detail || 'Failed to assign task to sprint')
@@ -128,8 +144,12 @@ export default function SprintPage() {
   const handleUnassignTask = async (taskId: string) => {
     try {
       await api.unassignTaskFromSprint(selectedSprintId, taskId)
-      await loadSprintTasks()
-      await loadAllTasks()
+      // Reload all data to get updated counts
+      await Promise.all([
+        loadSprintTasks(),
+        loadAllTasks(),
+        loadSprints() // This will refresh sprint statistics
+      ])
     } catch (error: any) {
       console.error('Failed to unassign task:', error)
       alert(error.response?.data?.detail || 'Failed to unassign task from sprint')
@@ -148,20 +168,92 @@ export default function SprintPage() {
   }
 
   const selectedSprint = sprints.find(s => s.id === selectedSprintId)
-  const unassignedTasks = allTasks.filter(t => !t.sprint_id)
+  
+  // Filter unassigned tasks - tasks that don't have a sprint_id OR have a different sprint_id
+  const unassignedTasks = allTasks.filter(t => !t.sprint_id || t.sprint_id === null || t.sprint_id === '')
+  
+  console.log('All tasks:', allTasks.length)
+  console.log('Unassigned tasks:', unassignedTasks.length)
+  console.log('Sprint tasks:', sprintTasks.length)
   
   // Filter unassigned tasks by search query
   const filteredUnassignedTasks = unassignedTasks.filter(task => {
     if (!searchQuery.trim()) return true
+    
     const query = searchQuery.toLowerCase()
-    const title = (task.title || '').toLowerCase()
-    const description = (task.description || '').toLowerCase()
-    return title.includes(query) || description.includes(query)
+    const title = (task.title || task.name || '').toLowerCase()
+    const description = (task.description || task.short_description || task.long_description || '').toLowerCase()
+    const status = (task.status || '').toLowerCase()
+    const assignedTo = (task.assigned_to || '').toLowerCase()
+    
+    // Debug search filtering
+    const matches = title.includes(query) || 
+                   description.includes(query) || 
+                   status.includes(query) || 
+                   assignedTo.includes(query)
+    
+    if (searchQuery.trim()) {
+      console.log(`Search "${query}" in task "${title}":`, {
+        title: title.includes(query),
+        description: description.includes(query),
+        status: status.includes(query),
+        assignedTo: assignedTo.includes(query),
+        matches
+      })
+    }
+    
+    return matches
   })
   
-  const completionRate = selectedSprint && selectedSprint.task_count > 0
-    ? Math.round((selectedSprint.completed_task_count / selectedSprint.task_count) * 100)
-    : 0
+  // Debug search results
+  if (searchQuery.trim()) {
+    console.log(`Search results for "${searchQuery}":`, {
+      totalUnassigned: unassignedTasks.length,
+      filteredResults: filteredUnassignedTasks.length,
+      searchQuery: searchQuery
+    })
+  }
+  
+  // Filter sprint tasks by search query
+  const filteredSprintTasks = sprintTasks.filter(task => {
+    if (!sprintTasksSearchQuery.trim()) return true
+    
+    const query = sprintTasksSearchQuery.toLowerCase()
+    const title = (task.title || task.name || '').toLowerCase()
+    const description = (task.description || task.short_description || task.long_description || '').toLowerCase()
+    const status = (task.status || '').toLowerCase()
+    const assignedTo = (task.assigned_to || '').toLowerCase()
+    
+    return title.includes(query) || 
+           description.includes(query) || 
+           status.includes(query) || 
+           assignedTo.includes(query)
+  })
+  
+  // Calculate completion rate with debugging
+  const calculateCompletionRate = () => {
+    if (!selectedSprint || selectedSprint.task_count === 0) {
+      console.log('No sprint selected or no tasks in sprint')
+      return 0
+    }
+    
+    const totalTasks = selectedSprint.task_count
+    const completedTasks = selectedSprint.completed_task_count
+    const rate = Math.round((completedTasks / totalTasks) * 100)
+    
+    console.log('Sprint Progress Calculation:', {
+      sprintId: selectedSprint.id,
+      totalTasks,
+      completedTasks,
+      inProgress: selectedSprint.in_progress_task_count,
+      todo: selectedSprint.todo_task_count,
+      completionRate: rate
+    })
+    
+    return rate
+  }
+  
+  const completionRate = calculateCompletionRate()
 
   if (loading) {
     return <div style={{ color: 'var(--text-color)' }}>{t('loading')}</div>
@@ -263,6 +355,29 @@ export default function SprintPage() {
                       <span style={{ color: 'var(--text-secondary)' }}>To Do:</span>
                       <span style={{ color: 'var(--text-secondary)' }}>{selectedSprint.todo_task_count}</span>
                     </div>
+                    
+                    {/* Verification: Show actual task statuses from loaded tasks */}
+                    {sprintTasks.length > 0 && (
+                      <details className="mt-4">
+                        <summary className="cursor-pointer text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          Verify Task Statuses ({sprintTasks.length} loaded tasks)
+                        </summary>
+                        <div className="mt-2 text-xs space-y-1">
+                          {sprintTasks.map(task => (
+                            <div key={task.id} className="flex justify-between">
+                              <span>{task.title || task.id}</span>
+                              <span style={{ 
+                                color: task.status === 'Done' ? 'var(--success-color)' : 
+                                       task.status === 'In Progress' ? 'var(--info-color)' : 
+                                       'var(--text-secondary)' 
+                              }}>
+                                {task.status}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
                   </div>
                 </div>
 
@@ -299,46 +414,112 @@ export default function SprintPage() {
                      backgroundColor: 'var(--surface-color)',
                      border: '1px solid var(--border-color)'
                    }}>
-                <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-color)' }}>
-                  Sprint Tasks
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold" style={{ color: 'var(--text-color)' }}>
+                    Sprint Tasks
+                  </h2>
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {filteredSprintTasks.length} of {sprintTasks.length} tasks
+                  </span>
+                </div>
+                
+                {/* Search Bar for Sprint Tasks */}
+                {sprintTasks.length > 0 && (
+                  <div className="mb-4">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search sprint tasks..."
+                        value={sprintTasksSearchQuery}
+                        onChange={(e) => setSprintTasksSearchQuery(e.target.value)}
+                        className="w-full px-4 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{
+                          backgroundColor: 'var(--background-color)',
+                          borderColor: 'var(--border-color)',
+                          color: 'var(--text-color)'
+                        }}
+                      />
+                      {sprintTasksSearchQuery && (
+                        <button
+                          onClick={() => setSprintTasksSearchQuery('')}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          title="Clear search"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {loadingTasks ? (
                   <div style={{ color: 'var(--text-color)' }}>Loading tasks...</div>
-                ) : sprintTasks.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)' }}>No tasks assigned to this sprint.</p>
+                ) : filteredSprintTasks.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p style={{ color: 'var(--text-secondary)' }}>
+                      {sprintTasksSearchQuery.trim() 
+                        ? `No sprint tasks found matching "${sprintTasksSearchQuery}"`
+                        : sprintTasks.length === 0 
+                          ? 'No tasks assigned to this sprint.'
+                          : 'No tasks match your search.'}
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-3">
-                    {sprintTasks.map(task => (
-                      <div key={task.id}
-                           className="flex items-center justify-between p-3 rounded"
-                           style={{ backgroundColor: 'var(--background-color)' }}>
-                        <div className="flex-1">
-                          <h3 className="font-medium" style={{ color: 'var(--text-color)' }}>
-                            {task.title}
-                          </h3>
-                          {task.due_date && (
-                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                              Due: {new Date(task.due_date).toLocaleDateString()}
-                            </p>
-                          )}
+                    {filteredSprintTasks.map(task => {
+                      // Debug log for each sprint task
+                      console.log('Rendering sprint task:', task)
+                      
+                      // Get task title with fallbacks
+                      const taskTitle = task.title || task.name || task.short_description || `Task ${task.id}` || 'Untitled Task'
+                      const taskDescription = task.description || task.short_description || task.long_description
+                      
+                      return (
+                        <div key={task.id}
+                             className="flex items-center justify-between p-3 rounded"
+                             style={{ backgroundColor: 'var(--background-color)' }}>
+                          <div className="flex-1">
+                            <h3 className="font-medium" style={{ color: 'var(--text-color)' }}>
+                              {taskTitle}
+                            </h3>
+                            {taskDescription && (
+                              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                                {taskDescription.length > 100 
+                                  ? `${taskDescription.substring(0, 100)}...` 
+                                  : taskDescription}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 mt-2">
+                              {task.due_date && (
+                                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                  Due: {formatDate(task.due_date)}
+                                </p>
+                              )}
+                              {task.assigned_to && (
+                                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                  Assigned: {task.assigned_to}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="px-3 py-1 rounded text-sm"
+                                  style={{
+                                    backgroundColor: getStatusColor(task.status),
+                                    color: 'white'
+                                  }}>
+                              {task.status || 'No Status'}
+                            </span>
+                            <button
+                              onClick={() => handleUnassignTask(task.id)}
+                              className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 rounded text-sm"
-                                style={{
-                                  backgroundColor: getStatusColor(task.status),
-                                  color: 'white'
-                                }}>
-                            {task.status}
-                          </span>
-                          <button
-                            onClick={() => handleUnassignTask(task.id)}
-                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -362,18 +543,40 @@ export default function SprintPage() {
                 
                 {/* Search Bar */}
                 <div className="mb-4">
-                  <input
-                    type="text"
-                    placeholder="Search tasks by title or description..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    style={{
-                      backgroundColor: 'var(--background-color)',
-                      borderColor: 'var(--border-color)',
-                      color: 'var(--text-color)'
-                    }}
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search tasks by title, description, status, or assignee..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        console.log('Search query changed:', e.target.value)
+                        setSearchQuery(e.target.value)
+                      }}
+                      className="w-full px-4 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{
+                        backgroundColor: 'var(--background-color)',
+                        borderColor: 'var(--border-color)',
+                        color: 'var(--text-color)'
+                      }}
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => {
+                          console.log('Clearing search')
+                          setSearchQuery('')
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        title="Clear search"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {searchQuery && (
+                    <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
+                      Searching for: "{searchQuery}" - Found {filteredUnassignedTasks.length} of {unassignedTasks.length} tasks
+                    </p>
+                  )}
                 </div>
                 
                 {filteredUnassignedTasks.length === 0 ? (
@@ -386,38 +589,61 @@ export default function SprintPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredUnassignedTasks.map(task => (
-                      <div key={task.id}
-                           className="flex items-center justify-between p-3 rounded"
-                           style={{ backgroundColor: 'var(--background-color)' }}>
-                        <div className="flex-1">
-                          <h3 className="font-medium" style={{ color: 'var(--text-color)' }}>
-                            {task.title}
-                          </h3>
-                          {task.due_date && (
-                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                              Due: {new Date(task.due_date).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 rounded text-sm"
-                                style={{
-                                  backgroundColor: getStatusColor(task.status),
-                                  color: 'white'
-                                }}>
-                            {task.status}
-                          </span>
-                          <button
-                            onClick={() => handleAssignTask(task.id)}
-                            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-                          >
-                            Add to Sprint
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      {filteredUnassignedTasks.map(task => {
+                        // Debug log for each task
+                        console.log('Rendering task:', task)
+                        
+                        // Get task title with fallbacks
+                        const taskTitle = task.title || task.name || task.short_description || `Task ${task.id}` || 'Untitled Task'
+                        const taskDescription = task.description || task.short_description || task.long_description
+                        
+                        return (
+                          <div key={task.id}
+                               className="flex items-center justify-between p-3 rounded"
+                               style={{ backgroundColor: 'var(--background-color)' }}>
+                            <div className="flex-1">
+                              <h3 className="font-medium" style={{ color: 'var(--text-color)' }}>
+                                {taskTitle}
+                              </h3>
+                              {taskDescription && (
+                                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                                  {taskDescription.length > 100 
+                                    ? `${taskDescription.substring(0, 100)}...` 
+                                    : taskDescription}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-4 mt-2">
+                                {task.due_date && (
+                                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                    Due: {formatDate(task.due_date)}
+                                  </p>
+                                )}
+                                {task.assigned_to && (
+                                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                    Assigned: {task.assigned_to}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="px-3 py-1 rounded text-sm"
+                                    style={{
+                                      backgroundColor: getStatusColor(task.status),
+                                      color: 'white'
+                                    }}>
+                                {task.status || 'No Status'}
+                              </span>
+                              <button
+                                onClick={() => handleAssignTask(task.id)}
+                                className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                              >
+                                Add to Sprint
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                 )}
               </div>
             </>
@@ -442,9 +668,51 @@ export default function SprintPage() {
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'Done': return 'var(--success-color)'
+    case 'Completed': return 'var(--success-color)'
     case 'In Progress': return 'var(--info-color)'
-    case 'To Do': return 'var(--text-secondary)'
+    case 'In Review': return 'var(--info-color)'
+    case 'Planning': return 'var(--warning-color)'
+    case 'On-Hold': return 'var(--text-secondary)'
+    case 'Blocked': return 'var(--text-secondary)'
+    case 'Canceled': return 'var(--error-color)'
     default: return 'var(--text-secondary)'
+  }
+}
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'No due date'
+  
+  try {
+    // Handle different date formats
+    let date: Date
+    
+    // If it's already a valid date string, try to parse it
+    if (dateStr.includes('T') || dateStr.includes('-')) {
+      date = new Date(dateStr)
+    } else {
+      // If it's a timestamp or other format
+      date = new Date(dateStr)
+    }
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      // Try parsing as ISO date string
+      const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/)
+      if (isoMatch) {
+        date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]))
+      } else {
+        return dateStr // Return original string if we can't parse it
+      }
+    }
+    
+    // Format as MM/DD/YYYY
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const year = date.getFullYear()
+    
+    return `${month}/${day}/${year}`
+  } catch (error) {
+    console.warn('Error formatting date:', dateStr, error)
+    return dateStr || 'Invalid date'
   }
 }

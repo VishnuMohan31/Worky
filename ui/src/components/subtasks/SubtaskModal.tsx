@@ -70,8 +70,9 @@ export default function SubtaskModal({
 
     try {
       if (isEditMode && subtask) {
-        // Update existing subtask
-        await api.updateEntity('subtask', subtask.id, formData)
+        // Update existing subtask - remove task_id as it's not allowed in updates
+        const { task_id, ...updateData } = formData
+        await api.updateEntity('subtask', subtask.id, updateData)
       } else {
         // Create new subtask
         await api.createEntity('subtask', formData)

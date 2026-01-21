@@ -3,7 +3,9 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer
+from fastapi import Request, Header
+from starlette.requests import Request as StarletteRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.config import settings
@@ -15,6 +17,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+# Optional OAuth2 scheme
+optional_oauth2_scheme = HTTPBearer(auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -79,6 +84,44 @@ def verify_token(token: str) -> Optional[str]:
         user_id: str = payload.get("sub")
         return user_id
     except JWTError:
+        return None
+
+
+async def get_current_user_optional(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> Optional[User]:
+    """Get the current authenticated user, return None if not authenticated"""
+    authorization = request.headers.get("authorization")
+    if not authorization:
+        return None
+        
+    # Extract token from "Bearer <token>" format
+    if not authorization.startswith("Bearer "):
+        return None
+        
+    token = authorization.replace("Bearer ", "")
+    if not token:
+        return None
+        
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+    except JWTError:
+        return None
+    
+    # Get user from database (user_id is already a string)
+    try:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        
+        if user is None or not user.is_active:
+            return None
+            
+        return user
+    except Exception:
         return None
 
 

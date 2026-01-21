@@ -17,7 +17,7 @@ interface SubtaskFormProps {
   phases?: Phase[]
 }
 
-const subtaskStatusOptions = ['To Do', 'In Progress', 'Done', 'Blocked']
+const subtaskStatusOptions = ['Planning', 'In Progress', 'Completed', 'Blocked', 'In Review', 'On-Hold', 'Canceled']
 
 export default function SubtaskForm({
   initialData = {},

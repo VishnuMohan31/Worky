@@ -11,13 +11,41 @@ from datetime import datetime
 from app.db.base import get_db
 from app.models.hierarchy import Task, UserStory, Usecase, Project, Program
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
+from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse, parse_ddmmyyyy_date, format_date_to_ddmmyyyy
 from app.core.security import get_current_user, require_role
 from app.core.exceptions import ResourceNotFoundException, AccessDeniedException, ValidationException
 from app.core.logging import StructuredLogger
 
 router = APIRouter()
 logger = StructuredLogger(__name__)
+
+
+def convert_dates_for_db(data_dict: dict) -> dict:
+    """Convert DD/MM/YYYY dates to date objects for database storage"""
+    converted = data_dict.copy()
+    
+    for field in ['start_date', 'due_date']:
+        if field in converted and converted[field]:
+            try:
+                converted[field] = parse_ddmmyyyy_date(converted[field])
+            except ValueError:
+                # If parsing fails, leave as is (will be caught by validation)
+                pass
+    
+    return converted
+
+
+def convert_dates_for_response(task) -> dict:
+    """Convert date objects to DD/MM/YYYY format for response"""
+    task_dict = TaskResponse.from_orm(task).dict()
+    
+    # Convert dates to DD/MM/YYYY format
+    if task_dict.get('start_date'):
+        task_dict['start_date'] = format_date_to_ddmmyyyy(task.start_date)
+    if task_dict.get('due_date'):
+        task_dict['due_date'] = format_date_to_ddmmyyyy(task.due_date)
+    
+    return task_dict
 
 
 @router.get("/", response_model=List[TaskResponse])
@@ -59,17 +87,16 @@ async def list_tasks(
     result = await db.execute(query)
     tasks = result.scalars().all()
     
-    # Convert tasks to response
-    # Note: sprint_id column may not exist in database yet, so we handle it gracefully
+    # Convert tasks to response with DD/MM/YYYY dates
     response_list = []
     for task in tasks:
         try:
-            # Use from_orm - it will handle missing sprint_id by using None
-            task_response = TaskResponse.from_orm(task)
+            # Convert dates to DD/MM/YYYY format for response
+            task_dict = convert_dates_for_response(task)
             # Ensure sprint_id is set to None if column doesn't exist
             if not hasattr(task, 'sprint_id'):
-                task_response.sprint_id = None
-            response_list.append(task_response)
+                task_dict['sprint_id'] = None
+            response_list.append(TaskResponse(**task_dict))
         except Exception as e:
             logger.error(f"Error serializing task {task.id}: {str(e)}", exc_info=True)
             raise  # Re-raise to see the actual error
@@ -117,7 +144,9 @@ async def get_task(
         entity_id=str(task_id)
     )
     
-    return TaskResponse.from_orm(task)
+    # Convert dates to DD/MM/YYYY format for response
+    task_dict = convert_dates_for_response(task)
+    return TaskResponse(**task_dict)
 
 
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -158,8 +187,11 @@ async def create_task(
         if not assignee_result.scalar_one_or_none():
             raise ResourceNotFoundException("User", str(task_data.assigned_to))
     
+    # Convert DD/MM/YYYY dates to date objects for database
+    task_dict = convert_dates_for_db(task_data.dict())
+    
     task = Task(
-        **task_data.dict(),
+        **task_dict,
         created_by=str(current_user.id),
         updated_by=str(current_user.id)
     )
@@ -176,7 +208,9 @@ async def create_task(
         assigned_to=str(task.assigned_to) if task.assigned_to else None
     )
     
-    return TaskResponse.from_orm(task)
+    # Convert dates back to DD/MM/YYYY format for response
+    task_dict = convert_dates_for_response(task)
+    return TaskResponse(**task_dict)
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
@@ -218,24 +252,25 @@ async def update_task(
     old_status = task.status
     new_status = task_data.status if task_data.status else old_status
     
-    # Validate status transitions
-    valid_transitions = {
-        "To Do": ["In Progress", "Blocked"],
-        "In Progress": ["To Do", "In Review", "Blocked", "Done"],
-        "In Review": ["In Progress", "Done", "Blocked"],
-        "Blocked": ["To Do", "In Progress"],
-        "Done": ["In Progress"]  # Allow reopening
-    }
+    # COMPLETELY DISABLE STATUS TRANSITION VALIDATION
+    # Allow any status transition - no restrictions for flexible kanban workflow
+    print(f"🔥 TASK UPDATE: task_id={task_id}, old_status='{old_status}', new_status='{new_status}'")
+    print(f"🔥 TASK UPDATE: Validation is DISABLED - allowing transition")
+    logger.info(f"Status transition: '{old_status}' -> '{new_status}' (validation disabled)")
     
     if new_status != old_status:
-        if old_status not in valid_transitions or new_status not in valid_transitions.get(old_status, []):
-            raise ValidationException(f"Invalid status transition from '{old_status}' to '{new_status}'")
-        
-        # Set completed_at when transitioning to Done
-        if new_status == "Done" and old_status != "Done":
+        # Set completed_at when transitioning to Completed
+        if new_status == "Completed" and old_status != "Completed":
             task.completed_at = datetime.utcnow()
         # Clear completed_at when reopening
-        elif old_status == "Done" and new_status != "Done":
+        elif old_status == "Completed" and new_status != "Completed":
+            task.completed_at = None
+        
+        # Set completed_at when transitioning to Completed
+        if new_status == "Completed" and old_status != "Completed":
+            task.completed_at = datetime.utcnow()
+        # Clear completed_at when reopening
+        elif old_status == "Completed" and new_status != "Completed":
             task.completed_at = None
     
     # Verify assigned user exists if being updated
@@ -246,8 +281,11 @@ async def update_task(
         if not assignee_result.scalar_one_or_none():
             raise ResourceNotFoundException("User", str(task_data.assigned_to))
     
+    # Convert DD/MM/YYYY dates to date objects for database
+    update_data = convert_dates_for_db(task_data.dict(exclude_unset=True))
+    
     # Update fields
-    for field, value in task_data.dict(exclude_unset=True).items():
+    for field, value in update_data.items():
         if field != "status":  # Status already handled above
             setattr(task, field, value)
     
@@ -266,7 +304,9 @@ async def update_task(
         status_transition=f"{old_status} -> {new_status}" if old_status != new_status else None
     )
     
-    return TaskResponse.from_orm(task)
+    # Convert dates back to DD/MM/YYYY format for response
+    task_dict = convert_dates_for_response(task)
+    return TaskResponse(**task_dict)
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -342,7 +382,13 @@ async def get_my_tasks(
     result = await db.execute(query)
     tasks = result.scalars().all()
     
-    return [TaskResponse.from_orm(task) for task in tasks]
+    # Convert dates to DD/MM/YYYY format for response
+    response_list = []
+    for task in tasks:
+        task_dict = convert_dates_for_response(task)
+        response_list.append(TaskResponse(**task_dict))
+    
+    return response_list
 
 
 @router.get("/{task_id}/progress", response_model=dict)

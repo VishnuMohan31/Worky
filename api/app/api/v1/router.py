@@ -113,6 +113,10 @@ api_router.include_router(validation.router, prefix="/validation", tags=["valida
 # Decisions - Decision tracking and management system
 api_router.include_router(decisions.router, prefix="/decisions", tags=["decisions"])
 
+# Public endpoints (no authentication required)
+from app.api.v1.endpoints import public_subtasks
+api_router.include_router(public_subtasks.router, prefix="/public", tags=["public"])
+
 # Notifications - Assignment and team notification system
 from app.api.v1.endpoints import notifications
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])

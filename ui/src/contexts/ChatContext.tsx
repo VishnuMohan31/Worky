@@ -5,7 +5,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
-import { useAuth } from './AuthContext'
+import { useAuth, AuthContext } from './AuthContext'
 import chatApi, { ChatMessage as ApiChatMessage, ChatResponse } from '../services/chatApi'
 
 // ============================================================================
@@ -79,7 +79,11 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined)
 // ============================================================================
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated } = useAuth()
+  // Use useContext directly to avoid throwing errors during hot reloads
+  // Fallback to safe defaults if context is not available
+  const authContext = useContext(AuthContext)
+  const user = authContext?.user ?? null
+  const isAuthenticated = authContext?.isAuthenticated ?? false
   
   // Session state
   const [sessionId, setSessionId] = useState<string | null>(null)

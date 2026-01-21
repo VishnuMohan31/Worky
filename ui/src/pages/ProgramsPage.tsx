@@ -8,6 +8,7 @@ import { useEntityList } from '../hooks/useEntity'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import ProgramModal from '../components/programs/ProgramModal'
+import { formatDateForDisplay } from '../utils/dateUtils'
 
 export default function ProgramsPage() {
   const navigate = useNavigate()
@@ -359,10 +360,10 @@ export default function ProgramsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {program.start_date ? new Date(program.start_date).toLocaleDateString() : '-'}
+                    {program.start_date ? formatDateForDisplay(program.start_date) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {program.end_date ? new Date(program.end_date).toLocaleDateString() : '-'}
+                    {program.end_date ? formatDateForDisplay(program.end_date) : '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
                     {program.short_description || program.long_description || '-'}

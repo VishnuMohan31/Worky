@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
 import OwnershipDisplay from '../ownership/OwnershipDisplay'
+import { formatDateForDisplay } from '../../utils/dateUtils'
 
 interface ClientDetail {
   id: string
@@ -100,11 +101,7 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    return formatDateForDisplay(dateString)
   }
 
   return (

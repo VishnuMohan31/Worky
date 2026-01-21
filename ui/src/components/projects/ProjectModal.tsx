@@ -4,8 +4,10 @@
  */
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
+import DateInput from '../common/DateInput'
 import api from '../../services/api'
 import OwnerSelector from '../ownership/OwnerSelector'
+import { formatDateForAPI } from '../../utils/dateUtils'
 
 interface ProjectModalProps {
   isOpen: boolean
@@ -92,6 +94,40 @@ export default function ProjectModal({
       return
     }
 
+    // Date validation - handle both YYYY-MM-DD and DD/MM/YYYY formats
+    if (formData.start_date && formData.end_date) {
+      let startDate: Date
+      let endDate: Date
+      
+      try {
+        // Handle both formats
+        if (formData.start_date.includes('/')) {
+          // DD/MM/YYYY format
+          const apiStartDate = formatDateForAPI(formData.start_date)
+          startDate = new Date(apiStartDate + 'T00:00:00')
+        } else {
+          // YYYY-MM-DD format
+          startDate = new Date(formData.start_date + 'T00:00:00')
+        }
+        
+        if (formData.end_date.includes('/')) {
+          // DD/MM/YYYY format
+          const apiEndDate = formatDateForAPI(formData.end_date)
+          endDate = new Date(apiEndDate + 'T00:00:00')
+        } else {
+          // YYYY-MM-DD format
+          endDate = new Date(formData.end_date + 'T00:00:00')
+        }
+        
+        if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && endDate < startDate) {
+          setError('End date cannot be before start date')
+          return
+        }
+      } catch (error) {
+        console.error('Date validation error:', error)
+      }
+    }
+
     setLoading(true)
     setError('')
 
@@ -138,6 +174,42 @@ export default function ProjectModal({
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError('')
+    }
+  }
+
+  // Helper function to check if dates are valid
+  const isDateRangeValid = () => {
+    if (!formData.start_date || !formData.end_date) return true
+    
+    try {
+      let startDate: Date
+      let endDate: Date
+      
+      // Handle both formats
+      if (formData.start_date.includes('/')) {
+        const apiStartDate = formatDateForAPI(formData.start_date)
+        startDate = new Date(apiStartDate + 'T00:00:00')
+      } else {
+        startDate = new Date(formData.start_date + 'T00:00:00')
+      }
+      
+      if (formData.end_date.includes('/')) {
+        const apiEndDate = formatDateForAPI(formData.end_date)
+        endDate = new Date(apiEndDate + 'T00:00:00')
+      } else {
+        endDate = new Date(formData.end_date + 'T00:00:00')
+      }
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return true
+      
+      return endDate >= startDate
+    } catch (error) {
+      return true
+    }
   }
 
   return (
@@ -166,13 +238,13 @@ export default function ProjectModal({
           </div>
         )}
 
-        {/* Hierarchy Display */}
-        {selectedClientId && selectedProgramId && (
+        {/* Hierarchy Display - Dynamic based on formData.program_id */}
+        {selectedClientId && formData.program_id && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
             <div className="font-medium text-blue-900 mb-1">Creating project under:</div>
             <div className="text-blue-700">
               {clients.find(c => c.id === selectedClientId)?.name} → 
-              {programs.find(p => p.id === selectedProgramId)?.name}
+              {programs.find(p => p.id === formData.program_id)?.name || 'Select program...'}
             </div>
           </div>
         )}
@@ -273,11 +345,11 @@ export default function ProjectModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Start Date
             </label>
-            <input
-              type="date"
+            <DateInput
               value={formData.start_date}
-              onChange={(e) => handleChange('start_date', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(value) => handleChange('start_date', value)}
+              className="w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="DD/MM/YYYY"
             />
           </div>
 
@@ -285,12 +357,16 @@ export default function ProjectModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               End Date
             </label>
-            <input
-              type="date"
+            <DateInput
               value={formData.end_date}
-              onChange={(e) => handleChange('end_date', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(value) => handleChange('end_date', value)}
+              min={formData.start_date || undefined}
+              className="w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="DD/MM/YYYY"
             />
+            {formData.start_date && formData.end_date && !isDateRangeValid() && (
+              <p className="text-red-500 text-xs mt-1">End date cannot be before start date</p>
+            )}
           </div>
         </div>
 

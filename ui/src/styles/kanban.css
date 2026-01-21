@@ -1,0 +1,90 @@
+/* Kanban Board Animations and Styles */
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Custom scrollbar styles */
+.kanban-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-track {
+  background: var(--surface-color);
+  border-radius: 3px;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Smooth scrolling for horizontal kanban */
+.kanban-container {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced drag feedback */
+.kanban-column:hover {
+  transform: translateY(-2px);
+}
+
+/* Task card animations */
+.kanban-task {
+  transition: all 0.3s ease;
+}
+
+.kanban-task:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.kanban-task.dragging {
+  transform: rotate(3deg) scale(0.98);
+  opacity: 0.6;
+}
+
+/* Animation classes */
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out both;
+}
+
+.animate-pulse-custom {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-ping-custom {
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Staggered animation delays */
+.animate-slide-in-1 { animation-delay: 0.1s; }
+.animate-slide-in-2 { animation-delay: 0.2s; }
+.animate-slide-in-3 { animation-delay: 0.3s; }

@@ -13,3 +13,5 @@ CHECK (role IN ('Admin', 'Developer', 'Tester', 'Architect', 'Designer', 'Owner'
 -- Add comment explaining the expanded roles
 COMMENT ON COLUMN users.role IS 'User role determines permissions. Supported roles: Admin (full access), Project Manager (programs/projects), Architect (programs/projects/usecases/stories), Designer (usecases/stories), Developer (tasks/subtasks/bugs), Tester (bugs), DevOps (infrastructure), Owner (client owner), Contact Person (client contact)';
 
+
+

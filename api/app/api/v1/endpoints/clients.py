@@ -95,10 +95,39 @@ async def create_client(
 ):
     """Create a new client (Admin only)."""
     
-    # Generate client ID
-    result = await db.execute(select(func.count(Client.id)))
-    count = result.scalar() or 0
-    client_id = f"CLI-{str(count + 1).zfill(3)}"
+    # Generate client ID - use a more robust approach
+    # Get the highest existing client ID number
+    result = await db.execute(
+        select(Client.id).where(
+            Client.id.like('CLI-%')
+        ).order_by(Client.id.desc()).limit(1)
+    )
+    last_client = result.scalar_one_or_none()
+    
+    if last_client:
+        # Extract number from last client ID (e.g., "CLI-003" -> 3)
+        try:
+            last_number = int(last_client.split('-')[1])
+            next_number = last_number + 1
+        except (IndexError, ValueError):
+            # Fallback to counting all clients if parsing fails
+            count_result = await db.execute(select(func.count(Client.id)))
+            count = count_result.scalar() or 0
+            next_number = count + 1
+    else:
+        next_number = 1
+    
+    client_id = f"CLI-{str(next_number).zfill(3)}"
+    
+    # Check if this ID already exists (safety check)
+    existing_result = await db.execute(
+        select(Client.id).where(Client.id == client_id)
+    )
+    if existing_result.scalar_one_or_none():
+        # If it exists, fall back to timestamp-based ID
+        import time
+        timestamp = int(time.time() * 1000) % 10000  # Last 4 digits of timestamp
+        client_id = f"CLI-{timestamp}"
     
     client = Client(
         id=client_id,
@@ -108,8 +137,18 @@ async def create_client(
     )
     
     db.add(client)
-    await db.commit()
-    await db.refresh(client)
+    
+    try:
+        await db.commit()
+        await db.refresh(client)
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to create client: {str(e)}")
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create client: {str(e)}"
+        )
     
     logger.log_activity(
         action="create_client",
