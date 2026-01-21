@@ -43,6 +43,7 @@ export default function ProjectsPage() {
         const clientParam = searchParams.get('client')
         const programParam = searchParams.get('program')
         
+        // Check URL parameters for pre-selection
         if (clientParam) {
           setSelectedClientId(clientParam)
         }
@@ -56,7 +57,7 @@ export default function ProjectsPage() {
       }
     }
     loadClients()
-  }, [searchParams])
+  }, [searchParams, isAdmin, user])
 
   // Load programs when client changes
   useEffect(() => {
@@ -70,8 +71,15 @@ export default function ProjectsPage() {
       setLoadingPrograms(true)
       try {
         const allPrograms = await api.getEntityList('program')
-        const filteredPrograms = allPrograms.filter((p: any) => p.client_id === selectedClientId)
+        const filteredPrograms = allPrograms.filter((p: any) => 
+          (p.client_id === selectedClientId || p.clientId === selectedClientId)
+        )
         setPrograms(filteredPrograms)
+        
+        // Auto-select program if only one available and none is selected
+        if (filteredPrograms.length === 1 && !selectedProgramId) {
+          setSelectedProgramId(filteredPrograms[0].id)
+        }
       } catch (err) {
         console.error('Failed to load programs:', err)
       } finally {
@@ -79,12 +87,13 @@ export default function ProjectsPage() {
       }
     }
     loadPrograms()
-  }, [selectedClientId])
+  }, [selectedClientId, selectedProgramId])
 
   // Load projects function
   const loadProjects = async () => {
     try {
-      const data = await api.getProjects()
+      // Request more projects to ensure all are loaded (backend default is 50)
+      const data = await api.getProjects(100)
       setProjects(data)
     } catch (error) {
       console.error('Failed to load projects:', error)

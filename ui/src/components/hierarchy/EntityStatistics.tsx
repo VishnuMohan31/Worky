@@ -25,9 +25,10 @@ function SafePhaseDistributionChart({ data }: { data: any }) {
 interface EntityStatisticsProps {
   entityId: string
   entityType: EntityType
+  refreshKey?: number // Add refresh key to trigger reload
 }
 
-export default function EntityStatistics({ entityId, entityType }: EntityStatisticsProps) {
+export default function EntityStatistics({ entityId, entityType, refreshKey = 0 }: EntityStatisticsProps) {
   const [stats, setStats] = useState<EntityStatsType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -77,8 +78,8 @@ export default function EntityStatistics({ entityId, entityType }: EntityStatist
     } finally {
       setLoading(false)
     }
-    }, 100) // 100ms debounce
-  }, [entityType, entityId])
+    }, 50) // Reduced debounce for faster refresh
+  }, [entityType, entityId, refreshKey]) // Add refreshKey to dependencies
 
   useEffect(() => {
     loadStatistics()

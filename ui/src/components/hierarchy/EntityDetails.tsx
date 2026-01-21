@@ -29,6 +29,7 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
   const [showAssignments, setShowAssignments] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [statisticsRefreshKey, setStatisticsRefreshKey] = useState(0) // Add refresh key for statistics
   
   // Safety checks
   if (!entity) {
@@ -472,7 +473,12 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
             borderRadius: '0.5rem',
             border: '1px solid #e5e7eb'
           }}>
-            <EntityStatistics key={`${type}-${entity.id}`} entityId={entity.id} entityType={type} />
+            <EntityStatistics 
+              key={`${type}-${entity.id}`} 
+              entityId={entity.id} 
+              entityType={type} 
+              refreshKey={statisticsRefreshKey}
+            />
           </div>
         ) : (
           <div style={{ 
@@ -497,6 +503,7 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
         size="lg"
       >
         <EntityForm
+          entityType={type === 'subtask' ? 'Subtask' : type === 'userstory' ? 'UserStory' : type === 'usecase' ? 'Usecase' : type === 'client' ? 'Client' : type.charAt(0).toUpperCase() + type.slice(1)}
           initialData={{
             name: entity.name || entity.title || '',
             title: entity.title || entity.name || '',
@@ -508,11 +515,11 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
             end_date: (entity.end_date || entity.endDate) ? formatDateForInput(entity.end_date || entity.endDate) : (entity.due_date || entity.dueDate) ? formatDateForInput(entity.due_date || entity.dueDate) : '',
             due_date: (entity.due_date || entity.dueDate) ? formatDateForInput(entity.due_date || entity.dueDate) : '',
             acceptance_criteria: entity.acceptance_criteria || entity.acceptanceCriteria || '',
-            story_points: entity.story_points || entity.storyPoints || 0,
+            // Only include story_points for entities that have it (not subtasks)
+            story_points: (type !== 'subtask' && (entity.story_points || entity.storyPoints)) ? (entity.story_points || entity.storyPoints) : undefined,
             estimated_hours: entity.estimated_hours || 0,
             actual_hours: entity.actual_hours || 0,
             duration_days: entity.duration_days || 1,
-            scrum_points: entity.scrum_points || 0,
             phase_id: entity.phase_id || '',
             assigned_to: entity.assigned_to || ''
           }}
@@ -616,19 +623,34 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
                 delete updateData.start_date
                 delete updateData.due_date
                 
-                // Ensure numeric fields are properly formatted
-                if (updateData.estimated_hours !== undefined && updateData.estimated_hours !== '') {
-                  updateData.estimated_hours = parseFloat(updateData.estimated_hours) || null
+                // Remove fields that SubtaskUpdate doesn't accept
+                delete updateData.story_points  // Subtasks use scrum_points, not story_points
+                delete updateData.acceptance_criteria  // Not in SubtaskUpdate schema
+                
+                // Ensure numeric fields are properly formatted as numbers
+                if (updateData.estimated_hours !== undefined && updateData.estimated_hours !== null && updateData.estimated_hours !== '') {
+                  const hours = typeof updateData.estimated_hours === 'string' ? parseFloat(updateData.estimated_hours) : updateData.estimated_hours
+                  updateData.estimated_hours = isNaN(hours) ? 0 : hours
+                } else if (updateData.estimated_hours === '' || updateData.estimated_hours === null) {
+                  updateData.estimated_hours = 0
                 }
-                if (updateData.duration_days !== undefined && updateData.duration_days !== '') {
-                  updateData.duration_days = parseInt(updateData.duration_days) || null
+                
+                if (updateData.duration_days !== undefined && updateData.duration_days !== null && updateData.duration_days !== '') {
+                  const days = typeof updateData.duration_days === 'string' ? parseInt(updateData.duration_days) : updateData.duration_days
+                  updateData.duration_days = isNaN(days) ? 1 : days
+                } else if (updateData.duration_days === '' || updateData.duration_days === null) {
+                  updateData.duration_days = 1
                 }
-                if (updateData.scrum_points !== undefined && updateData.scrum_points !== '') {
-                  updateData.scrum_points = parseFloat(updateData.scrum_points) || null
+                
+                if (updateData.actual_hours !== undefined && updateData.actual_hours !== null && updateData.actual_hours !== '') {
+                  const hours = typeof updateData.actual_hours === 'string' ? parseFloat(updateData.actual_hours) : updateData.actual_hours
+                  updateData.actual_hours = isNaN(hours) ? null : hours
+                } else if (updateData.actual_hours === '' || updateData.actual_hours === null) {
+                  delete updateData.actual_hours
                 }
-                if (updateData.actual_hours !== undefined && updateData.actual_hours !== '') {
-                  updateData.actual_hours = parseFloat(updateData.actual_hours) || null
-                }
+                
+                // Remove scrum_points as it's not needed for subtasks
+                delete updateData.scrum_points
               } else if (type === 'task') {
                 // Tasks use estimated_hours and actual_hours
                 // Only include if they have valid numeric values
@@ -760,6 +782,14 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
               // Invalidate cache to refresh data without page reload
               queryClient.invalidateQueries({ queryKey: ['entities'] })
               queryClient.invalidateQueries({ queryKey: ['entity', type, entity.id] })
+              // Also invalidate statistics cache
+              queryClient.invalidateQueries({ queryKey: ['statistics'] })
+              // Refresh statistics by updating the refresh key immediately
+              // Then again after a short delay to ensure backend has processed
+              setStatisticsRefreshKey(prev => prev + 1)
+              setTimeout(() => {
+                setStatisticsRefreshKey(prev => prev + 1)
+              }, 300)
             } catch (error: any) {
               console.error('Failed to update entity:', error)
               console.error('Error response:', error.response?.data)

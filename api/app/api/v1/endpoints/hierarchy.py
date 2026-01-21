@@ -179,12 +179,11 @@ async def list_clients(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List clients with pagination. Admin users see all clients, other users see only their assigned client."""
+    """List all clients. All users can see all clients."""
     query = select(Client).where(Client.is_deleted == False)
     
-    # Apply client-level filtering for non-admin users
-    if current_user.role != "Admin":
-        query = query.where(Client.id == current_user.client_id)
+    # All users can see all clients (removed client-level filtering)
+    # Note: Access control is still enforced at the project/program level
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)

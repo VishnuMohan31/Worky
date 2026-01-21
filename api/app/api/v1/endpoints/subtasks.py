@@ -215,10 +215,41 @@ async def update_subtask(
     
     # Track all changes for audit log
     changes = {}
-    for field, value in subtask_data.dict(exclude_unset=True).items():
+    from decimal import Decimal
+    
+    # Convert all values from Pydantic model to ensure they're JSON-serializable
+    update_dict = subtask_data.dict(exclude_unset=True)
+    
+    # Helper function to convert any value to JSON-serializable format
+    def convert_to_json_serializable(val):
+        """Convert Decimal and other non-serializable types to JSON-compatible types."""
+        if val is None:
+            return None
+        if isinstance(val, Decimal):
+            return float(val)
+        elif isinstance(val, (int, float, str, bool)):
+            return val
+        elif isinstance(val, datetime):
+            return val.isoformat()
+        else:
+            # For any other type, try to convert to string or float
+            try:
+                if isinstance(val, Decimal):
+                    return float(val)
+                return str(val)
+            except:
+                return str(val)
+    
+    for field, value in update_dict.items():
         old_value = getattr(subtask, field, None)
-        if old_value != value:
-            changes[field] = {"old": old_value, "new": value}
+        # Convert the new value from Pydantic (might be Decimal) to Python native type
+        converted_value = convert_to_json_serializable(value)
+        
+        # Compare with converted old value
+        converted_old_value = convert_to_json_serializable(old_value)
+        
+        if converted_old_value != converted_value:
+            changes[field] = {"old": converted_old_value, "new": converted_value}
     
     # COMPLETELY DISABLE STATUS TRANSITION VALIDATION
     # Allow any status transition - no restrictions for flexible kanban workflow
@@ -250,24 +281,97 @@ async def update_subtask(
         if not assignee_result.scalar_one_or_none():
             raise ResourceNotFoundException("User", str(subtask_data.assigned_to))
     
-    # Update fields
-    for field, value in subtask_data.dict(exclude_unset=True).items():
-        if field != "status":  # Status already handled above
-            setattr(subtask, field, value)
+    # Update fields - convert Decimal values to proper types for database
+    from decimal import Decimal
+    for field, value in update_dict.items():
+        if field != "status":  # Status already handled separately below
+            # Convert Decimal to float/int if needed for database compatibility
+            if isinstance(value, Decimal):
+                # For numeric fields, convert Decimal to float
+                if field in ['estimated_hours', 'actual_hours', 'scrum_points']:
+                    setattr(subtask, field, float(value))
+                else:
+                    setattr(subtask, field, value)
+            else:
+                setattr(subtask, field, value)
     
-    if subtask_data.status:
+    # ALWAYS update status if it was provided in the request (even if same as old)
+    # This ensures status updates work correctly - check if status is in update_dict
+    if 'status' in update_dict:
         subtask.status = new_status
     
     subtask.updated_by = str(current_user.id)
     
-    # Create audit log before commit
+    # Create audit log before commit - ensure all values are JSON serializable
+    # Recursively convert all Decimal values in changes dictionary
+    serializable_changes = None
+    if changes:
+        from copy import deepcopy
+        import json
+        from decimal import Decimal  # Ensure Decimal is imported in this scope
+        
+        def recursive_convert(obj):
+            """Recursively convert Decimal and other non-serializable types."""
+            if obj is None:
+                return None
+            # Check for Decimal FIRST before other types
+            if isinstance(obj, Decimal):
+                return float(obj)
+            elif isinstance(obj, dict):
+                # Recursively convert all values in the dictionary
+                return {k: recursive_convert(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple)):
+                return [recursive_convert(item) for item in obj]
+            elif isinstance(obj, datetime):
+                return obj.isoformat()
+            elif isinstance(obj, (int, float, str, bool)):
+                return obj
+            else:
+                # Try to convert to float if it's a Decimal-like object
+                try:
+                    # Check if it's a Decimal by trying to convert
+                    if hasattr(obj, '__float__') and not isinstance(obj, (int, float)):
+                        return float(obj)
+                except (ValueError, TypeError):
+                    pass
+                return str(obj)
+        
+        # Deep copy and recursively convert all values - this MUST convert all Decimals
+        # First, ensure we have a fresh copy
+        changes_copy = deepcopy(changes)
+        
+        # Convert recursively - this should catch ALL Decimal values
+        serializable_changes = recursive_convert(changes_copy)
+        
+        # CRITICAL: Double-check by attempting JSON serialization
+        # If this fails, we know there are still non-serializable values
+        import json as json_module
+        try:
+            # Try to serialize to verify it's JSON-serializable
+            test_json = json_module.dumps(serializable_changes)
+            # If successful, parse it back to ensure it's clean
+            serializable_changes = json_module.loads(test_json)
+        except (TypeError, ValueError) as e:
+            # If serialization fails, do multiple passes until clean
+            logger.warning(f"First conversion pass failed, retrying: {e}")
+            for attempt in range(3):  # Try up to 3 times
+                serializable_changes = recursive_convert(serializable_changes)
+                try:
+                    json_module.dumps(serializable_changes)
+                    break  # Success!
+                except (TypeError, ValueError):
+                    if attempt == 2:  # Last attempt
+                        logger.error(f"Failed to convert all Decimal values after 3 attempts")
+                        # As last resort, convert to string representation
+                        serializable_changes = json_module.loads(json_module.dumps(serializable_changes, default=str))
+    
     await create_audit_log(
         db=db,
         user_id=str(current_user.id),
         action="UPDATE",
         entity_type="subtask",
         entity_id=str(subtask_id),
-        changes=changes if changes else None
+        changes=serializable_changes if serializable_changes else None
     )
     
     await db.commit()

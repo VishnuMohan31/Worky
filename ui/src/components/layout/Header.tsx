@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useLanguage } from '../../contexts/LanguageContext'
-import { useClickOutside } from '../../hooks/useClickOutside'
 
 interface HeaderProps {
   onChatToggle?: () => void
@@ -10,6 +10,7 @@ interface HeaderProps {
 }
 
 export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
+  const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { theme, setTheme } = useTheme()
   const { language, setLanguage, t } = useLanguage()
@@ -17,17 +18,30 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
   const [showLangMenu, setShowLangMenu] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
 
-  // Close all dropdowns when clicking outside
-  const closeAllDropdowns = useCallback(() => {
-    setShowThemeMenu(false)
-    setShowLangMenu(false)
-    setShowUserMenu(false)
-  }, [])
-
   // Refs for click outside detection
-  const themeMenuRef = useClickOutside<HTMLDivElement>(closeAllDropdowns)
-  const langMenuRef = useClickOutside<HTMLDivElement>(closeAllDropdowns)
-  const userMenuRef = useClickOutside<HTMLDivElement>(closeAllDropdowns)
+  const themeMenuRef = useRef<HTMLDivElement>(null)
+  const langMenuRef = useRef<HTMLDivElement>(null)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close all dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (themeMenuRef.current && !themeMenuRef.current.contains(event.target as Node)) {
+        setShowThemeMenu(false)
+      }
+      if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
+        setShowLangMenu(false)
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   // Handle dropdown toggle - close others when opening one
   const handleThemeToggle = () => {
@@ -210,7 +224,7 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
               <button
                 onClick={() => {
                   setShowUserMenu(false)
-                  window.location.href = '/profile'
+                  navigate('/profile')
                 }}
                 className="w-full text-left px-4 py-2 hover:opacity-80 transition-opacity"
                 style={{ color: 'var(--text-color)' }}
@@ -218,7 +232,10 @@ export default function Header({ onChatToggle, isChatOpen }: HeaderProps) {
                 {t('profile')}
               </button>
               <button
-                onClick={logout}
+                onClick={() => {
+                  setShowUserMenu(false)
+                  logout()
+                }}
                 className="w-full text-left px-4 py-2 hover:opacity-80 transition-opacity"
                 style={{ color: 'var(--error-color)' }}
               >

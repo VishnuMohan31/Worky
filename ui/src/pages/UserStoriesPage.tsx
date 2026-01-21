@@ -216,7 +216,8 @@ export default function UserStoriesPage() {
   const filteredStories = useMemo(() => {
     return stories.filter((story: any) => {
       const matchesSearch = !searchQuery || 
-        story.title?.toLowerCase().includes(searchQuery.toLowerCase())
+        (story.name || story.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (story.short_description || story.description || story.long_description || '').toLowerCase().includes(searchQuery.toLowerCase())
       const matchesStatus = filterStatus === 'all' || story.status === filterStatus
       const matchesPriority = filterPriority === 'all' || story.priority === filterPriority
       return matchesSearch && matchesStatus && matchesPriority
@@ -506,9 +507,13 @@ export default function UserStoriesPage() {
                 className="hover:bg-gray-50 cursor-pointer transition-colors"
               >
                 <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900">{story.title}</div>
-                  {story.description && (
-                    <div className="text-sm text-gray-500 line-clamp-1">{story.description}</div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {story.name || story.title || 'Untitled Story'}
+                  </div>
+                  {(story.short_description || story.description || story.long_description) && (
+                    <div className="text-sm text-gray-500 line-clamp-1">
+                      {story.short_description || story.description || story.long_description}
+                    </div>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

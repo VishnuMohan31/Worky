@@ -239,6 +239,9 @@ class SubtaskUpdate(BaseModel):
     duration_days: Optional[int] = None
     scrum_points: Optional[Decimal] = None
 
+    class Config:
+        extra = "ignore"  # Ignore extra fields like story_points that don't belong to subtasks
+
     @validator('status')
     def validate_status(cls, v):
         if v is None:

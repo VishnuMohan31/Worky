@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import TaskModal from '../components/tasks/TaskModal'
 import { formatDateForDisplay } from '../utils/dateUtils'
+import { useUserStoryTasks } from '../hooks/useTasks'
 
 export default function TasksPage() {
   const navigate = useNavigate()
@@ -25,16 +26,17 @@ export default function TasksPage() {
   const [projects, setProjects] = useState<any[]>([])
   const [usecases, setUsecases] = useState<any[]>([])
   const [userstories, setUserstories] = useState<any[]>([])
-  const [tasks, setTasks] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
   const [loadingPrograms, setLoadingPrograms] = useState(false)
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [loadingUseCases, setLoadingUseCases] = useState(false)
   const [loadingUserStories, setLoadingUserStories] = useState(false)
-  const [loadingTasks, setLoadingTasks] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<any>(null)
+  
+  // Use React Query for task management - shares cache with KanbanPage
+  const { data: tasks = [], isLoading: loadingTasks } = useUserStoryTasks(selectedUserStoryId)
   
   const isAdmin = user?.role === 'Admin'
 
@@ -326,30 +328,9 @@ export default function TasksPage() {
     loadUserStories()
   }, [selectedUseCaseId, searchParams])
 
-  // Load tasks when user story changes
-  useEffect(() => {
-    const loadTasks = async () => {
-      if (!selectedUserStoryId) {
-        setTasks([])
-        return
-      }
-      
-      setLoadingTasks(true)
-      try {
-        const allTasks = await api.getTasks()
-        // Filter tasks by user story - check both camelCase and snake_case
-        const filteredTasks = allTasks.filter((t: any) => 
-          (t.userStoryId === selectedUserStoryId || t.user_story_id === selectedUserStoryId)
-        )
-        setTasks(filteredTasks)
-      } catch (err) {
-        console.error('Failed to load tasks:', err)
-      } finally {
-        setLoadingTasks(false)
-      }
-    }
-    loadTasks()
-  }, [selectedUserStoryId])
+  // Tasks are now loaded via React Query hook (useUserStoryTasks)
+  // This automatically shares cache with KanbanPage and other pages
+  // No need for manual useEffect - React Query handles it
 
   // Filter and sort tasks
   const filteredTasks = useMemo(() => {

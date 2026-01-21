@@ -8,7 +8,9 @@ services:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
     volumes:
       - ./volumes/postgres-data:/var/lib/postgresql/data
-      - ./db/migrations:/docker-entrypoint-initdb.d
+      # NOTE: Migrations are applied via deploy script, not via docker-entrypoint-initdb.d
+      # This ensures we can exclude seed data (999_seed_dev_data.sql) in production
+      # - ./db/migrations:/docker-entrypoint-initdb.d
     networks:
       - worky-network
     restart: unless-stopped
@@ -78,21 +80,23 @@ services:
       retries: 3
       start_period: 40s
 
-  nginx:
-    image: nginx:alpine
-    container_name: worky-nginx-prod
-    ports:
-      - "3007:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./ui/dist:/usr/share/nginx/html:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    networks:
-      - worky-network
-    depends_on:
-      - api
-    restart: unless-stopped
+  # Nginx is commented out - running without reverse proxy for now
+  # Uncomment and configure when ready to use nginx
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: worky-nginx-prod
+  #   ports:
+  #     - "3007:80"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./nginx/conf.d:/etc/nginx/conf.d:ro
+  #     - ./ui/dist:/usr/share/nginx/html:ro
+  #     - ./nginx/ssl:/etc/nginx/ssl:ro
+  #   networks:
+  #     - worky-network
+  #   depends_on:
+  #     - api
+  #   restart: unless-stopped
 
 networks:
   worky-network:

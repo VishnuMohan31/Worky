@@ -15,6 +15,9 @@ export interface EntityFormData {
   start_date?: string
   end_date?: string
   due_date?: string
+  estimated_hours?: number
+  duration_days?: number
+  scrum_points?: number
   [key: string]: any
 }
 
@@ -58,6 +61,8 @@ export default function EntityForm({
     start_date: '',
     end_date: '',
     due_date: '',
+    estimated_hours: 0,
+    duration_days: 1,
     ...initialData
   })
   
@@ -252,43 +257,109 @@ export default function EntityForm({
         )}
       </div>
       
-      {/* Date Range */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="start_date" className="block text-sm font-medium mb-2">
-            Start Date
-          </label>
-          <input
-            type="date"
-            id="start_date"
-            value={formData.start_date || ''}
-            onChange={(e) => handleChange('start_date', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={isLoading}
-          />
+      {/* Date Range - Only show for entities that support dates (not subtasks, userstories, usecases, clients) */}
+      {entityType.toLowerCase() !== 'subtask' && 
+       entityType.toLowerCase() !== 'userstory' && 
+       entityType.toLowerCase() !== 'usecase' && 
+       entityType.toLowerCase() !== 'client' && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="start_date" className="block text-sm font-medium mb-2">
+              Start Date
+            </label>
+            <input
+              type="date"
+              id="start_date"
+              value={formData.start_date || ''}
+              onChange={(e) => handleChange('start_date', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isLoading}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="end_date" className="block text-sm font-medium mb-2">
+              End Date
+            </label>
+            <input
+              type="date"
+              id="end_date"
+              value={formData.end_date || ''}
+              onChange={(e) => handleChange('end_date', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                errors.end_date 
+                  ? 'border-red-500 focus:ring-red-500' 
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
+              disabled={isLoading}
+            />
+            {errors.end_date && (
+              <p className="mt-1 text-sm text-red-500">{errors.end_date}</p>
+            )}
+          </div>
         </div>
-        
-        <div>
-          <label htmlFor="end_date" className="block text-sm font-medium mb-2">
-            End Date
-          </label>
-          <input
-            type="date"
-            id="end_date"
-            value={formData.end_date || ''}
-            onChange={(e) => handleChange('end_date', e.target.value)}
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-              errors.end_date 
-                ? 'border-red-500 focus:ring-red-500' 
-                : 'border-gray-300 focus:ring-blue-500'
-            }`}
-            disabled={isLoading}
-          />
-          {errors.end_date && (
-            <p className="mt-1 text-sm text-red-500">{errors.end_date}</p>
-          )}
+      )}
+
+      {/* Subtask-specific fields: Estimated Hours and Duration Days */}
+      {entityType.toLowerCase() === 'subtask' && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="estimated_hours" className="block text-sm font-medium mb-2">
+              Estimated Hours <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              id="estimated_hours"
+              value={formData.estimated_hours ?? 0}
+              onChange={(e) => {
+                const val = e.target.value
+                const numVal = val === '' ? 0 : parseFloat(val)
+                handleChange('estimated_hours', isNaN(numVal) ? 0 : numVal)
+              }}
+              min="0"
+              step="0.5"
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                errors.estimated_hours 
+                  ? 'border-red-500 focus:ring-red-500' 
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
+              placeholder="0.0"
+              disabled={isLoading}
+            />
+            {errors.estimated_hours && (
+              <p className="mt-1 text-sm text-red-500">{errors.estimated_hours}</p>
+            )}
+          </div>
+          
+          <div>
+            <label htmlFor="duration_days" className="block text-sm font-medium mb-2">
+              Duration Days <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              id="duration_days"
+              value={formData.duration_days ?? 1}
+              onChange={(e) => {
+                const val = e.target.value
+                const numVal = val === '' ? 1 : parseInt(val)
+                handleChange('duration_days', isNaN(numVal) ? 1 : numVal)
+              }}
+              min="1"
+              step="1"
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                errors.duration_days 
+                  ? 'border-red-500 focus:ring-red-500' 
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
+              placeholder="1"
+              disabled={isLoading}
+            />
+            {errors.duration_days && (
+              <p className="mt-1 text-sm text-red-500">{errors.duration_days}</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Additional Fields */}
       {additionalFields}

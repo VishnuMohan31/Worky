@@ -30,3 +30,24 @@ export function isValidStatusTransition(fromStatus: string | null | undefined, t
 export function getAllValidTaskStatuses(): string[] {
   return [...VALID_TASK_STATUSES]
 }
+
+/**
+ * Map Kanban board column to actual task status
+ * Based on requirements:
+ * - Any section → In Progress: "In Progress"
+ * - Any section → Done: "Completed"
+ * - Any section → To Do: "Planning"
+ */
+export function mapKanbanColumnToStatus(kanbanColumn: string): string {
+  switch (kanbanColumn) {
+    case 'In Progress':
+      return 'In Progress'
+    case 'Done':
+      return 'Completed'
+    case 'To Do':
+      return 'Planning'
+    default:
+      // Fallback to Planning for unknown columns
+      return 'Planning'
+  }
+}

@@ -4,6 +4,7 @@ import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
 import ProjectTeamDisplay from './ProjectTeamDisplay'
 import OwnershipDisplay from '../ownership/OwnershipDisplay'
+import { formatDateForDisplay } from '../../utils/dateUtils'
 
 interface ProjectDetail {
   id: string
@@ -158,11 +159,27 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set'
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+    const formatted = formatDateForDisplay(dateString)
+    if (!formatted) return 'Not set'
+    
+    // Convert DD/MM/YYYY to a more readable format (e.g., "Jan 1, 2026")
+    try {
+      const [day, month, year] = formatted.split('/')
+      if (day && month && year) {
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to format date:', dateString)
+    }
+    
+    return formatted || 'Not set'
   }
 
   const getStatusColor = (status: string) => {
@@ -380,7 +397,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                         />
                       ) : (
                         <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                          {formatDate(project.start_date || (project as any).startDate)}
+                          {formatDate(project.start_date || (project as any).startDate || (project as any).start_date)}
                         </p>
                       )}
                     </div>
@@ -404,7 +421,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                         />
                       ) : (
                         <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                          {formatDate(project.end_date || (project as any).endDate)}
+                          {formatDate(project.end_date || (project as any).endDate || (project as any).end_date)}
                         </p>
                       )}
                     </div>
@@ -567,7 +584,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       Created
                     </p>
                     <p className="text-sm" style={{ color: 'var(--text-color)' }}>
-                      {formatDate(project.created_at)}
+                      {formatDate(project.created_at || (project as any).createdAt)}
                     </p>
                   </div>
                   
@@ -576,7 +593,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       Last Updated
                     </p>
                     <p className="text-sm" style={{ color: 'var(--text-color)' }}>
-                      {formatDate(project.updated_at)}
+                      {formatDate(project.updated_at || (project as any).updatedAt)}
                     </p>
                   </div>
                   

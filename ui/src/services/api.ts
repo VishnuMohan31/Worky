@@ -383,8 +383,8 @@ const api = {
   },
 
   // Projects
-  async getProjects() {
-    const response = await apiClient.get('/projects/')
+  async getProjects(limit: number = 100) {
+    const response = await apiClient.get('/projects/', { params: { limit } })
     if (!Array.isArray(response.data)) {
       console.error('Projects API returned non-array response:', response.data)
       return []

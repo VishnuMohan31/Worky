@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import api from '../services/api'
+import { useSprintTasks, useUpdateTask } from '../hooks/useTasks'
+import { mapKanbanColumnToStatus } from '../utils/statusTransitions'
 
 interface Task {
   id: string
@@ -29,12 +31,29 @@ export default function KanbanPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [selectedSprintId, setSelectedSprintId] = useState<string>('')
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingSprints, setLoadingSprints] = useState(false)
-  const [loadingTasks, setLoadingTasks] = useState(false)
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  
+  // Use React Query for task management
+  const { data: sprintTasksData, isLoading: loadingTasks, refetch: refetchTasks } = useSprintTasks(selectedSprintId)
+  const updateTaskMutation = useUpdateTask()
+  
+  // Transform tasks from API to local format
+  const tasks: Task[] = sprintTasksData ? sprintTasksData.map((task: any) => ({
+    id: task.id,
+    title: task.title || task.name,
+    description: task.description || '',
+    status: task.status || 'Planning',
+    priority: task.priority || 'Medium',
+    projectId: task.project_id || task.projectId || '',
+    assignedToName: task.assigned_to_name || task.assignedToName || 'Unassigned',
+    dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString() : '',
+    progress: task.progress || 0,
+    sprint_id: task.sprint_id || selectedSprintId
+  })) : []
+  
+  const [loading, setLoading] = useState(true)
+  const [loadingSprints, setLoadingSprints] = useState(false)
 
   useEffect(() => {
     loadProjects()
@@ -46,17 +65,9 @@ export default function KanbanPage() {
     } else {
       setSprints([])
       setSelectedSprintId('')
-      setTasks([])
+      // Tasks are now managed by React Query - no need to manually clear
     }
   }, [selectedProjectId])
-
-  useEffect(() => {
-    if (selectedSprintId) {
-      loadTasks()
-    } else {
-      setTasks([])
-    }
-  }, [selectedSprintId])
 
   const loadProjects = async () => {
     try {
@@ -84,32 +95,6 @@ export default function KanbanPage() {
       setLoadingSprints(false)
     }
   }
-
-  const loadTasks = useCallback(async () => {
-    if (!selectedSprintId) return
-    setLoadingTasks(true)
-    try {
-      const data = await api.getSprintTasks(selectedSprintId)
-      // Transform tasks to match the expected format
-      const transformedTasks = data.map((task: any) => ({
-        id: task.id,
-        title: task.title || task.name,
-        description: task.description || '',
-        status: task.status || 'To Do',
-        priority: task.priority || 'Medium',
-        projectId: task.project_id || task.projectId || '',
-        assignedToName: task.assigned_to_name || task.assignedToName || 'Unassigned',
-        dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString() : '',
-        progress: task.progress || 0,
-        sprint_id: task.sprint_id || selectedSprintId
-      }))
-      setTasks(transformedTasks)
-    } catch (error) {
-      console.error('Failed to load tasks:', error)
-    } finally {
-      setLoadingTasks(false)
-    }
-  }, [selectedSprintId])
 
   const columns = ['To Do', 'In Progress', 'Done']
 
@@ -146,7 +131,7 @@ export default function KanbanPage() {
     e.dataTransfer.dropEffect = 'move'
   }
 
-  const handleDrop = async (e: React.DragEvent, newStatus: string) => {
+  const handleDrop = async (e: React.DragEvent, targetColumn: string) => {
     e.preventDefault()
     
     if (!draggedTask) {
@@ -154,27 +139,12 @@ export default function KanbanPage() {
       return
     }
     
-    // Map Kanban column to actual task status that the backend accepts
-    let actualNewStatus: string
-    switch (newStatus) {
-      case 'To Do':
-        // Default to Planning when dropped in To Do column
-        actualNewStatus = 'Planning'
-        break
-      case 'In Progress':
-        actualNewStatus = 'In Progress'
-        break
-      case 'Done':
-        // Default to Completed when dropped in Done column
-        actualNewStatus = 'Completed'
-        break
-      default:
-        actualNewStatus = newStatus
-    }
+    // Map Kanban column to actual task status using the utility function
+    const actualNewStatus = mapKanbanColumnToStatus(targetColumn)
     
     // Check if task is already in the target status group
     const currentStatusGroup = getStatusGroup(draggedTask.status)
-    const targetStatusGroup = newStatus
+    const targetStatusGroup = targetColumn
     
     if (currentStatusGroup === targetStatusGroup) {
       setDraggedTask(null)
@@ -182,20 +152,17 @@ export default function KanbanPage() {
     }
 
     try {
-      // Prepare update data - use the field names expected by the backend
-      const updateData = {
-        status: actualNewStatus
-      }
+      // Update task status using React Query mutation
+      // This will automatically invalidate cache and sync across all pages
+      await updateTaskMutation.mutateAsync({
+        id: draggedTask.id,
+        data: {
+          status: actualNewStatus
+        }
+      })
       
-      // Update task status via API
-      await api.updateTask(draggedTask.id, updateData)
-      
-      // Update local state
-      setTasks(tasks.map(task => 
-        task.id === draggedTask.id 
-          ? { ...task, status: actualNewStatus }
-          : task
-      ))
+      // Success - cache will be automatically invalidated and refetched
+      // No need to manually update local state
       
     } catch (error: any) {
       console.error('Failed to update task status:', error)
@@ -265,7 +232,7 @@ export default function KanbanPage() {
             onChange={(e) => {
               setSelectedProjectId(e.target.value)
               setSelectedSprintId('')
-              setTasks([])
+              // Tasks are now managed by React Query - will automatically clear when sprintId is empty
             }}
             className="w-full p-2 rounded border"
             style={{

@@ -7,6 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import OwnershipDisplay from '../components/ownership/OwnershipDisplay'
+import { formatDateForDisplay } from '../utils/dateUtils'
 
 export default function ProgramDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -37,13 +38,22 @@ export default function ProgramDetailPage() {
       
       setProgram(programData)
 
-      // Load client
-      const clientData = await api.getClient(programData.client_id)
-      setClient(clientData)
+      // Load client - check both camelCase and snake_case
+      const clientId = programData.client_id || programData.clientId
+      if (clientId) {
+        try {
+          const clientData = await api.getClient(clientId)
+          setClient(clientData)
+        } catch (error) {
+          console.error('Failed to load client:', error)
+        }
+      }
 
-      // Load projects for this program
+      // Load projects for this program - check both camelCase and snake_case
       const allProjects = await api.getProjects()
-      const programProjects = allProjects.filter((p: any) => p.programId === id)
+      const programProjects = allProjects.filter((p: any) => 
+        (p.programId === id || p.program_id === id)
+      )
       setProjects(programProjects)
     } catch (error) {
       console.error('Failed to load program details:', error)
@@ -54,7 +64,8 @@ export default function ProgramDetailPage() {
 
   const handleViewAllProjects = () => {
     // Navigate to projects page with client and program pre-selected
-    navigate(`/projects?client=${program.client_id}&program=${id}`)
+    const clientId = program.client_id || program.clientId
+    navigate(`/projects?client=${clientId}&program=${id}`)
   }
 
   if (loading) {
@@ -123,7 +134,9 @@ export default function ProgramDetailPage() {
 
             <div>
               <label className="text-sm font-medium text-gray-500">Description</label>
-              <p className="text-gray-900">{program.description || 'No description provided'}</p>
+              <p className="text-gray-900">
+                {program.long_description || program.short_description || program.description || 'No description provided'}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -153,14 +166,14 @@ export default function ProgramDetailPage() {
               <div>
                 <label className="text-sm font-medium text-gray-500">Start Date</label>
                 <p className="text-gray-900">
-                  {program.start_date ? new Date(program.start_date).toLocaleDateString() : 'Not set'}
+                  {formatDateForDisplay(program.start_date || program.startDate || '') || 'Not set'}
                 </p>
               </div>
 
               <div>
                 <label className="text-sm font-medium text-gray-500">End Date</label>
                 <p className="text-gray-900">
-                  {program.end_date ? new Date(program.end_date).toLocaleDateString() : 'Not set'}
+                  {formatDateForDisplay(program.end_date || program.endDate || '') || 'Not set'}
                 </p>
               </div>
             </div>
@@ -179,7 +192,7 @@ export default function ProgramDetailPage() {
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">In Progress</span>
                 <span className="text-xl font-bold text-green-600">
-                  {projects.filter(p => p.status === 'In Progress').length}
+                  {projects.filter(p => p.status === 'In Progress' || p.status === 'Active').length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -244,7 +257,9 @@ export default function ProgramDetailPage() {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                      <div className="text-sm text-gray-500">{project.description}</div>
+                      <div className="text-sm text-gray-500">
+                        {project.short_description || project.long_description || project.description || ''}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -261,14 +276,14 @@ export default function ProgramDetailPage() {
                         <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                           <div 
                             className="bg-blue-600 h-2 rounded-full" 
-                            style={{ width: `${project.progress}%` }}
+                            style={{ width: `${project.progress || 0}%` }}
                           />
                         </div>
-                        <span className="text-sm text-gray-600">{project.progress}%</span>
+                        <span className="text-sm text-gray-600">{project.progress || 0}%</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {project.startDate} - {project.endDate}
+                      {formatDateForDisplay(project.start_date || project.startDate || '') || 'N/A'} - {formatDateForDisplay(project.end_date || project.endDate || '') || 'N/A'}
                     </td>
                   </tr>
                 ))}
