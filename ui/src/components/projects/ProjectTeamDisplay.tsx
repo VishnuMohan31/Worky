@@ -49,7 +49,17 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
       
       console.log('📥 Loading project team for project:', projectId)
       // Get teams for this project
-      const teams = await api.getTeams(projectId)
+      const teamsResponse = await api.getTeams(projectId)
+      console.log('📋 Teams response for project:', teamsResponse)
+      
+      // Handle paginated response
+      let teams = []
+      if (teamsResponse && teamsResponse.items && Array.isArray(teamsResponse.items)) {
+        teams = teamsResponse.items
+      } else if (Array.isArray(teamsResponse)) {
+        teams = teamsResponse
+      }
+      
       console.log('📋 Teams found for project:', teams)
       
       if (teams && teams.length > 0) {
@@ -79,9 +89,21 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
     try {
       setLoadingTeams(true)
       const teamsData = await api.getTeams() // Get all teams
-      setAllTeams(Array.isArray(teamsData) ? teamsData : [])
+      console.log('Teams data received:', teamsData)
+      
+      // Handle paginated response
+      let teamsList = []
+      if (teamsData && teamsData.items && Array.isArray(teamsData.items)) {
+        teamsList = teamsData.items
+      } else if (Array.isArray(teamsData)) {
+        teamsList = teamsData
+      }
+      
+      console.log('Processed teams list:', teamsList)
+      setAllTeams(teamsList)
     } catch (error) {
       console.error('Failed to load teams:', error)
+      setAllTeams([])
     } finally {
       setLoadingTeams(false)
     }
@@ -142,8 +164,12 @@ const ProjectTeamDisplay: React.FC<ProjectTeamDisplayProps> = ({ projectId }) =>
     }
   }
 
-  // Filter teams that could be assigned (all teams except the currently assigned one)
-  const availableTeams = allTeams.filter(t => t.id !== team?.id)
+  // Filter teams that could be assigned (exclude only the currently assigned team)
+  const availableTeams = allTeams.filter(t => {
+    // Show all teams except the currently assigned team
+    // This allows reassigning teams within the same project
+    return t.id !== team?.id
+  })
 
   const getRoleIcon = (role: string) => {
     switch (role.toLowerCase()) {

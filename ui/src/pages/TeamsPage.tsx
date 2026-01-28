@@ -71,20 +71,27 @@ export default function TeamsPage() {
         api.getUsers()
       ])
       
-      // Handle paginated response from teams API
+      console.log('loadInitialData - teamsData:', teamsData)
+      console.log('loadInitialData - projectsData:', projectsData)
+      console.log('loadInitialData - usersData:', usersData)
+      
+      // Handle teams response
       let teamsList = []
-      if (teamsData) {
-        if (Array.isArray(teamsData)) {
-          teamsList = teamsData
-        } else if (teamsData.items && Array.isArray(teamsData.items)) {
-          teamsList = teamsData.items
-        } else if (teamsData.data && Array.isArray(teamsData.data)) {
-          teamsList = teamsData.data
-        }
+      if (teamsData && teamsData.items && Array.isArray(teamsData.items)) {
+        teamsList = teamsData.items
+      } else if (Array.isArray(teamsData)) {
+        teamsList = teamsData
       }
+      
       setTeams(teamsList)
       setProjects(Array.isArray(projectsData) ? projectsData.filter(p => p !== null) : [])
       setUsers(Array.isArray(usersData) ? usersData : [])
+      
+      console.log('loadInitialData - final state:', {
+        teams: teamsList.length,
+        projects: Array.isArray(projectsData) ? projectsData.length : 0,
+        users: Array.isArray(usersData) ? usersData.length : 0
+      })
     } catch (error) {
       console.error('Failed to load initial data:', error)
       setTeams([])
@@ -97,8 +104,13 @@ export default function TeamsPage() {
 
   const loadTeamMembers = async (teamId: string) => {
     try {
-      const members = await api.getTeamMembers(teamId)
+      console.log(`Loading team members for team: ${teamId}`)
+      // Add cache busting parameter to ensure fresh data
+      const timestamp = Date.now()
+      const members = await api.getTeamMembers(teamId, { _t: timestamp })
+      console.log(`API returned ${members.length} members for team ${teamId}:`, members)
       setTeamMembers(Array.isArray(members) ? members : [])
+      console.log(`Set teamMembers state with ${Array.isArray(members) ? members.length : 0} members`)
     } catch (error) {
       console.error('Failed to load team members:', error)
       setTeamMembers([])
@@ -137,34 +149,69 @@ export default function TeamsPage() {
     e.preventDefault()
     if (!selectedTeam) return
     
+    // Validate that a user is selected
+    if (!newMember.user_id) {
+      alert('Please select a user to add to the team')
+      return
+    }
+    
+    console.log('Adding team member:', {
+      teamId: selectedTeam.id,
+      userId: newMember.user_id,
+      role: newMember.role
+    })
+    
     try {
-      console.log('Adding team member:', {
-        teamId: selectedTeam.id,
-        userId: newMember.user_id,
-        role: newMember.role
-      })
+      const result = await api.addTeamMember(selectedTeam.id, newMember.user_id, newMember.role)
+      console.log('API addTeamMember result:', result)
       
-      await api.addTeamMember(selectedTeam.id, newMember.user_id, newMember.role)
+      // Close modal and reset form immediately on success
       setShowAddMemberModal(false)
       setNewMember({ user_id: '', role: 'Developer' })
-      loadTeamMembers(selectedTeam.id)
       
-      // Also refresh the teams list to update member count
-      loadInitialData()
+      // Refresh both team list and team members from server to ensure consistency
+      await Promise.all([
+        loadInitialData(), // Refresh teams list with accurate counts
+        loadTeamMembers(selectedTeam.id) // Refresh team members list
+      ])
+      
+      alert('Team member added successfully!')
     } catch (error: any) {
       console.error('Failed to add team member:', error)
-      alert(`Failed to add team member: ${error.response?.data?.detail || error.message}`)
+      const errorMessage = error.response?.data?.detail || error.message || 'Unknown error'
+      
+      // Reset form and reload team members on error to get fresh state
+      setNewMember({ user_id: '', role: 'Developer' })
+      await loadTeamMembers(selectedTeam.id)
+      
+      alert(`Failed to add team member: ${errorMessage}`)
     }
   }
 
   const handleRemoveMember = async (userId: string) => {
     if (!selectedTeam) return
     
+    // Find member name for confirmation message
+    const member = teamMembers.find(m => m.user_id === userId)
+    const memberName = member?.user_name || 'this team member'
+    
+    if (!confirm(`Are you sure you want to remove ${memberName} from ${selectedTeam.name}?`)) {
+      return
+    }
+    
     try {
       await api.removeTeamMember(selectedTeam.id, userId)
-      loadTeamMembers(selectedTeam.id)
-    } catch (error) {
+      
+      // Refresh both team list and team members from server to ensure consistency
+      await Promise.all([
+        loadInitialData(), // Refresh teams list with accurate counts
+        loadTeamMembers(selectedTeam.id) // Refresh team members list
+      ])
+      
+      alert('Team member removed successfully!')
+    } catch (error: any) {
       console.error('Failed to remove team member:', error)
+      alert(`Failed to remove team member: ${error.response?.data?.detail || error.message}`)
     }
   }
 
@@ -270,7 +317,11 @@ export default function TeamsPage() {
             </h2>
             {selectedTeam && (
               <button
-                onClick={() => setShowAddMemberModal(true)}
+                onClick={() => {
+                  // Reset form when opening modal
+                  setNewMember({ user_id: '', role: 'Developer' })
+                  setShowAddMemberModal(true)
+                }}
                 className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
               >
                 <span>+</span>
@@ -289,7 +340,11 @@ export default function TeamsPage() {
                 <div className="text-gray-400 text-4xl mb-4">👤</div>
                 <p className="text-gray-500 mb-4">No members in this team</p>
                 <button
-                  onClick={() => setShowAddMemberModal(true)}
+                  onClick={() => {
+                    // Reset form when opening modal
+                    setNewMember({ user_id: '', role: 'Developer' })
+                    setShowAddMemberModal(true)
+                  }}
                   className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Add First Member
@@ -297,32 +352,42 @@ export default function TeamsPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {teamMembers.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 font-medium text-sm">
-                          {member.user_name?.charAt(0)?.toUpperCase() || '?'}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <span className="font-medium text-gray-900">{member.user_name}</span>
-                        <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {member.role}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveMember(member.user_id)}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+                {teamMembers.map((member, index) => {
+                  console.log(`Rendering member ${index}:`, member);
+                  
+                  // Ensure we have required data
+                  if (!member.id || !member.user_id) {
+                    console.warn('Skipping member with missing data:', member);
+                    return null;
+                  }
+                  
+                  return (
+                    <div
+                      key={`${member.id}-${member.user_id}-${index}`} // Unique key with fallback
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
                     >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-medium text-sm">
+                            {(member.user_name || 'Unknown')?.charAt(0)?.toUpperCase() || '?'}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-medium text-gray-900">{member.user_name || 'Unknown User'}</span>
+                          <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {member.role || 'Member'}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveMember(member.user_id)}
+                        className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -410,19 +475,28 @@ export default function TeamsPage() {
                     User
                   </label>
                   <select
+                    key={`user-select-${teamMembers.length}`} // Force re-render when team members change
                     value={newMember.user_id}
                     onChange={(e) => setNewMember({ ...newMember, user_id: e.target.value })}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="">Select User...</option>
-                    {users
-                      .filter(user => !teamMembers.some(member => member.user_id === user.id))
-                      .map((user) => (
+                    {(() => {
+                      const availableUsers = users.filter(user => !teamMembers.some(member => member.user_id === user.id))
+                      console.log('Available users for team member addition:', {
+                        totalUsers: users.length,
+                        teamMembers: teamMembers.length,
+                        availableUsers: availableUsers.length,
+                        teamMemberIds: teamMembers.map(m => m.user_id),
+                        availableUserIds: availableUsers.map(u => u.id)
+                      })
+                      return availableUsers.map((user) => (
                         <option key={user.id} value={user.id}>
                           {user.full_name} ({user.email})
                         </option>
-                      ))}
+                      ))
+                    })()}
                   </select>
                 </div>
                 <div>

@@ -144,15 +144,34 @@ export default function UsersPage() {
       return
     }
     
-    if (window.confirm(`Are you sure you want to permanently delete user "${user.fullName || user.full_name}"?\n\nThis action cannot be undone and will remove all user data.`)) {
+    if (window.confirm(`Are you sure you want to deactivate user "${user.fullName || user.full_name}"?\n\nThis will mark the user as inactive but preserve all their data. The user can be reactivated later if needed.`)) {
       try {
         await api.deleteUser(user.id)
-        // Remove user from the list immediately
-        setUsers(prevUsers => prevUsers.filter(u => u.id !== user.id))
-        alert('User permanently deleted!')
+        // Update user status to inactive in the list
+        setUsers(prevUsers => prevUsers.map(u => 
+          u.id === user.id ? { ...u, is_active: false } : u
+        ))
+        alert('User deactivated successfully!')
       } catch (error: any) {
-        console.error('Failed to delete user:', error)
-        const errorMessage = error.response?.data?.detail || error.message || 'Failed to delete user. Please try again.'
+        console.error('Failed to deactivate user:', error)
+        const errorMessage = error.response?.data?.detail || error.message || 'Failed to deactivate user. Please try again.'
+        alert(errorMessage)
+      }
+    }
+  }
+
+  const handleReactivateUser = async (user: any) => {
+    if (window.confirm(`Are you sure you want to reactivate user "${user.fullName || user.full_name}"?`)) {
+      try {
+        await api.reactivateUser(user.id)
+        // Update user status to active in the list
+        setUsers(prevUsers => prevUsers.map(u => 
+          u.id === user.id ? { ...u, is_active: true } : u
+        ))
+        alert('User reactivated successfully!')
+      } catch (error: any) {
+        console.error('Failed to reactivate user:', error)
+        const errorMessage = error.response?.data?.detail || error.message || 'Failed to reactivate user. Please try again.'
         alert(errorMessage)
       }
     }
@@ -264,12 +283,21 @@ export default function UsersPage() {
                       onClick={() => handleEditUser(user)}>
                       Edit
                     </button>
-                    <button 
-                      className="px-3 py-1 text-sm rounded hover:opacity-80 transition-opacity"
-                      style={{ backgroundColor: 'var(--error-color)', color: 'white' }}
-                      onClick={() => handleDeleteUser(user)}>
-                      Delete
-                    </button>
+                    {user.is_active ? (
+                      <button 
+                        className="px-3 py-1 text-sm rounded hover:opacity-80 transition-opacity"
+                        style={{ backgroundColor: 'var(--error-color)', color: 'white' }}
+                        onClick={() => handleDeleteUser(user)}>
+                        Delete
+                      </button>
+                    ) : (
+                      <button 
+                        className="px-3 py-1 text-sm rounded hover:opacity-80 transition-opacity"
+                        style={{ backgroundColor: 'var(--success-color)', color: 'white' }}
+                        onClick={() => handleReactivateUser(user)}>
+                        Reactivate
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

@@ -56,6 +56,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ projectId }) => 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<{teamId: string, userId: string, userName?: string} | null>(null);
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
 
   // Form states
@@ -165,7 +167,14 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ projectId }) => 
     }
 
     try {
+      console.log('Adding team member:', {
+        teamId: selectedTeam.id,
+        memberForm
+      });
+      
       await api.post(`/teams/${selectedTeam.id}/members`, memberForm);
+      
+      console.log('Team member added successfully');
       
       toast({
         title: 'Success',
@@ -174,32 +183,65 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ projectId }) => 
 
       setShowAddMemberDialog(false);
       setMemberForm({ user_id: '', role: 'Developer' });
-      loadTeamMembers(selectedTeam.id);
+      
+      // Refresh both team members and teams list to update member count
+      await loadTeamMembers(selectedTeam.id);
+      await loadTeams();
     } catch (error: any) {
+      console.error('Error adding team member:', error);
       toast({
         title: 'Error',
-        description: error.response?.data?.detail || 'Failed to add member',
+        description: error.response?.data?.detail || 'Failed to add team member',
         variant: 'destructive'
       });
     }
   };
 
-  const handleRemoveMember = async (teamId: string, userId: string) => {
+  const handleRemoveMember = (teamId: string, userId: string, userName?: string) => {
+    // Fallback to window.confirm for immediate testing
+    const confirmed = window.confirm(
+      `Are you sure you want to remove ${userName || 'this member'} from the team?`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    // Set state for dialog (for future use)
+    setMemberToRemove({ teamId, userId, userName });
+    confirmRemoveMember();
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!memberToRemove) return;
+
     try {
-      await api.delete(`/teams/${teamId}/members/${userId}`);
+      console.log('Removing team member:', { 
+        teamId: memberToRemove.teamId, 
+        userId: memberToRemove.userId 
+      });
+      
+      await api.delete(`/teams/${memberToRemove.teamId}/members/${memberToRemove.userId}`);
+      
+      console.log('Team member removed successfully');
       
       toast({
         title: 'Success',
         description: 'Member removed successfully'
       });
 
-      loadTeamMembers(teamId);
+      // Refresh both team members and teams list to update member count
+      await loadTeamMembers(memberToRemove.teamId);
+      await loadTeams();
     } catch (error: any) {
+      console.error('Error removing team member:', error);
       toast({
         title: 'Error',
         description: error.response?.data?.detail || 'Failed to remove member',
         variant: 'destructive'
       });
+    } finally {
+      setMemberToRemove(null);
     }
   };
 
@@ -429,7 +471,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ projectId }) => 
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleRemoveMember(selectedTeam.id, member.user_id)}
+                      onClick={() => handleRemoveMember(selectedTeam.id, member.user_id, member.user_name)}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -441,6 +483,32 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ projectId }) => 
           </CardContent>
         </Card>
       </div>
+
+      {/* Remove Member Confirmation Dialog */}
+      <Dialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Team Member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>
+              Are you sure you want to remove <strong>{memberToRemove?.userName || 'this member'}</strong> from the team?
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This action cannot be undone.
+            </p>
+            
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowRemoveDialog(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmRemoveMember}>
+                Remove Member
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

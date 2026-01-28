@@ -448,7 +448,7 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
       {/* Audit History Section */}
       {showAuditHistory && (
         <div className="pt-6 border-t">
-          <AuditHistory key={`audit-${type}-${entity.id}`} entityType={type} entityId={entity.id} />
+          <AuditHistory entityType={type} entityId={entity.id} />
         </div>
       )}
       
@@ -474,7 +474,6 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
             border: '1px solid #e5e7eb'
           }}>
             <EntityStatistics 
-              key={`${type}-${entity.id}`} 
               entityId={entity.id} 
               entityType={type} 
               refreshKey={statisticsRefreshKey}
@@ -864,7 +863,6 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
           onCancel={() => setIsEditModalOpen(false)}
           isLoading={isUpdating}
           mode="edit"
-          entityType={getEntityDisplayName(type)}
         />
       </Modal>
     </div>

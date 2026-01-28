@@ -323,9 +323,43 @@ async def delete_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(["Admin"]))
 ):
-    """Permanently delete a user (Admin only)."""
+    """Soft delete a user by marking as inactive (Admin only)."""
     
-    # Get the user to delete
+    # Prevent self-deletion
+    if user_id == current_user.id:
+        raise ConflictException("Cannot delete your own account")
+    
+    # Check if user exists and is active
+    result = await db.execute(
+        text("SELECT is_active FROM users WHERE id = :user_id"),
+        {"user_id": user_id}
+    )
+    user_data = result.fetchone()
+    
+    if not user_data:
+        raise ResourceNotFoundException("User", user_id)
+    
+    if not user_data[0]:  # is_active is False
+        raise ConflictException("User is already inactive")
+    
+    # Simple direct SQL update - no ORM objects involved
+    await db.execute(
+        text("UPDATE users SET is_active = false WHERE id = :user_id"),
+        {"user_id": user_id}
+    )
+    
+    await db.commit()
+
+
+@router.put("/{user_id}/reactivate", response_model=UserResponse)
+async def reactivate_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["Admin"]))
+):
+    """Reactivate an inactive user (Admin only)."""
+    
+    # Get the user to reactivate
     result = await db.execute(
         select(User).where(User.id == user_id)
     )
@@ -334,36 +368,27 @@ async def delete_user(
     if not user:
         raise ResourceNotFoundException("User", user_id)
     
-    # Prevent self-deletion
-    if user.id == current_user.id:
-        raise ConflictException("Cannot delete your own account")
+    # Check if user is already active
+    if user.is_active:
+        raise ConflictException("User is already active")
     
-    # Delete related records that don't have CASCADE delete
-    # Most tables with ON DELETE CASCADE will be handled automatically
+    # Simple approach: just update the is_active field
     await db.execute(
-        text("DELETE FROM entity_notes WHERE created_by = :user_id"),
+        text("UPDATE users SET is_active = true WHERE id = :user_id"),
         {"user_id": user_id}
     )
     
-    # Create audit log before deletion
-    await create_audit_log(
-        db=db,
-        user_id=str(current_user.id),
-        client_id=str(current_user.client_id),
-        action="DELETE",
-        entity_type="user",
-        entity_id=user_id,
-        changes={"deleted_user_email": user.email, "deleted_user_name": user.full_name}
-    )
-    
-    # Delete the user (CASCADE will handle most other relationships)
-    await db.delete(user)
     await db.commit()
     
+    # Refresh the user object to get updated data
+    await db.refresh(user)
+    
     logger.log_activity(
-        action="delete_user_permanent",
+        action="reactivate_user",
         entity_type="user",
         entity_id=user_id,
         user_email=user.email,
-        note="User permanently deleted from system"
+        note="User reactivated"
     )
+    
+    return UserResponse.from_orm(user)

@@ -165,7 +165,6 @@ apiClient.interceptors.response.use(
     
     // Redirect to login for any 401 error (unauthorized)
     if (error.response?.status === 401) {
-      const url = error.config?.url || ''
       // 401 Unauthorized - redirecting to login
       localStorage.removeItem('token')
       window.location.href = '/login'
@@ -516,6 +515,11 @@ const api = {
     return response.data
   },
 
+  async reactivateUser(userId: string) {
+    const response = await apiClient.put(`/users/${userId}/reactivate`)
+    return response.data
+  },
+
   // Phase Management
   async getPhases(includeInactive = false) {
     const response = await apiClient.get('/phases/', { params: { include_inactive: includeInactive } })
@@ -839,18 +843,30 @@ const api = {
   // Team Management Operations
   async getTeams(projectId?: string) {
     try {
-      const response = await apiClient.get('/teams/', { params: { project_id: projectId } })
+      // Add cache-busting parameter to ensure fresh data
+      const timestamp = Date.now()
+      const response = await apiClient.get('/teams/', { 
+        params: { 
+          project_id: projectId,
+          _t: timestamp // Cache busting
+        } 
+      })
+      console.log('getTeams API response:', response.data)
+      
       // Handle paginated response - return items array or full response
       if (response.data && response.data.items) {
-        return response.data.items
-      }
-      if (Array.isArray(response.data)) {
         return response.data
       }
-      return []
+      if (Array.isArray(response.data)) {
+        return { items: response.data, total: response.data.length }
+      }
+      
+      console.warn('Unexpected teams API response format:', response.data)
+      return { items: [], total: 0 }
     } catch (error: any) {
       console.error('Error fetching teams:', error)
-      throw error
+      // Return empty structure on error
+      return { items: [], total: 0 }
     }
   },
 
@@ -888,8 +904,25 @@ const api = {
   },
 
   async getTeamMembers(teamId: string) {
-    const response = await apiClient.get(`/teams/${teamId}/members`)
-    return response.data || []
+    try {
+      // Add cache-busting parameter to ensure fresh data
+      const timestamp = Date.now()
+      const response = await apiClient.get(`/teams/${teamId}/members?_t=${timestamp}`)
+      console.log(`getTeamMembers API response for team ${teamId}:`, response.data)
+      
+      // Ensure we always return an array
+      const members = response.data || []
+      if (!Array.isArray(members)) {
+        console.warn('API returned non-array response for team members:', members)
+        return []
+      }
+      
+      return members
+    } catch (error: any) {
+      console.error(`Error fetching team members for team ${teamId}:`, error)
+      // Return empty array on error to prevent UI crashes
+      return []
+    }
   },
 
   // Assignment Operations - NEW
@@ -1076,6 +1109,7 @@ export interface HierarchyAPI {
   createUser: (userData: any) => Promise<any>
   updateUser: (userId: string, userData: any) => Promise<any>
   deleteUser: (userId: string) => Promise<any>
+  reactivateUser: (userId: string) => Promise<any>
   
   // Auth Operations
   login: (email: string, password: string) => Promise<any>

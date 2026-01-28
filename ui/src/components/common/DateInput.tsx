@@ -138,9 +138,6 @@ export default function DateInput({
     e.preventDefault()
     e.stopPropagation()
     if (nativeInputRef.current && !disabled) {
-      // Focus first to ensure it's ready
-      nativeInputRef.current.focus()
-      
       // Try showPicker() first (modern browsers), fallback to click()
       const input = nativeInputRef.current as any
       if (typeof input.showPicker === 'function') {
@@ -149,16 +146,19 @@ export default function DateInput({
           // Check if it returns a Promise
           if (result && typeof (result as Promise<void>).catch === 'function') {
             (result as Promise<void>).catch(() => {
-              // Fallback if showPicker fails
+              // Fallback if showPicker fails - focus then click
+              nativeInputRef.current?.focus()
               nativeInputRef.current?.click()
             })
           }
         } catch {
-          // If showPicker throws, fallback to click
+          // If showPicker throws, fallback to focus then click
+          nativeInputRef.current?.focus()
           nativeInputRef.current?.click()
         }
       } else {
-        // For browsers without showPicker, use click
+        // For browsers without showPicker, focus then click
+        nativeInputRef.current.focus()
         setTimeout(() => {
           nativeInputRef.current?.click()
         }, 10)
@@ -200,7 +200,7 @@ export default function DateInput({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       </button>
-      {/* Native date input for calendar picker - hidden but accessible */}
+      {/* Native date input for calendar picker - hidden but accessible for screen readers */}
       <input
         ref={nativeInputRef}
         type="date"
@@ -212,7 +212,7 @@ export default function DateInput({
         className="sr-only"
         style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: 0 }}
         tabIndex={-1}
-        aria-hidden="true"
+        aria-label="Date picker (hidden)"
       />
       
       {/* Error messages */}

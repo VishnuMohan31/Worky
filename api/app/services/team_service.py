@@ -7,6 +7,7 @@ from sqlalchemy import select, and_, or_
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from datetime import datetime
+import logging
 
 from app.models.team import Team, TeamMember
 from app.models.user import User
@@ -14,6 +15,9 @@ from app.models.hierarchy import Project
 from app.core.utils import generate_id
 from app.services.notification_service import notification_service
 from app.services.cache_service import cache_service
+
+# Use standard Python logging instead of StructuredLogger to avoid issues
+logger = logging.getLogger(__name__)
 
 
 class TeamService:
@@ -76,7 +80,6 @@ class TeamService:
         
         # Create new team
         team = Team(
-            id=generate_id("TEAM"),
             name=name,
             description=description,
             project_id=project_id,
@@ -189,8 +192,6 @@ class TeamService:
         # Send team member added notification (temporarily disabled to avoid async issues)
         # TODO: Re-enable notifications after fixing async context issues
         try:
-            from app.core.logging import StructuredLogger
-            logger = StructuredLogger(__name__)
             logger.info(f"Team member {user_id} added to team {team_id} with role {role}")
             # Notification temporarily disabled
             # project_result = await self.db.execute(select(Project).where(Project.id == team.project_id))
@@ -208,8 +209,6 @@ class TeamService:
             # )
         except Exception as e:
             # Log error but don't fail the team member addition
-            from app.core.logging import StructuredLogger
-            logger = StructuredLogger(__name__)
             logger.error(f"Failed to send team member added notification: {str(e)}")
         
         return team_member
@@ -260,8 +259,6 @@ class TeamService:
         # Send team member removed notification before removing (temporarily disabled)
         # TODO: Re-enable notifications after fixing async context issues
         try:
-            from app.core.logging import StructuredLogger
-            logger = StructuredLogger(__name__)
             logger.info(f"Team member {user_id} removed from team {team_id}")
             # Notification temporarily disabled
             # project_result = await self.db.execute(select(Project).where(Project.id == team.project_id))
@@ -278,8 +275,6 @@ class TeamService:
             # )
         except Exception as e:
             # Log error but don't fail the team member removal
-            from app.core.logging import StructuredLogger
-            logger = StructuredLogger(__name__)
             logger.error(f"Failed to send team member removed notification: {str(e)}")
         
         # Soft delete (deactivate) the member
@@ -303,12 +298,13 @@ class TeamService:
         
         Requirements: 2.5, 8.3, 12.1
         """
+        # Temporarily disable caching to fix member count issue
         # Check cache first
-        cached_members = cache_service.get_team_members(team_id)
-        if cached_members is not None:
-            # Still need to verify access, but return cached data
-            if await self.validate_team_access(team_id, current_user):
-                return cached_members
+        # cached_members = cache_service.get_team_members(team_id)
+        # if cached_members is not None:
+        #     # Still need to verify access, but return cached data
+        #     if await self.validate_team_access(team_id, current_user):
+        #         return cached_members
         
         # Verify team exists and user has access
         team = await self.get_team_by_id(team_id)
@@ -321,22 +317,26 @@ class TeamService:
         # For now, allow any authenticated user to view team members
         # In production, you might want to restrict this based on project access
         
-        # Get team members with user information
-        members_query = select(TeamMember).options(
-            selectinload(TeamMember.user)
-        ).where(
+        # Get team members with user information - return only active members with active users
+        members_query = select(TeamMember, User).join(User, TeamMember.user_id == User.id).where(
             and_(
                 TeamMember.team_id == team_id,
-                TeamMember.is_active == True
+                TeamMember.is_active == True,
+                User.is_active == True
             )
         )
         
         members_result = await self.db.execute(members_query)
-        members = members_result.scalars().all()
+        results = members_result.all()
         
-        # Cache the results
-        members_list = list(members)
-        cache_service.set_team_members(team_id, members_list)
+        # Convert to TeamMember objects with user data populated
+        members_list = []
+        for team_member, user in results:
+            # Manually set the user relationship
+            team_member.user = user
+            members_list.append(team_member)
+        
+        logger.info(f"get_team_members for team {team_id}: found {len(members_list)} total members")
         
         return members_list
     

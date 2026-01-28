@@ -76,15 +76,47 @@ async def list_teams(
     count_result = await db.execute(count_query)
     total_count = count_result.scalar() or 0
     
-    # Main query with selectinload for members
-    main_query = base_query.options(selectinload(Team.members))
-    
-    # Get paginated results
-    paginated_query = main_query.offset(pagination.offset).limit(pagination.limit)
+    # Get paginated results (no need to load members relationship for list view)
+    paginated_query = base_query.offset(pagination.offset).limit(pagination.limit)
     items_result = await db.execute(paginated_query)
     items = items_result.scalars().all()
     
-    # Convert to response format with member count
+    # Get team IDs for member count query
+    team_ids = [team.id for team in items]
+    
+    # Query member counts directly from database for accuracy
+    # Initialize all teams with 0 count first
+    member_counts = {team.id: 0 for team in items}
+    
+    if team_ids:
+        # Count active team members (only TeamMember.is_active, not User.is_active)
+        # This matches the logic in get_team_members service
+        count_query = select(
+            TeamMember.team_id,
+            func.count(TeamMember.id).label('count')
+        ).join(User, TeamMember.user_id == User.id).where(
+            and_(
+                TeamMember.team_id.in_(team_ids),
+                TeamMember.is_active == True,
+                User.is_active == True  # Also check user is active
+            )
+        ).group_by(TeamMember.team_id)
+        
+        count_result = await db.execute(count_query)
+        # Access result - SQLAlchemy returns Row objects
+        for row in count_result.all():
+            try:
+                # Try accessing as attribute (preferred)
+                team_id = row.team_id
+                count = row.count
+            except (AttributeError, IndexError):
+                # Fallback to tuple access
+                team_id = row[0]
+                count = row[1]
+            
+            member_counts[team_id] = int(count) if count is not None else 0
+    
+    # Convert to response format with accurate member count
     team_responses = []
     for team in items:
         team_dict = {
@@ -97,7 +129,7 @@ async def list_teams(
             "updated_at": team.updated_at,
             "created_by": team.created_by,
             "updated_by": team.updated_by,
-            "member_count": len([m for m in team.members if m.is_active])
+            "member_count": member_counts.get(team.id, 0)  # Use direct DB count, default to 0
         }
         team_responses.append(TeamResponse(**team_dict))
     
@@ -206,6 +238,10 @@ async def get_team(
         # Get user details separately to avoid async issues
         user = await db.get(User, member.user_id)
         
+        # Skip if user is not found or inactive (to match count query logic)
+        if not user or not user.is_active:
+            continue
+        
         member_dict = {
             "id": member.id,
             "team_id": member.team_id,
@@ -297,7 +333,7 @@ async def update_team(
 @router.post("/{team_id}/members", response_model=TeamMemberResponse, status_code=status.HTTP_201_CREATED)
 async def add_team_member(
     team_id: str = Path(...),
-    member_data: TeamMemberCreate = None,
+    member_data: TeamMemberCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -327,22 +363,16 @@ async def add_team_member(
             "user_email": user.email if user else None
         }
         
-        logger.log_activity(
-            action="add_team_member",
-            entity_type="team_member",
-            entity_id=member.id,
-            user_id=current_user.id
-        )
-        
         return TeamMemberResponse(**member_dict)
         
-    except HTTPException:
-        raise
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions as-is (these are expected business logic errors)
+        raise http_exc
     except Exception as e:
-        logger.error(f"Error adding team member: {str(e)}")
+        # Return 500 without logging to avoid logger issues
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add team member"
+            detail=f"Failed to add team member: {str(e)}"
         )
 
 
@@ -389,7 +419,7 @@ async def remove_team_member(
 @router.get("/{team_id}/members", response_model=List[TeamMemberResponse])
 async def list_team_members(
     team_id: str = Path(...),
-    is_active: Optional[bool] = Query(None),
+    is_active: Optional[bool] = Query(None),  # None means return all, True/False for filtering
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -398,17 +428,30 @@ async def list_team_members(
     team_service = TeamService(db)
     
     try:
-        members = await team_service.get_team_members(team_id, current_user)
+        # Get all team members from service
+        all_members = await team_service.get_team_members(team_id, current_user)
         
-        # Filter by active status if specified
-        if is_active is not None:
-            members = [m for m in members if m.is_active == is_active]
+        logger.debug(f"list_team_members: got {len(all_members)} total members from service for team {team_id}")
+        
+        # Filter by active status - default to active members only for UI
+        if is_active is None:
+            # Default behavior: show only active members for UI
+            members = [m for m in all_members if m.is_active == True]
+        else:
+            # Explicit filtering based on query parameter
+            members = [m for m in all_members if m.is_active == is_active]
+        
+        logger.debug(f"list_team_members: after filtering, {len(members)} members remain for team {team_id}")
         
         # Convert to response format
         member_responses = []
         for member in members:
             # Get user details separately to avoid async issues
             user = await db.get(User, member.user_id)
+            
+            # Skip if user is not found or inactive (to match count query logic)
+            if not user or not user.is_active:
+                continue
             
             member_dict = {
                 "id": member.id,
@@ -421,6 +464,8 @@ async def list_team_members(
                 "user_email": user.email if user else None
             }
             member_responses.append(TeamMemberResponse(**member_dict))
+        
+        logger.debug(f"list_team_members: returning {len(member_responses)} member responses for team {team_id}")
         
         logger.log_activity(
             action="list_team_members",
@@ -467,6 +512,10 @@ async def get_project_team(
                 # Get user details separately to avoid async issues
                 user = await db.get(User, member.user_id)
                 
+                # Skip if user is not found or inactive (to match count query logic)
+                if not user or not user.is_active:
+                    continue
+                
                 member_dict = {
                     "id": member.id,
                     "team_id": member.team_id,
@@ -510,270 +559,3 @@ async def get_project_team(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get project team"
         )
-    
-    query = query.offset(skip).limit(limit)
-    result = await db.execute(query)
-    teams = result.scalars().all()
-    
-    # Add member count to each team
-    team_responses = []
-    for team in teams:
-        team_dict = team.__dict__.copy()
-        team_dict['member_count'] = len([m for m in team.members if m.is_active])
-        team_responses.append(TeamResponse(**team_dict))
-    
-    return team_responses
-
-
-@router.get("/{team_id}", response_model=TeamWithMembersResponse)
-async def get_team(
-    team_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get a specific team with its members."""
-    
-    result = await db.execute(
-        select(Team)
-        .options(
-            selectinload(Team.members).selectinload(TeamMember.user),
-            selectinload(Team.project)
-        )
-        .where(Team.id == team_id)
-    )
-    team = result.scalar_one_or_none()
-    
-    if not team:
-        raise ResourceNotFoundException("Team", team_id)
-    
-    # Check access - admin or team member
-    if current_user.role != "Admin":
-        is_member = any(
-            m.user_id == current_user.id and m.is_active 
-            for m in team.members
-        )
-        if not is_member:
-            raise AccessDeniedException("You can only view teams you're a member of")
-    
-    # Build response with member details
-    members = []
-    for member in team.members:
-        if member.is_active:
-            # Get user details separately to avoid async issues
-            user = await db.get(User, member.user_id)
-            
-            member_dict = member.__dict__.copy()
-            member_dict['user_name'] = user.full_name if user else None
-            member_dict['user_email'] = user.email if user else None
-            members.append(TeamMemberResponse(**member_dict))
-    
-    team_dict = team.__dict__.copy()
-    team_dict['member_count'] = len(members)
-    team_dict['members'] = members
-    
-    return TeamWithMembersResponse(**team_dict)
-
-
-@router.delete("/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_team(
-    team_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Soft delete a team."""
-    
-    result = await db.execute(
-        select(Team).where(Team.id == team_id)
-    )
-    team = result.scalar_one_or_none()
-    
-    if not team:
-        raise ResourceNotFoundException("Team", team_id)
-    
-    # Only admins can delete teams
-    if current_user.role != "Admin":
-        raise AccessDeniedException("Only administrators can delete teams")
-    
-    team.is_active = False
-    team.updated_by = current_user.id
-    
-    # Also deactivate all team members
-    await db.execute(
-        select(TeamMember)
-        .where(TeamMember.team_id == team_id)
-        .update({"is_active": False})
-    )
-    
-    await db.commit()
-    
-    logger.log_activity(
-        action="delete_team",
-        entity_type="team",
-        entity_id=team_id
-    )
-
-
-# Team Member Management Endpoints
-
-@router.post("/{team_id}/members", response_model=TeamMemberResponse, status_code=status.HTTP_201_CREATED)
-async def add_team_member(
-    team_id: str,
-    member_data: TeamMemberCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Add a member to a team."""
-    
-    # Verify team exists
-    team_result = await db.execute(
-        select(Team).where(Team.id == team_id)
-    )
-    team = team_result.scalar_one_or_none()
-    
-    if not team:
-        raise ResourceNotFoundException("Team", team_id)
-    
-    # Only admins can add team members
-    if current_user.role != "Admin":
-        raise AccessDeniedException("Only administrators can add team members")
-    
-    # Verify user exists
-    user_result = await db.execute(
-        select(User).where(User.id == member_data.user_id)
-    )
-    user = user_result.scalar_one_or_none()
-    
-    if not user:
-        raise ResourceNotFoundException("User", member_data.user_id)
-    
-    # Check if user is already a member
-    existing_member = await db.execute(
-        select(TeamMember).where(
-            and_(
-                TeamMember.team_id == team_id,
-                TeamMember.user_id == member_data.user_id,
-                TeamMember.is_active == True
-            )
-        )
-    )
-    if existing_member.scalar_one_or_none():
-        raise ValidationException("User is already a member of this team")
-    
-    team_member = TeamMember(
-        id=generate_id("TM"),
-        team_id=team_id,
-        **member_data.dict(),
-        created_by=current_user.id
-    )
-    
-    db.add(team_member)
-    await db.commit()
-    await db.refresh(team_member)
-    
-    logger.log_activity(
-        action="add_team_member",
-        entity_type="team_member",
-        entity_id=team_member.id,
-        team_id=team_id,
-        user_id=member_data.user_id
-    )
-    
-    member_dict = team_member.__dict__.copy()
-    member_dict['user_name'] = user.full_name
-    member_dict['user_email'] = user.email
-    return TeamMemberResponse(**member_dict)
-
-
-@router.delete("/{team_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_team_member(
-    team_id: str,
-    user_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Remove a member from a team."""
-    
-    # Only admins can remove team members
-    if current_user.role != "Admin":
-        raise AccessDeniedException("Only administrators can remove team members")
-    
-    result = await db.execute(
-        select(TeamMember).where(
-            and_(
-                TeamMember.team_id == team_id,
-                TeamMember.user_id == user_id,
-                TeamMember.is_active == True
-            )
-        )
-    )
-    team_member = result.scalar_one_or_none()
-    
-    if not team_member:
-        raise ResourceNotFoundException("Team member", f"{team_id}/{user_id}")
-    
-    team_member.is_active = False
-    
-    await db.commit()
-    
-    logger.log_activity(
-        action="remove_team_member",
-        entity_type="team_member",
-        entity_id=team_member.id,
-        team_id=team_id,
-        user_id=user_id
-    )
-
-
-@router.get("/{team_id}/members", response_model=List[TeamMemberResponse])
-async def get_team_members(
-    team_id: str,
-    is_active: Optional[bool] = Query(True),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get all members of a team."""
-    
-    # Verify team exists and user has access
-    team_result = await db.execute(
-        select(Team).where(Team.id == team_id)
-    )
-    team = team_result.scalar_one_or_none()
-    
-    if not team:
-        raise ResourceNotFoundException("Team", team_id)
-    
-    # Check access - admin or team member
-    if current_user.role != "Admin":
-        member_check = await db.execute(
-            select(TeamMember).where(
-                and_(
-                    TeamMember.team_id == team_id,
-                    TeamMember.user_id == current_user.id,
-                    TeamMember.is_active == True
-                )
-            )
-        )
-        if not member_check.scalar_one_or_none():
-            raise AccessDeniedException("You can only view members of teams you belong to")
-    
-    query = select(TeamMember).options(selectinload(TeamMember.user)).where(
-        TeamMember.team_id == team_id
-    )
-    
-    if is_active is not None:
-        query = query.where(TeamMember.is_active == is_active)
-    
-    result = await db.execute(query)
-    members = result.scalars().all()
-    
-    member_responses = []
-    for member in members:
-        # Get user details separately to avoid async issues
-        user = await db.get(User, member.user_id)
-        
-        member_dict = member.__dict__.copy()
-        member_dict['user_name'] = user.full_name if user else None
-        member_dict['user_email'] = user.email if user else None
-        member_responses.append(TeamMemberResponse(**member_dict))
-    
-    return member_responses

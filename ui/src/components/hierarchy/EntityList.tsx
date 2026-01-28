@@ -106,7 +106,7 @@ function SubtaskFormSimple({
     short_description: '',
     estimated_hours: 1,
     duration_days: 1,
-    status: 'To Do'
+    status: 'Planning'
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -374,7 +374,7 @@ export default function EntityList({
         
         // Set default status if not provided
         if (!entityData.status) {
-          entityData.status = 'To Do'
+          entityData.status = 'Planning'
         }
         
         // Clean up data for subtasks

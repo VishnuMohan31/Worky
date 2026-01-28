@@ -3,7 +3,7 @@ Team management models for the Worky API.
 """
 from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 from app.db.base import Base
 
 
@@ -11,7 +11,7 @@ class Team(Base):
     """Team model for project-based team management."""
     __tablename__ = "teams"
 
-    id = Column(String(50), primary_key=True)
+    id = Column(String(50), primary_key=True, server_default=text("generate_string_id('TEAM', 'teams_id_seq')"))
     name = Column(String(255), nullable=False)
     description = Column(Text)
     project_id = Column(String(50), ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
