@@ -200,9 +200,14 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+    
+    # Get port from environment variable, default to 8000 (Docker internal port)
+    port = int(os.getenv("PORT", "8000"))
+    
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8007,
+        port=port,
         log_level="info"
     )
