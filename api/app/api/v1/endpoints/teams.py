@@ -332,8 +332,8 @@ async def update_team(
 
 @router.post("/{team_id}/members", response_model=TeamMemberResponse, status_code=status.HTTP_201_CREATED)
 async def add_team_member(
-    team_id: str = Path(...),
     member_data: TeamMemberCreate,
+    team_id: str = Path(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
