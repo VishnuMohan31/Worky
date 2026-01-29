@@ -9,10 +9,20 @@ from decimal import Decimal
 import re
 
 
-def parse_ddmmyyyy_date(date_str: str) -> date:
-    """Parse DD/MM/YYYY string to date object"""
-    if not date_str:
+def parse_ddmmyyyy_date(date_input) -> date:
+    """Parse DD/MM/YYYY string to date object, or return date object if already converted"""
+    if not date_input:
         return None
+    
+    # If it's already a date object, return it
+    if isinstance(date_input, date):
+        return date_input
+    
+    # If it's not a string, convert to string first
+    if not isinstance(date_input, str):
+        date_str = str(date_input)
+    else:
+        date_str = date_input
     
     # Handle DD/MM/YYYY format
     if '/' in date_str:
