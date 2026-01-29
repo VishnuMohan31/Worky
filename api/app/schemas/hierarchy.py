@@ -115,14 +115,31 @@ class ProgramUpdate(BaseModel):
     name: Optional[str] = None
     short_description: Optional[str] = None
     long_description: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: Optional[str] = Field(None, description="Date in DD/MM/YYYY format")
+    end_date: Optional[str] = Field(None, description="Date in DD/MM/YYYY format")
     status: Optional[str] = None
+
+    @validator('start_date', 'end_date', pre=True)
+    def validate_date_format(cls, v):
+        if not v:
+            return None
+        
+        if isinstance(v, date):
+            return format_date_to_ddmmyyyy(v)
+        
+        if isinstance(v, str):
+            date_obj = parse_ddmmyyyy_date(v)
+            return format_date_to_ddmmyyyy(date_obj)
+        
+        return v
 
     @validator('end_date')
     def validate_end_date(cls, v, values):
         if v and 'start_date' in values and values['start_date']:
-            if v < values['start_date']:
+            # Parse both dates for comparison
+            start_date_obj = parse_ddmmyyyy_date(values['start_date'])
+            end_date_obj = parse_ddmmyyyy_date(v)
+            if end_date_obj < start_date_obj:
                 raise ValueError('End date cannot be before start date')
         return v
 

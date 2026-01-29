@@ -142,7 +142,7 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
     const params = new URLSearchParams()
     if (clientId) params.append('client', clientId)
     if (programId) params.append('program', programId)
-    if (projectId || usecase.project_id) params.append('project', projectId || usecase.project_id)
+    if (projectId || usecase.project_id) params.append('project', projectId || usecase.project_id || '')
     params.append('usecase', usecase.id)
     navigate(`/userstories?${params.toString()}`)
     onClose()
@@ -316,12 +316,37 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
 
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                      Description
+                      Short Description
                     </label>
                     {isEditing ? (
                       <textarea
-                        name="description"
-                        value={formData.description}
+                        name="short_description"
+                        value={formData.short_description}
+                        onChange={handleInputChange}
+                        rows={2}
+                        className="w-full px-4 py-2 rounded-md border"
+                        style={{ 
+                          backgroundColor: 'var(--surface-color)',
+                          borderColor: 'var(--border-color)',
+                          color: 'var(--text-color)'
+                        }}
+                        placeholder="Brief summary with key search terms..."
+                      />
+                    ) : (
+                      <p className="text-base" style={{ color: 'var(--text-color)' }}>
+                        {getShortDescription(usecase) || 'No short description provided'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                      Long Description
+                    </label>
+                    {isEditing ? (
+                      <textarea
+                        name="long_description"
+                        value={formData.long_description}
                         onChange={handleInputChange}
                         rows={4}
                         className="w-full px-4 py-2 rounded-md border"
@@ -330,10 +355,11 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
                           borderColor: 'var(--border-color)',
                           color: 'var(--text-color)'
                         }}
+                        placeholder="Detailed explanation of the use case..."
                       />
                     ) : (
                       <p className="text-base" style={{ color: 'var(--text-color)' }}>
-                        {usecase.description || 'No description provided'}
+                        {getLongDescription(usecase) || 'No long description provided'}
                       </p>
                     )}
                   </div>

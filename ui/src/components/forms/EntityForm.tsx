@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAllowedStatusTransitions, VALID_TASK_STATUSES } from '../../utils/statusTransitions'
+import api from '../../services/api'
 
 export interface EntityFormData {
   name?: string
@@ -18,6 +19,10 @@ export interface EntityFormData {
   estimated_hours?: number
   duration_days?: number
   scrum_points?: number
+  acceptance_criteria?: string
+  story_points?: number | null
+  priority?: string
+  phase_id?: string
   [key: string]: any
 }
 
@@ -63,13 +68,37 @@ export default function EntityForm({
     due_date: '',
     estimated_hours: 0,
     duration_days: 1,
+    acceptance_criteria: '',
+    story_points: 0,
+    priority: 'Medium',
+    phase_id: '',
     ...initialData
   })
   
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [phases, setPhases] = useState<any[]>([])
+  const [loadingPhases, setLoadingPhases] = useState(false)
   
   // Use a ref to track if initialData has actually changed
   const prevInitialDataRef = useRef<string>('')
+  
+  // Load phases for user stories
+  useEffect(() => {
+    if (entityType.toLowerCase() === 'userstory' || entityType.toLowerCase() === 'UserStory') {
+      setLoadingPhases(true)
+      api.getPhases()
+        .then(phasesData => {
+          setPhases(phasesData || [])
+        })
+        .catch(error => {
+          console.error('Failed to load phases:', error)
+          setPhases([])
+        })
+        .finally(() => {
+          setLoadingPhases(false)
+        })
+    }
+  }, [entityType])
   
   // Filter status options based on current status if in edit mode and restrictions are enabled
   // Also ensure current status is always included in the options
@@ -216,7 +245,7 @@ export default function EntityForm({
       {/* Long Description */}
       <div>
         <label htmlFor="long_description" className="block text-sm font-medium mb-2">
-          Description
+          Long Description
         </label>
         <textarea
           id="long_description"
@@ -256,6 +285,95 @@ export default function EntityForm({
           </p>
         )}
       </div>
+
+      {/* User Story specific fields */}
+      {(entityType.toLowerCase() === 'userstory' || entityType.toLowerCase() === 'UserStory') && (
+        <>
+          {/* Acceptance Criteria */}
+          <div>
+            <label htmlFor="acceptance_criteria" className="block text-sm font-medium mb-2">
+              Acceptance Criteria
+            </label>
+            <textarea
+              id="acceptance_criteria"
+              value={formData.acceptance_criteria || ''}
+              onChange={(e) => handleChange('acceptance_criteria', e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Define the acceptance criteria for this user story"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Story Points */}
+            <div>
+              <label htmlFor="story_points" className="block text-sm font-medium mb-2">
+                Story Points
+              </label>
+              <input
+                type="number"
+                id="story_points"
+                value={formData.story_points ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val === '') {
+                    handleChange('story_points', null)
+                  } else {
+                    const numVal = parseInt(val)
+                    handleChange('story_points', isNaN(numVal) ? null : numVal)
+                  }
+                }}
+                min="0"
+                step="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0"
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* Priority */}
+            <div>
+              <label htmlFor="priority" className="block text-sm font-medium mb-2">
+                Priority
+              </label>
+              <select
+                id="priority"
+                value={formData.priority || 'Medium'}
+                onChange={(e) => handleChange('priority', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isLoading}
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Phase */}
+          <div>
+            <label htmlFor="phase_id" className="block text-sm font-medium mb-2">
+              Phase
+            </label>
+            <select
+              id="phase_id"
+              value={formData.phase_id || ''}
+              onChange={(e) => handleChange('phase_id', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isLoading || loadingPhases}
+            >
+              <option value="">Select a phase</option>
+              {phases.map(phase => (
+                <option key={phase.id} value={phase.id}>{phase.name}</option>
+              ))}
+            </select>
+            {loadingPhases && (
+              <p className="mt-1 text-xs text-gray-500">Loading phases...</p>
+            )}
+          </div>
+        </>
+      )}
       
       {/* Date Range - Only show for entities that support dates (not subtasks, userstories, usecases, clients) */}
       {entityType.toLowerCase() !== 'subtask' && 

@@ -504,8 +504,14 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
         <EntityForm
           entityType={type === 'subtask' ? 'Subtask' : type === 'userstory' ? 'UserStory' : type === 'usecase' ? 'Usecase' : type === 'client' ? 'Client' : type.charAt(0).toUpperCase() + type.slice(1)}
           initialData={{
-            name: entity.name || entity.title || '',
-            title: entity.title || entity.name || '',
+            // For user stories, tasks, and subtasks, use 'name' field only
+            ...(type === 'userstory' || type === 'task' || type === 'subtask' ? {
+              name: entity.name || entity.title || ''
+            } : {
+              // For other entities, use both name and title
+              name: entity.name || entity.title || '',
+              title: entity.title || entity.name || ''
+            }),
             short_description: entity.short_description || '',
             long_description: entity.long_description || '',
             status: entity.status || '',
