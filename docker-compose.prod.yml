@@ -11,6 +11,7 @@ services:
     volumes:
       - ./volumes/postgres-data:/var/lib/postgresql/data
       - ./db/initial_scripts:/docker-entrypoint-initdb.d
+      - ./db/migrations:/docker-entrypoint-initdb.d/migrations
     networks:
       - worky-network
     restart: unless-stopped
