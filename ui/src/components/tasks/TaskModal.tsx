@@ -24,7 +24,6 @@ interface TaskModalProps {
   usecases: any[]
   userstories: any[]
   users: any[]
-  isAdmin: boolean
 }
 
 export default function TaskModal({
@@ -42,8 +41,7 @@ export default function TaskModal({
   projects,
   usecases,
   userstories,
-  users,
-  isAdmin
+  users
 }: TaskModalProps) {
   const [formData, setFormData] = useState({
     name: '',

@@ -3,10 +3,9 @@
  * Form for creating/editing tasks with phase selection and assignee
  */
 import { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
 import EntityForm, { EntityFormData } from './EntityForm'
 import DateInput from '../common/DateInput'
-import type { TaskFormData, Phase, User } from '../../types/entities'
+import type { TaskFormData, User } from '../../types/entities'
 import api from '../../services/api'
 
 interface TaskFormProps {
@@ -29,9 +28,6 @@ export default function TaskForm({
   mode = 'create',
   userStoryId
 }: TaskFormProps) {
-  const { t } = useTranslation()
-  
-  const [phases, setPhases] = useState<Phase[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [loadingData, setLoadingData] = useState(true)
   const [formData, setFormData] = useState<TaskFormData>({
@@ -64,18 +60,9 @@ export default function TaskForm({
   const loadFormData = async () => {
     try {
       setLoadingData(true)
-      const [phasesData, usersData] = await Promise.all([
-        api.getPhases(),
-        api.getUsers()
-      ])
+      const usersData = await api.getUsers()
       
-      setPhases(phasesData)
       setUsers(usersData.filter((u: User) => u.is_active))
-      
-      // Set default phase if not already set
-      if (!formData.phase_id && phasesData.length > 0) {
-        setFormData(prev => ({ ...prev, phase_id: phasesData[0].id }))
-      }
     } catch (error) {
       console.error('Error loading form data:', error)
     } finally {
@@ -85,10 +72,6 @@ export default function TaskForm({
   
   const validateTaskForm = (): boolean => {
     const newErrors: Record<string, string> = {}
-    
-    if (!formData.phase_id) {
-      newErrors.phase_id = 'Phase is required'
-    }
     
     if (!formData.priority) {
       newErrors.priority = 'Priority is required'
@@ -112,6 +95,7 @@ export default function TaskForm({
     // Merge entity form data with task-specific data
     const taskData: TaskFormData = {
       ...entityData,
+      name: entityData.name || '', // Ensure name is always a string
       user_story_id: formData.user_story_id,
       phase_id: formData.phase_id,
       priority: formData.priority,
@@ -150,34 +134,6 @@ export default function TaskForm({
   
   const additionalFields = (
     <>
-      {/* Phase Selection */}
-      <div>
-        <label htmlFor="phase_id" className="block text-sm font-medium mb-2">
-          Phase <span className="text-red-500">*</span>
-        </label>
-        <select
-          id="phase_id"
-          value={formData.phase_id}
-          onChange={(e) => handleChange('phase_id', e.target.value)}
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-            errors.phase_id 
-              ? 'border-red-500 focus:ring-red-500' 
-              : 'border-gray-300 focus:ring-blue-500'
-          }`}
-          disabled={isLoading}
-        >
-          <option value="">Select a phase</option>
-          {phases.map(phase => (
-            <option key={phase.id} value={phase.id}>
-              {phase.name}
-            </option>
-          ))}
-        </select>
-        {errors.phase_id && (
-          <p className="mt-1 text-sm text-red-500">{errors.phase_id}</p>
-        )}
-      </div>
-      
       {/* Priority */}
       <div>
         <label htmlFor="priority" className="block text-sm font-medium mb-2">

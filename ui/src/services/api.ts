@@ -44,6 +44,75 @@ const transformUseCase = (usecase: any) => {
   }
 }
 
+// Helper function to transform task from snake_case to camelCase
+const transformTask = (task: any) => {
+  if (!task || typeof task !== 'object') {
+    console.warn('transformTask: Invalid task data', task)
+    return null
+  }
+  
+  try {
+    return {
+      id: task.id || null,
+      name: task.name || task.title || '',
+      title: task.name || task.title || '', // For backward compatibility
+      userStoryId: task.user_story_id || task.userStoryId || null,
+      user_story_id: task.user_story_id || task.userStoryId || null, // For backward compatibility
+      status: task.status || 'To Do',
+      priority: task.priority || 'Medium',
+      shortDescription: task.short_description || task.shortDescription || null,
+      short_description: task.short_description || task.shortDescription || null, // For backward compatibility
+      description: task.short_description || task.shortDescription || task.description || null, // For backward compatibility
+      longDescription: task.long_description || task.longDescription || null,
+      phaseId: task.phase_id || task.phaseId || null,
+      assignedTo: task.assigned_to || task.assignedTo || null,
+      assigned_to: task.assigned_to || task.assignedTo || null, // For backward compatibility
+      assignedToName: task.assigned_to_name || task.assignedToName || null,
+      assigned_to_name: task.assigned_to_name || task.assignedToName || null, // For backward compatibility
+      estimatedHours: task.estimated_hours || task.estimatedHours || null,
+      dueDate: task.due_date || task.dueDate || null,
+      due_date: task.due_date || task.dueDate || null, // For backward compatibility
+      startDate: task.start_date || task.startDate || null,
+      sprintId: task.sprint_id || task.sprintId || null,
+      createdAt: task.created_at || task.createdAt || null,
+      updatedAt: task.updated_at || task.updatedAt || null
+    }
+  } catch (error) {
+    console.error('Error transforming task:', error, task)
+    return null
+  }
+}
+
+// Helper function to transform user story from snake_case to camelCase
+const transformUserStory = (userstory: any) => {
+  if (!userstory || typeof userstory !== 'object') {
+    console.warn('transformUserStory: Invalid userstory data', userstory)
+    return null
+  }
+  
+  try {
+    return {
+      id: userstory.id || null,
+      name: userstory.name || userstory.title || '',
+      title: userstory.name || userstory.title || '', // For backward compatibility
+      usecaseId: userstory.usecase_id || userstory.usecaseId || null,
+      usecase_id: userstory.usecase_id || userstory.usecaseId || null, // For backward compatibility
+      status: userstory.status || 'Planning',
+      priority: userstory.priority || 'Medium',
+      shortDescription: userstory.short_description || userstory.shortDescription || null,
+      longDescription: userstory.long_description || userstory.longDescription || null,
+      acceptanceCriteria: userstory.acceptance_criteria || userstory.acceptanceCriteria || null,
+      storyPoints: userstory.story_points || userstory.storyPoints || 0,
+      phaseId: userstory.phase_id || userstory.phaseId || null,
+      createdAt: userstory.created_at || userstory.createdAt || null,
+      updatedAt: userstory.updated_at || userstory.updatedAt || null
+    }
+  } catch (error) {
+    console.error('Error transforming userstory:', error, userstory)
+    return null
+  }
+}
+
 // Helper function to transform project from snake_case to camelCase
 const transformProject = (project: any) => {
   if (!project || typeof project !== 'object') {
@@ -244,9 +313,12 @@ const api = {
     if (!Array.isArray(response.data)) {
       return []
     }
-    // Transform usecases to camelCase
+    // Transform entities to camelCase
     if (type === 'usecase') {
       return response.data.map((uc: any) => transformUseCase(uc)).filter((uc: any) => uc !== null)
+    }
+    if (type === 'userstory') {
+      return response.data.map((us: any) => transformUserStory(us)).filter((us: any) => us !== null)
     }
     return response.data
   },
@@ -259,9 +331,12 @@ const api = {
       if (!Array.isArray(response.data)) {
         return []
       }
-      // Transform usecases to camelCase
+      // Transform entities to camelCase
       if (type === 'usecase') {
         return response.data.map((uc: any) => transformUseCase(uc)).filter((uc: any) => uc !== null)
+      }
+      if (type === 'userstory') {
+        return response.data.map((us: any) => transformUserStory(us)).filter((us: any) => us !== null)
       }
       return response.data
     } catch (error: any) {
@@ -430,14 +505,20 @@ const api = {
   // Tasks
   async getTasks(projectId?: string) {
     const response = await apiClient.get('/tasks/', { params: { projectId } })
-    return response.data
+    if (!Array.isArray(response.data)) {
+      return []
+    }
+    return response.data.map((task: any) => transformTask(task)).filter((task: any) => task !== null)
   },
 
   // Safe version of getTasks that doesn't trigger logout on 401
   async getTasksSafe(projectId?: string) {
     try {
       const response = await safeApiClient.get('/tasks/', { params: { projectId } })
-      return response.data
+      if (!Array.isArray(response.data)) {
+        return []
+      }
+      return response.data.map((task: any) => transformTask(task)).filter((task: any) => task !== null)
     } catch (error: any) {
       if (error.response?.status === 401 || error.response?.status === 403) {
         console.warn('Access denied to tasks list - user may not have permission')

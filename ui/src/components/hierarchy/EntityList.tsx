@@ -20,71 +20,18 @@ function TaskFormWithPhase({
   onCancel: () => void
   isLoading?: boolean
 }) {
-  const [phases, setPhases] = useState<any[]>([])
-  const [loadingPhases, setLoadingPhases] = useState(false)
-  const [phaseId, setPhaseId] = useState('') // Will be set when phases load
-
-  useEffect(() => {
-    const loadPhases = async () => {
-      setLoadingPhases(true)
-      try {
-        const data = await api.getPhases(false) // Only active phases
-        setPhases(data)
-        // Set default phase to first one (usually Planning)
-        if (data.length > 0) {
-          setPhaseId(data[0].id)
-        }
-      } catch (error) {
-        console.error('Failed to load phases:', error)
-      } finally {
-        setLoadingPhases(false)
-      }
-    }
-    loadPhases()
-  }, [])
-
   const handleSubmit = async (formData: any) => {
-    // Ensure phase_id is set
-    if (!phaseId) {
-      alert('Please select a phase')
-      return
-    }
-    await onSubmit({ ...formData, phase_id: phaseId })
+    await onSubmit(formData)
   }
 
   return (
     <EntityForm
-      initialData={{ name: '', phase_id: phaseId }}
+      initialData={{ name: '' }}
       onSubmit={handleSubmit}
       onCancel={onCancel}
       isLoading={isLoading}
       mode="create"
       entityType="Task"
-      additionalFields={
-        <div>
-          <label htmlFor="phase_id" className="block text-sm font-medium mb-2">
-            Phase <span className="text-red-500">*</span>
-          </label>
-          <select
-            id="phase_id"
-            value={phaseId}
-            onChange={(e) => setPhaseId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={loadingPhases || isLoading}
-            required
-          >
-            <option value="">Select phase...</option>
-            {phases.map((phase) => (
-              <option key={phase.id} value={phase.id}>
-                {phase.name}
-              </option>
-            ))}
-          </select>
-          {loadingPhases && (
-            <p className="text-xs text-gray-500 mt-1">Loading phases...</p>
-          )}
-        </div>
-      }
     />
   )
 }

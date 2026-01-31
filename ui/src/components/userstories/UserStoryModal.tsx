@@ -46,7 +46,7 @@ export default function UserStoryModal({
     usecase_id: selectedUseCaseId || '',
     phase_id: '',
     priority: 'Medium',
-    status: 'To Do',
+    status: 'Planning',
     story_points: 0
   })
   const [phases, setPhases] = useState<any[]>([])
@@ -90,7 +90,7 @@ export default function UserStoryModal({
         usecase_id: userStory.usecase_id || userStory.usecaseId || '',
         phase_id: userStory.phase_id || userStory.phaseId || '',
         priority: userStory.priority || 'Medium',
-        status: userStory.status || 'To Do',
+        status: userStory.status || 'Planning',
         story_points: userStory.story_points || userStory.storyPoints || 0
       })
     } else {
@@ -102,7 +102,7 @@ export default function UserStoryModal({
         usecase_id: selectedUseCaseId || '',
         phase_id: phases.length > 0 ? phases[0].id : '',
         priority: 'Medium',
-        status: 'To Do',
+        status: 'Planning',
         story_points: 0
       })
     }
@@ -311,8 +311,10 @@ export default function UserStoryModal({
               <option value="Planning">Planning</option>
               <option value="In Progress">In Progress</option>
               <option value="Completed">Completed</option>
-              <option value="On Hold">On Hold</option>
               <option value="Blocked">Blocked</option>
+              <option value="In Review">In Review</option>
+              <option value="On-Hold">On-Hold</option>
+              <option value="Canceled">Canceled</option>
             </select>
           </div>
 

@@ -336,7 +336,8 @@ export default function TasksPage() {
   const filteredTasks = useMemo(() => {
     return tasks.filter((task: any) => {
       const matchesSearch = !searchQuery || 
-        task.title?.toLowerCase().includes(searchQuery.toLowerCase())
+        (task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         task.name?.toLowerCase().includes(searchQuery.toLowerCase()))
       const matchesStatus = filterStatus === 'all' || task.status === filterStatus
       return matchesSearch && matchesStatus
     })
@@ -527,7 +528,7 @@ export default function TasksPage() {
                   <option value="">Select...</option>
                   {userstories.map((story) => (
                     <option key={story.id} value={story.id}>
-                      {story.title}
+                      {story.name || story.title}
                     </option>
                   ))}
                 </select>
@@ -621,9 +622,9 @@ export default function TasksPage() {
                     className="hover:bg-gray-50 cursor-pointer transition-colors"
                   >
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">{task.title}</div>
-                      {task.description && (
-                        <div className="text-sm text-gray-500 line-clamp-1">{task.description}</div>
+                      <div className="text-sm font-medium text-gray-900">{task.name || task.title}</div>
+                      {(task.description || task.short_description) && (
+                        <div className="text-sm text-gray-500 line-clamp-1">{task.description || task.short_description}</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
