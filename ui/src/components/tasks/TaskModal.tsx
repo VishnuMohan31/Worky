@@ -50,7 +50,7 @@ export default function TaskModal({
     short_description: '',
     long_description: '',
     user_story_id: selectedUserStoryId || '',
-    phase_id: 'PHS-001', // Default to Planning phase
+    phase_id: '', // Let user select phase instead of hardcoding
     status: 'To Do',
     priority: 'Medium',
     assigned_to: '',
@@ -88,7 +88,7 @@ export default function TaskModal({
         short_description: task.short_description || task.shortDescription || '',
         long_description: task.long_description || task.longDescription || '',
         user_story_id: task.user_story_id || task.userStoryId || '',
-        phase_id: task.phase_id || task.phaseId || 'PHS-001',
+        phase_id: task.phase_id || task.phaseId || '',
         status: task.status || 'To Do',
         priority: task.priority || 'Medium',
         assigned_to: task.assigned_to || task.assignedTo || '',
@@ -102,7 +102,7 @@ export default function TaskModal({
         short_description: '',
         long_description: '',
         user_story_id: selectedUserStoryId || '',
-        phase_id: 'PHS-001', // Default to Planning phase
+        phase_id: '', // Let user select phase instead of hardcoding
         status: 'To Do',
         priority: 'Medium',
         assigned_to: '',
@@ -160,6 +160,11 @@ export default function TaskModal({
 
     if (!formData.user_story_id) {
       setError('Please select a user story')
+      return
+    }
+
+    if (!formData.phase_id) {
+      setError('Please select a phase')
       return
     }
 

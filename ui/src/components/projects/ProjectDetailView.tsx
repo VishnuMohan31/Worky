@@ -4,7 +4,8 @@ import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
 import ProjectTeamDisplay from './ProjectTeamDisplay'
 import OwnershipDisplay from '../ownership/OwnershipDisplay'
-import { formatDateForDisplay } from '../../utils/dateUtils'
+import DateInput from '../common/DateInput'
+import { formatDateForDisplay, formatDateForAPI } from '../../utils/dateUtils'
 
 interface ProjectDetail {
   id: string
@@ -42,11 +43,21 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
   const [submitting, setSubmitting] = useState(false)
   const [stats, setStats] = useState<ProjectStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
-  // Helper to convert date from MM/DD/YYYY or other formats to YYYY-MM-DD for API
-  const convertDateToAPIFormat = (dateStr?: string) => {
+  // Helper to convert date from DD/MM/YYYY to YYYY-MM-DD for form inputs
+  const convertDateToFormFormat = (dateStr?: string) => {
     if (!dateStr) return ''
+    
     // If already in YYYY-MM-DD format, return as is
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+    
+    // If in DD/MM/YYYY format, convert to YYYY-MM-DD
+    if (dateStr.includes('/')) {
+      const [day, month, year] = dateStr.split('/')
+      if (day && month && year) {
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+      }
+    }
+    
     // Try to parse and convert
     try {
       const date = new Date(dateStr)
@@ -77,8 +88,8 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
     short_description: getShortDescription(project),
     long_description: getLongDescription(project),
     status: project.status,
-    start_date: convertDateToAPIFormat(project.start_date || (project as any).startDate),
-    end_date: convertDateToAPIFormat(project.end_date || (project as any).endDate)
+    start_date: convertDateToFormFormat(project.start_date || (project as any).startDate),
+    end_date: convertDateToFormFormat(project.end_date || (project as any).endDate)
   })
 
   useEffect(() => {
@@ -111,8 +122,8 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
         status: formData.status,
         short_description: formData.short_description || null,
         long_description: formData.long_description || null,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null
+        start_date: formData.start_date ? formatDateForAPI(formData.start_date) : null,
+        end_date: formData.end_date ? formatDateForAPI(formData.end_date) : null
       }
       
       // Remove empty strings and convert to null
@@ -141,8 +152,8 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
       short_description: getShortDescription(project),
       long_description: getLongDescription(project),
       status: project.status,
-      start_date: convertDateToAPIFormat(project.start_date || (project as any).startDate),
-      end_date: convertDateToAPIFormat(project.end_date || (project as any).endDate)
+      start_date: convertDateToFormFormat(project.start_date || (project as any).startDate),
+      end_date: convertDateToFormFormat(project.end_date || (project as any).endDate)
     })
     setIsEditing(false)
   }
@@ -383,17 +394,16 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                         Start Date
                       </label>
                       {isEditing ? (
-                        <input
-                          type="date"
-                          name="start_date"
+                        <DateInput
                           value={formData.start_date || ''}
-                          onChange={handleInputChange}
+                          onChange={(value) => setFormData(prev => ({ ...prev, start_date: value }))}
                           className="w-full px-4 py-2 rounded-md border"
                           style={{ 
                             backgroundColor: 'var(--surface-color)',
                             borderColor: 'var(--border-color)',
                             color: 'var(--text-color)'
                           }}
+                          placeholder="DD/MM/YYYY"
                         />
                       ) : (
                         <p className="text-base" style={{ color: 'var(--text-color)' }}>
@@ -407,17 +417,17 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                         End Date
                       </label>
                       {isEditing ? (
-                        <input
-                          type="date"
-                          name="end_date"
+                        <DateInput
                           value={formData.end_date || ''}
-                          onChange={handleInputChange}
+                          onChange={(value) => setFormData(prev => ({ ...prev, end_date: value }))}
+                          min={formData.start_date || undefined}
                           className="w-full px-4 py-2 rounded-md border"
                           style={{ 
                             backgroundColor: 'var(--surface-color)',
                             borderColor: 'var(--border-color)',
                             color: 'var(--text-color)'
                           }}
+                          placeholder="DD/MM/YYYY"
                         />
                       ) : (
                         <p className="text-base" style={{ color: 'var(--text-color)' }}>

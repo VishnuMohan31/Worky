@@ -513,6 +513,7 @@ export default function TeamsPage() {
                     <option value="Architect">Architect</option>
                     <option value="Designer">Designer</option>
                     <option value="Contact Person">Contact Person</option>
+                    <option value="HR">HR</option>
                     <option value="Lead">Lead</option>
                     <option value="Manager">Manager</option>
                     <option value="Owner">Owner</option>

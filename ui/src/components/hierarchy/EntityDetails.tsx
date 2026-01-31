@@ -2,7 +2,7 @@
  * EntityDetails Component
  * Displays detailed information about an entity
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { EntityType, getEntityDisplayName } from '../../stores/hierarchyStore'
 import EntityStatistics from './EntityStatistics'
@@ -30,6 +30,29 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [statisticsRefreshKey, setStatisticsRefreshKey] = useState(0) // Add refresh key for statistics
+  const [phaseName, setPhaseName] = useState<string>('')
+  const [loadingPhase, setLoadingPhase] = useState(false)
+  
+  // Load phase name if entity has phase_id
+  useEffect(() => {
+    if ((type === 'task' || type === 'subtask') && entity.phase_id && !entity.phase_name) {
+      setLoadingPhase(true)
+      api.getPhases()
+        .then(phases => {
+          const phase = phases.find((p: any) => p.id === entity.phase_id)
+          setPhaseName(phase ? phase.name : 'Unknown Phase')
+        })
+        .catch(error => {
+          console.error('Failed to load phase name:', error)
+          setPhaseName('Unknown Phase')
+        })
+        .finally(() => {
+          setLoadingPhase(false)
+        })
+    } else if (entity.phase_name) {
+      setPhaseName(entity.phase_name)
+    }
+  }, [entity.phase_id, entity.phase_name, type])
   
   // Safety checks
   if (!entity) {
@@ -297,10 +320,17 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
       {(type === 'task' || type === 'subtask') && entity.phase_id && (
         <div>
           <dt className="text-sm font-medium text-gray-500 mb-2">Phase</dt>
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-            <span className="w-2 h-2 rounded-full bg-purple-600 mr-2"></span>
-            {entity.phase_name || 'Development'}
-          </span>
+          {loadingPhase ? (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+              <span className="w-2 h-2 rounded-full bg-gray-400 mr-2"></span>
+              Loading...
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+              <span className="w-2 h-2 rounded-full bg-purple-600 mr-2"></span>
+              {phaseName || entity.phase_name || 'No Phase'}
+            </span>
+          )}
         </div>
       )}
       
@@ -503,6 +533,7 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
       >
         <EntityForm
           entityType={type === 'subtask' ? 'Subtask' : type === 'userstory' ? 'UserStory' : type === 'usecase' ? 'Usecase' : type === 'client' ? 'Client' : type.charAt(0).toUpperCase() + type.slice(1)}
+          statusOptions={type === 'usecase' ? ['Draft', 'In Review', 'Approved', 'In Progress', 'Completed'] : undefined}
           initialData={{
             // For user stories, tasks, and subtasks, use 'name' field only
             ...(type === 'userstory' || type === 'task' || type === 'subtask' ? {

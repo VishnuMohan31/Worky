@@ -3,8 +3,8 @@
  * Reusable form for creating/editing entities with common fields
  */
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
-import { getAllowedStatusTransitions, VALID_TASK_STATUSES } from '../../utils/statusTransitions'
+import { getAllowedStatusTransitions } from '../../utils/statusTransitions'
+import DateInput from '../common/DateInput'
 import api from '../../services/api'
 
 export interface EntityFormData {
@@ -53,8 +53,6 @@ export default function EntityForm({
   currentStatus,
   restrictStatusTransitions = false
 }: EntityFormProps) {
-  const { t } = useTranslation()
-  
   // Determine if we should use 'title' or 'name' based on initialData
   const useTitleField = 'title' in initialData
   
@@ -82,9 +80,12 @@ export default function EntityForm({
   // Use a ref to track if initialData has actually changed
   const prevInitialDataRef = useRef<string>('')
   
-  // Load phases for user stories
+  // Load phases for user stories and tasks
   useEffect(() => {
-    if (entityType.toLowerCase() === 'userstory' || entityType.toLowerCase() === 'UserStory') {
+    if (entityType.toLowerCase() === 'userstory' || 
+        entityType.toLowerCase() === 'UserStory' ||
+        entityType.toLowerCase() === 'task' ||
+        entityType.toLowerCase() === 'Task') {
       setLoadingPhases(true)
       api.getPhases()
         .then(phasesData => {
@@ -351,7 +352,7 @@ export default function EntityForm({
             </div>
           </div>
 
-          {/* Phase */}
+          {/* Phase for User Stories */}
           <div>
             <label htmlFor="phase_id" className="block text-sm font-medium mb-2">
               Phase
@@ -374,6 +375,52 @@ export default function EntityForm({
           </div>
         </>
       )}
+
+      {/* Task specific fields */}
+      {(entityType.toLowerCase() === 'task' || entityType.toLowerCase() === 'Task') && (
+        <>
+          {/* Phase for Tasks */}
+          <div>
+            <label htmlFor="phase_id" className="block text-sm font-medium mb-2">
+              Phase <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="phase_id"
+              value={formData.phase_id || ''}
+              onChange={(e) => handleChange('phase_id', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isLoading || loadingPhases}
+              required
+            >
+              <option value="">Select a phase</option>
+              {phases.map(phase => (
+                <option key={phase.id} value={phase.id}>{phase.name}</option>
+              ))}
+            </select>
+            {loadingPhases && (
+              <p className="mt-1 text-xs text-gray-500">Loading phases...</p>
+            )}
+          </div>
+
+          {/* Priority for Tasks */}
+          <div>
+            <label htmlFor="priority" className="block text-sm font-medium mb-2">
+              Priority
+            </label>
+            <select
+              id="priority"
+              value={formData.priority || 'Medium'}
+              onChange={(e) => handleChange('priority', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isLoading}
+            >
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+          </div>
+        </>
+      )}
       
       {/* Date Range - Only show for entities that support dates (not subtasks, userstories, usecases, clients) */}
       {entityType.toLowerCase() !== 'subtask' && 
@@ -385,13 +432,12 @@ export default function EntityForm({
             <label htmlFor="start_date" className="block text-sm font-medium mb-2">
               Start Date
             </label>
-            <input
-              type="date"
-              id="start_date"
+            <DateInput
               value={formData.start_date || ''}
-              onChange={(e) => handleChange('start_date', e.target.value)}
+              onChange={(value) => handleChange('start_date', value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isLoading}
+              placeholder="DD/MM/YYYY"
             />
           </div>
           
@@ -399,17 +445,17 @@ export default function EntityForm({
             <label htmlFor="end_date" className="block text-sm font-medium mb-2">
               End Date
             </label>
-            <input
-              type="date"
-              id="end_date"
+            <DateInput
               value={formData.end_date || ''}
-              onChange={(e) => handleChange('end_date', e.target.value)}
+              onChange={(value) => handleChange('end_date', value)}
+              min={formData.start_date || undefined}
               className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
                 errors.end_date 
                   ? 'border-red-500 focus:ring-red-500' 
                   : 'border-gray-300 focus:ring-blue-500'
               }`}
               disabled={isLoading}
+              placeholder="DD/MM/YYYY"
             />
             {errors.end_date && (
               <p className="mt-1 text-sm text-red-500">{errors.end_date}</p>

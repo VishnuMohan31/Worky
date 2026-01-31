@@ -369,6 +369,7 @@ export default function UsersPage() {
                   <option value="DevOps">DevOps</option>
                   <option value="Owner">Owner</option>
                   <option value="Contact Person">Contact Person</option>
+                  <option value="HR">HR</option>
                 </select>
               </div>
             </div>
@@ -456,6 +457,7 @@ export default function UsersPage() {
                   <option value="DevOps">DevOps</option>
                   <option value="Owner">Owner</option>
                   <option value="Contact Person">Contact Person</option>
+                  <option value="HR">HR</option>
                 </select>
               </div>
               <div>

@@ -381,10 +381,11 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
                             color: 'var(--text-color)'
                           }}
                         >
-                          <option value="Planning">Planning</option>
+                          <option value="Draft">Draft</option>
+                          <option value="In Review">In Review</option>
+                          <option value="Approved">Approved</option>
                           <option value="In Progress">In Progress</option>
                           <option value="Completed">Completed</option>
-                          <option value="On Hold">On Hold</option>
                         </select>
                       </div>
 
@@ -403,9 +404,10 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
                             color: 'var(--text-color)'
                           }}
                         >
-                          <option value="High">High</option>
-                          <option value="Medium">Medium</option>
                           <option value="Low">Low</option>
+                          <option value="Medium">Medium</option>
+                          <option value="High">High</option>
+                          <option value="Critical">Critical</option>
                         </select>
                       </div>
                     </div>

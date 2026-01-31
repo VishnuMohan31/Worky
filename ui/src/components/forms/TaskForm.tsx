@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import EntityForm, { EntityFormData } from './EntityForm'
+import DateInput from '../common/DateInput'
 import type { TaskFormData, Phase, User } from '../../types/entities'
 import api from '../../services/api'
 
@@ -253,17 +254,17 @@ export default function TaskForm({
           <label htmlFor="due_date" className="block text-sm font-medium mb-2">
             Due Date
           </label>
-          <input
-            type="date"
-            id="due_date"
+          <DateInput
             value={formData.due_date || ''}
-            onChange={(e) => handleChange('due_date', e.target.value)}
+            onChange={(value) => handleChange('due_date', value)}
+            min={formData.start_date || undefined}
             className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
               errors.due_date 
                 ? 'border-red-500 focus:ring-red-500' 
                 : 'border-gray-300 focus:ring-blue-500'
             }`}
             disabled={isLoading}
+            placeholder="DD/MM/YYYY"
           />
           {errors.due_date && (
             <p className="mt-1 text-sm text-red-500">{errors.due_date}</p>

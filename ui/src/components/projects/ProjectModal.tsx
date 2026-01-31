@@ -100,24 +100,21 @@ export default function ProjectModal({
       let endDate: Date
       
       try {
-        // Handle both formats
-        if (formData.start_date.includes('/')) {
-          // DD/MM/YYYY format
-          const apiStartDate = formatDateForAPI(formData.start_date)
-          startDate = new Date(apiStartDate + 'T00:00:00')
-        } else {
-          // YYYY-MM-DD format
-          startDate = new Date(formData.start_date + 'T00:00:00')
+        // Helper function to parse dates consistently
+        const parseDate = (dateStr: string): Date => {
+          if (dateStr.includes('/')) {
+            // DD/MM/YYYY format
+            const [day, month, year] = dateStr.split('/')
+            return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+          } else if (dateStr.includes('-')) {
+            // YYYY-MM-DD format
+            return new Date(dateStr + 'T00:00:00')
+          }
+          return new Date(dateStr)
         }
         
-        if (formData.end_date.includes('/')) {
-          // DD/MM/YYYY format
-          const apiEndDate = formatDateForAPI(formData.end_date)
-          endDate = new Date(apiEndDate + 'T00:00:00')
-        } else {
-          // YYYY-MM-DD format
-          endDate = new Date(formData.end_date + 'T00:00:00')
-        }
+        startDate = parseDate(formData.start_date)
+        endDate = parseDate(formData.end_date)
         
         if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && endDate < startDate) {
           setError('End date cannot be before start date')
@@ -134,11 +131,37 @@ export default function ProjectModal({
     try {
       let projectId: string
       
+      // Helper function to convert date to DD/MM/YYYY format for API
+      const convertDateForProjectAPI = (dateStr: string): string => {
+        if (!dateStr) return ''
+        
+        // If already in DD/MM/YYYY format, return as is
+        if (dateStr.includes('/')) {
+          return dateStr
+        }
+        
+        // If in YYYY-MM-DD format, convert to DD/MM/YYYY
+        if (dateStr.includes('-') && dateStr.length === 10) {
+          const [year, month, day] = dateStr.split('-')
+          return `${day}/${month}/${year}`
+        }
+        
+        return dateStr
+      }
+      
+      // Prepare form data with proper date formatting for API
+      const apiFormData = {
+        ...formData,
+        // Convert dates to DD/MM/YYYY format for the API
+        start_date: convertDateForProjectAPI(formData.start_date),
+        end_date: convertDateForProjectAPI(formData.end_date)
+      }
+      
       if (isEditMode) {
-        await api.updateEntity('project', project.id, formData)
+        await api.updateEntity('project', project.id, apiFormData)
         projectId = project.id
       } else {
-        const newProject = await api.createEntity('project', formData)
+        const newProject = await api.createEntity('project', apiFormData)
         projectId = newProject.id
       }
       
@@ -186,23 +209,21 @@ export default function ProjectModal({
     if (!formData.start_date || !formData.end_date) return true
     
     try {
-      let startDate: Date
-      let endDate: Date
-      
-      // Handle both formats
-      if (formData.start_date.includes('/')) {
-        const apiStartDate = formatDateForAPI(formData.start_date)
-        startDate = new Date(apiStartDate + 'T00:00:00')
-      } else {
-        startDate = new Date(formData.start_date + 'T00:00:00')
+      // Helper function to parse dates consistently
+      const parseDate = (dateStr: string): Date => {
+        if (dateStr.includes('/')) {
+          // DD/MM/YYYY format
+          const [day, month, year] = dateStr.split('/')
+          return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+        } else if (dateStr.includes('-')) {
+          // YYYY-MM-DD format
+          return new Date(dateStr + 'T00:00:00')
+        }
+        return new Date(dateStr)
       }
       
-      if (formData.end_date.includes('/')) {
-        const apiEndDate = formatDateForAPI(formData.end_date)
-        endDate = new Date(apiEndDate + 'T00:00:00')
-      } else {
-        endDate = new Date(formData.end_date + 'T00:00:00')
-      }
+      const startDate = parseDate(formData.start_date)
+      const endDate = parseDate(formData.end_date)
       
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return true
       
