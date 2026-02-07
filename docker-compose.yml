@@ -47,6 +47,9 @@ services:
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       
+      # CORS
+      CORS_ORIGINS: "http://localhost:3007,http://localhost:3000,http://62.171.191.132:3007,http://62.171.191.132:8007"
+      
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_FILE: /app/logs/worky-api.log
