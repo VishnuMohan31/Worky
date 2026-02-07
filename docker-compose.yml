@@ -23,20 +23,6 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: worky-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - worky-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   api:
     build:
       context: ./api
@@ -56,8 +42,8 @@ services:
       DATABASE_USER: postgres
       DATABASE_PASSWORD: postgres
       
-      # Redis
-      REDIS_HOST: redis
+      # Redis - using host Redis on port 6379
+      REDIS_HOST: 172.17.0.1
       REDIS_PORT: 6379
       
       # Security
@@ -89,8 +75,6 @@ services:
       - worky-network
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
