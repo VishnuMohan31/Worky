@@ -10,7 +10,8 @@ from app.core.logging import setup_logging, StructuredLogger
 from app.core.exceptions import (
     WorkyException,
     worky_exception_handler,
-    generic_exception_handler
+    generic_exception_handler,
+    get_cors_headers
 )
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
@@ -96,7 +97,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "detail": error_details,
             "message": "Validation error: " + "; ".join([f"{e['field']}: {e['message']}" for e in error_details])
-        }
+        },
+        headers=get_cors_headers(request)
     )
 
 # Include API router

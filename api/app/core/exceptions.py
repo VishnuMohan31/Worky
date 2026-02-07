@@ -10,6 +10,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def get_cors_headers(request: Request) -> Dict[str, str]:
+    """
+    Get CORS headers for responses.
+    This ensures ALL responses (including errors) have proper CORS headers.
+    """
+    origin = request.headers.get("origin", "*")
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Expose-Headers": "*",
+    }
+
+
 class WorkyException(Exception):
     """Base exception class for Worky application errors."""
     
@@ -116,9 +131,6 @@ async def worky_exception_handler(request: Request, exc: WorkyException) -> JSON
         }
     )
     
-    # Get origin from request headers
-    origin = request.headers.get("origin", "*")
-    
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -130,12 +142,7 @@ async def worky_exception_handler(request: Request, exc: WorkyException) -> JSON
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
         },
-        headers={
-            "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-        }
+        headers=get_cors_headers(request)
     )
 
 
@@ -154,9 +161,6 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         }
     )
     
-    # Get origin from request headers
-    origin = request.headers.get("origin", "*")
-    
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -168,10 +172,5 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
         },
-        headers={
-            "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-        }
+        headers=get_cors_headers(request)
     )
