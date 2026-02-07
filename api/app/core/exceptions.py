@@ -116,6 +116,9 @@ async def worky_exception_handler(request: Request, exc: WorkyException) -> JSON
         }
     )
     
+    # Get origin from request headers
+    origin = request.headers.get("origin", "*")
+    
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -126,6 +129,12 @@ async def worky_exception_handler(request: Request, exc: WorkyException) -> JSON
                 "request_id": request_id,
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
+        },
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
         }
     )
 
@@ -145,6 +154,9 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         }
     )
     
+    # Get origin from request headers
+    origin = request.headers.get("origin", "*")
+    
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -155,5 +167,11 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
                 "request_id": request_id,
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
+        },
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
         }
     )
