@@ -22,9 +22,9 @@ else
     DOCKER="docker"
 fi
 
-# Start Database and API via Docker
+# Start all services (Database, API, and UI) via Docker
 echo ""
-echo "1️⃣ Starting Database and API (Docker)..."
+echo "1️⃣ Starting all services (Database, API, UI) via Docker..."
 "$DOCKER_COMPOSE" up -d --build
 
 if [ $? -ne 0 ]; then
@@ -32,12 +32,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "✅ Database and API started"
+echo "✅ All services started (Database, API, UI)"
 
 # Wait for services to be healthy
 echo ""
 echo "2️⃣ Waiting for services to be healthy..."
-sleep 10
+sleep 15
 
 # Check database
 DB_READY=false
@@ -251,27 +251,12 @@ else
     echo "⚠️  API may still be starting"
 fi
 
-# Start UI
-echo ""
-echo "4️⃣ Starting UI..."
-cd "$PROJECT_ROOT/ui"
-
-# Install dependencies if node_modules doesn't exist
-if [ ! -d "node_modules" ]; then
-    echo "📦 Installing UI dependencies..."
-    npm install
+# Check UI
+if curl -s http://localhost:3007 > /dev/null 2>&1; then
+    echo "✅ UI is healthy"
+else
+    echo "⚠️  UI may still be starting"
 fi
-
-# Create logs directory if it doesn't exist
-mkdir -p "$PROJECT_ROOT/logs"
-
-# Start UI in background
-nohup npm run dev > "$PROJECT_ROOT/logs/ui.log" 2>&1 &
-UI_PID=$!
-echo "✅ UI started (PID: $UI_PID)"
-
-# Return to project root
-cd "$PROJECT_ROOT"
 
 echo ""
 echo "============================================"
@@ -288,9 +273,10 @@ echo "   Email:    admin@datalegos.com"
 echo "   Password: password"
 echo ""
 echo "📝 Logs:"
-echo "   API: $DOCKER logs worky-api -f"
-echo "   DB:  $DOCKER logs worky-postgres -f"
-echo "   UI:  tail -f logs/ui.log"
+echo "   All:  $DOCKER_COMPOSE logs -f"
+echo "   API:  $DOCKER logs worky-api -f"
+echo "   DB:   $DOCKER logs worky-postgres -f"
+echo "   UI:   $DOCKER logs worky-ui -f"
 echo ""
 echo "🛑 Stop:"
 echo "   $SCRIPT_DIR/stop_all.sh"

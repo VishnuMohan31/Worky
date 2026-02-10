@@ -1,29 +1,43 @@
 # Multi-stage build for production
 FROM node:18-alpine AS builder
 
+# Build arguments for environment variables
+ARG VITE_API_BASE_URL=http://62.171.191.132:8007/api/v1
+ARG VITE_API_TIMEOUT=30000
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (using npm install for better network tolerance)
-RUN npm install --legacy-peer-deps --prefer-offline --no-audit
+# Install dependencies
+RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
 
-# Build for production (skip TypeScript checking)
+# Set environment variables for build
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_API_TIMEOUT=$VITE_API_TIMEOUT
+
+# Build for production (will use ENV variables)
 RUN npm run build:prod
 
-# Production stage
-FROM nginx:alpine
+# Production stage - serve with simple HTTP server
+FROM node:18-alpine
 
-# Copy built files
-COPY --from=builder /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Install serve package globally
+RUN npm install -g serve
+
+# Copy built files from builder
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+# Serve the built files on port 80
+CMD ["serve", "-s", "dist", "-l", "80"]
+
+
+

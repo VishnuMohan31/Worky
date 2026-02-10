@@ -10,20 +10,6 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Navigate to project root
 cd "$PROJECT_ROOT"
 
-# Stop UI (kill any npm/node processes for Vite on port 3007)
-echo ""
-echo "1️⃣ Stopping UI..."
-# Find and kill process on port 3007
-UI_PID=$(lsof -ti:3007 2>/dev/null)
-if [ -n "$UI_PID" ]; then
-    kill -9 $UI_PID 2>/dev/null
-    echo "✅ UI stopped (killed PID: $UI_PID)"
-else
-    # Also try to find npm dev processes
-    pkill -f "vite" 2>/dev/null
-    echo "✅ UI stopped"
-fi
-
 # Set up Docker commands (use Windows Docker if in WSL)
 if [ -f "/mnt/c/Program Files/Docker/Docker/resources/bin/docker-compose.exe" ]; then
     DOCKER_COMPOSE="/mnt/c/Program Files/Docker/Docker/resources/bin/docker-compose.exe"
@@ -33,13 +19,12 @@ else
     DOCKER_COMPOSE="docker compose"
 fi
 
-# Stop Docker services
-echo ""
-echo "2️⃣ Stopping Docker services (API and Database)..."
+# Stop all Docker services (DB, API, UI)
+echo "🛑 Stopping all Docker services..."
 "$DOCKER_COMPOSE" down
 
 if [ $? -eq 0 ]; then
-    echo "✅ Docker services stopped"
+    echo "✅ All Docker services stopped"
 else
     echo "⚠️  Some services may not have stopped cleanly"
 fi
