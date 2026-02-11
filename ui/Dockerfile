@@ -2,7 +2,8 @@
 FROM node:18-alpine AS builder
 
 # Build arguments for environment variables
-ARG VITE_API_BASE_URL=http://62.171.191.132:8007/api/v1
+# Can be overridden during build with --build-arg
+ARG VITE_API_BASE_URL=http://localhost:8007/api/v1
 ARG VITE_API_TIMEOUT=30000
 
 WORKDIR /app

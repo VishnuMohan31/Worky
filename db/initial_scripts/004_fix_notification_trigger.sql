@@ -10,7 +10,7 @@
 DROP FUNCTION IF EXISTS create_default_notification_preferences() CASCADE;
 
 CREATE OR REPLACE FUNCTION create_default_notification_preferences()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     -- Check if notification_preferences table exists and has the required enum type
     IF EXISTS (
@@ -39,7 +39,7 @@ BEGIN
     
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- Recreate the trigger if it doesn't exist
 DROP TRIGGER IF EXISTS trigger_create_default_notification_preferences ON users;
@@ -56,7 +56,7 @@ CREATE TRIGGER trigger_create_default_notification_preferences
 -- before the notification system was fully set up
 -- ============================================================================
 
-DO $
+DO $$
 BEGIN
     -- Only run if both tables exist
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'notification_preferences') 
@@ -88,4 +88,4 @@ BEGIN
         RAISE NOTICE 'Created missing notification preferences for existing users';
     END IF;
 END;
-$;
+$$;

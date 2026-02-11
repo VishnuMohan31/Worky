@@ -56,6 +56,9 @@ services:
     build:
       context: ./ui
       dockerfile: Dockerfile.prod
+      args:
+        # Set this to your server's IP or domain
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://62.171.191.132:8007/api/v1}
     container_name: worky-ui-prod
     ports:
       - "3007:80"
