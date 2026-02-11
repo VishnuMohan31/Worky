@@ -1,14 +1,25 @@
 #!/bin/bash
-# Start All Worky Services (Bash)
+# Start All Worky Services (Bash) - Local Development
 # Usage: ./start_all.sh
 
-echo "🚀 Starting All Worky Services..."
+echo "🚀 Starting All Worky Services (Local Development)..."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Navigate to project root
 cd "$PROJECT_ROOT"
+
+# Load local environment variables
+if [ -f "$PROJECT_ROOT/.env.local" ]; then
+    echo "📋 Loading local development environment..."
+    export $(cat "$PROJECT_ROOT/.env.local" | grep -v '^#' | xargs)
+else
+    echo "⚠️  Warning: .env.local not found, using defaults"
+    export VITE_API_BASE_URL=http://localhost:8007/api/v1
+fi
+
+echo "   API URL: $VITE_API_BASE_URL"
 
 # Set up Docker commands (use Windows Docker if in WSL)
 if [ -f "/mnt/c/Program Files/Docker/Docker/resources/bin/docker-compose.exe" ]; then

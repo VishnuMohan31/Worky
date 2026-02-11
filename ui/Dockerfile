@@ -2,8 +2,8 @@
 FROM node:18-alpine AS builder
 
 # Build arguments for environment variables
-# Can be overridden during build with --build-arg
-ARG VITE_API_BASE_URL=http://localhost:8007/api/v1
+# MUST be passed during docker build with --build-arg
+ARG VITE_API_BASE_URL
 ARG VITE_API_TIMEOUT=30000
 
 WORKDIR /app
@@ -14,12 +14,18 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install --legacy-peer-deps
 
-# Copy source code
+# Copy source code (excluding .env files)
 COPY . .
+
+# Remove any .env files to prevent interference
+RUN rm -f .env .env.local .env.production .env.development
 
 # Set environment variables for build
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_API_TIMEOUT=$VITE_API_TIMEOUT
+
+# Verify the API URL is set correctly before building
+RUN echo "Building UI with API URL: $VITE_API_BASE_URL"
 
 # Build for production (will use ENV variables)
 RUN npm run build:prod

@@ -33,7 +33,6 @@ import PhasesPage from './pages/PhasesPage'
 import OrganizationsPage from './pages/OrganizationsPage'
 import SprintConfigurationPage from './pages/SprintConfigurationPage'
 import AuditHistoryTestPage from './pages/AuditHistoryTestPage'
-import BugDetails from './components/bugs/BugDetails'
 import TestRunsPage from './pages/TestRunsPage'
 import TestCasesPage from './pages/TestCasesPage'
 import BugLifecyclePage from './pages/BugLifecyclePage'
@@ -71,7 +70,6 @@ function App() {
                   <Route path="kanban" element={<KanbanPage />} />
                   <Route path="sprint" element={<SprintPage />} />
                   <Route path="bugs" element={<BugsPage />} />
-                  <Route path="bugs/:id" element={<BugDetails />} />
                   <Route path="reports" element={<ReportsPage />} />
                   
                   {/* TODO Page */}
