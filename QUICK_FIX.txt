@@ -1,0 +1,50 @@
+QUICK FIX FOR UI API URL ISSUE
+===================================
+
+The UI was built without the VITE_API_BASE_URL environment variable,
+so it's using a relative path "/api/v1" instead of "http://localhost:8007/api/v1".
+
+LOCAL DEVELOPMENT FIX:
+----------------------
+Run these commands in your terminal:
+
+cd D:\Project\Worky
+docker compose down
+docker rmi worky-ui
+set VITE_API_BASE_URL=http://localhost:8007/api/v1
+docker compose build --no-cache ui
+docker compose up -d
+
+Then refresh your browser at http://localhost:3007
+
+
+PRODUCTION SERVER FIX:
+----------------------
+On your remote server (62.171.191.132), run:
+
+cd /opt/Worky
+docker compose down
+docker rmi worky-ui
+export VITE_API_BASE_URL=http://62.171.191.132:8007/api/v1
+docker compose build --no-cache ui
+docker compose up -d
+
+Then access http://62.171.191.132:3007
+
+
+WHY THIS HAPPENED:
+------------------
+The Dockerfile was updated to REQUIRE the VITE_API_BASE_URL environment variable,
+but when you ran "docker compose up", it wasn't set, so Vite used its default
+value from vite.config.ts which is "/api/v1" (a relative path).
+
+The browser interprets "/api/v1" as relative to the current page URL:
+- On localhost:3007, it becomes http://localhost:3007/api/v1 (WRONG)
+- Should be: http://localhost:8007/api/v1 (CORRECT)
+
+
+PERMANENT FIX:
+--------------
+Always use the start scripts which load the environment variables:
+- Local: ./App_Development_scripts/start_all.sh
+- Production: ./deploy_contabo.sh

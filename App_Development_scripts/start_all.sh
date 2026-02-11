@@ -20,6 +20,10 @@ else
 fi
 
 echo "   API URL: $VITE_API_BASE_URL"
+echo ""
+echo "🧹 Cleaning up old UI build..."
+docker rmi worky-ui 2>/dev/null || echo "No existing UI image"
+echo ""
 
 # Set up Docker commands (use Windows Docker if in WSL)
 if [ -f "/mnt/c/Program Files/Docker/Docker/resources/bin/docker-compose.exe" ]; then
