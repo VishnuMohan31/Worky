@@ -83,11 +83,11 @@ fi
 # Build and start all services
 echo ""
 echo "🔧 Building services..."
-docker compose build --no-cache
+VITE_API_BASE_URL="$VITE_API_BASE_URL" docker compose build --no-cache
 
 echo ""
 echo "🚀 Starting all services..."
-docker compose up -d
+VITE_API_BASE_URL="$VITE_API_BASE_URL" docker compose up -d
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to start..."
