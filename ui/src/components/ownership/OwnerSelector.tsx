@@ -4,6 +4,7 @@
  */
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface User {
   id: string
@@ -18,11 +19,31 @@ interface OwnerSelectorProps {
   onOwnersChange: (ownerIds: string[]) => void
   disabled?: boolean
   existingEntityId?: string // For edit mode - load existing owners
+  userRole?: string // User role to check permissions (optional, will use auth context if not provided)
 }
 
-export default function OwnerSelector({ entityType, selectedOwners, onOwnersChange, disabled = false, existingEntityId }: OwnerSelectorProps) {
+export default function OwnerSelector({ entityType, selectedOwners, onOwnersChange, disabled = false, existingEntityId, userRole: userRoleProp }: OwnerSelectorProps) {
+  // VERSION CHECK - If you see this, the new code is loaded
+  console.log('🔥 OwnerSelector Component Loaded - Version 2.1 - Build:', new Date().toISOString())
+  
+  const { user } = useAuth()
   const [availableUsers, setAvailableUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
+  
+  // Get user role from auth context if not provided as prop
+  const userRole = userRoleProp || user?.role
+  
+  // Check if user can manage owners (only Admin and HR can manage owners for ALL entity types)
+  const canManageOwners = userRole === 'Admin' || userRole === 'HR'
+  
+  // Debug: Log the userRole and permission check - VERSION 2.0
+  console.log('=== OwnerSelector DEBUG v2.0 ===')
+  console.log('userRole:', userRole)
+  console.log('entityType:', entityType)
+  console.log('canManageOwners:', canManageOwners)
+  console.log('user from context:', user)
+  console.log('userRoleProp:', userRoleProp)
+  console.log('================================')
   const [searchTerm, setSearchTerm] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [existingOwners, setExistingOwners] = useState<User[]>([])
@@ -61,7 +82,7 @@ export default function OwnerSelector({ entityType, selectedOwners, onOwnersChan
       const users = await api.getUsers()
       
       // Show all active users - any role can be assigned as owner
-      const eligible = users.filter((user: User) => 
+      const eligible = users.filter((user: any) => 
         user.full_name && user.is_active
       )
       
@@ -146,17 +167,20 @@ export default function OwnerSelector({ entityType, selectedOwners, onOwnersChan
                   <span className="text-xs font-bold">{user.full_name.charAt(0).toUpperCase()}</span>
                 </div>
                 <span className="font-medium">{user.full_name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleToggleOwner(user.id)}
-                  className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full p-0.5 transition-colors"
-                  disabled={disabled}
-                  title="Remove owner"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                {/* Only show remove button for Admin and HR for all entity types */}
+                {canManageOwners && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleOwner(user.id)}
+                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+                    disabled={disabled}
+                    title="Remove owner"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -165,19 +189,20 @@ export default function OwnerSelector({ entityType, selectedOwners, onOwnersChan
         )}
       </div>
 
-      {/* Add Owner Button */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setShowDropdown(!showDropdown)}
-          className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors disabled:opacity-50"
-          disabled={disabled || loading}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add Owner
-        </button>
+      {/* Add Owner Button - Only show for Admin and HR for all entity types */}
+      {canManageOwners && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors disabled:opacity-50"
+            disabled={disabled || loading}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Owner
+          </button>
 
         {/* Dropdown */}
         {showDropdown && (
@@ -269,7 +294,8 @@ export default function OwnerSelector({ entityType, selectedOwners, onOwnersChan
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Help Text */}
       <p className="mt-2 text-xs text-gray-500">

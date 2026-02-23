@@ -144,8 +144,9 @@ export default function ProgramsPage() {
     setIsModalOpen(true)
   }
   
-  const handleModalSuccess = () => {
-    refetch()
+  const handleModalSuccess = async () => {
+    // Force a fresh refetch by canceling any in-flight requests
+    await refetch({ cancelRefetch: true })
   }
   
   // Get selected client for breadcrumb
@@ -406,6 +407,7 @@ export default function ProgramsPage() {
         selectedClientId={selectedClientId !== 'all' ? selectedClientId : undefined}
         clients={clients}
         isAdmin={isAdmin}
+        userRole={user?.role}
       />
     </div>
   )

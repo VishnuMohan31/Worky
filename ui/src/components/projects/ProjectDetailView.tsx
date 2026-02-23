@@ -20,13 +20,16 @@ interface ProjectDetail {
 }
 
 interface ProjectStats {
-  total_usecases: number
-  usecases_in_development: number
-  usecases_in_testing: number
-  usecases_completed: number
-  total_user_stories: number
-  total_tasks: number
+  status_counts: Record<string, number>
+  phase_distribution: any[]
+  rollup_counts: {
+    usecases: number
+    user_stories: number
+    tasks: number
+    subtasks: number
+  }
   completion_percentage: number
+  total_items: number
 }
 
 interface ProjectDetailViewProps {
@@ -473,7 +476,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                     <div className="grid grid-cols-4 gap-4">
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold" style={{ color: 'var(--text-color)' }}>
-                          {stats.total_usecases}
+                          {stats.rollup_counts.usecases}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           Total Use Cases
@@ -481,7 +484,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-blue-600">
-                          {stats.usecases_in_development}
+                          {stats.status_counts['In Development'] || stats.status_counts['Development'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           In Development
@@ -489,7 +492,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-yellow-600">
-                          {stats.usecases_in_testing}
+                          {stats.status_counts['In Testing'] || stats.status_counts['Testing'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           In Testing
@@ -497,7 +500,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-green-600">
-                          {stats.usecases_completed}
+                          {stats.status_counts['Completed'] || stats.status_counts['Done'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           Completed
@@ -528,7 +531,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                           Total User Stories
                         </span>
                         <span className="text-sm font-semibold" style={{ color: 'var(--text-color)' }}>
-                          {stats.total_user_stories}
+                          {stats.rollup_counts.user_stories}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -536,7 +539,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                           Total Tasks
                         </span>
                         <span className="text-sm font-semibold" style={{ color: 'var(--text-color)' }}>
-                          {stats.total_tasks}
+                          {stats.rollup_counts.tasks}
                         </span>
                       </div>
                     </div>

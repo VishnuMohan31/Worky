@@ -80,9 +80,8 @@ async def get_entity_notes(
             entity_uuid = UUID(entity_id) if len(entity_id) > 20 else entity_id
             await service._verify_entity_access(entity_type.lower(), entity_uuid, current_user)
         except Exception as e:
-            logger.log_system(
-                level="warning",
-                message=f"Access denied for user {current_user.id} to {entity_type} {entity_id}",
+            logger.warning(
+                f"Access denied for user {current_user.id} to {entity_type} {entity_id}",
                 error=str(e)
             )
             raise HTTPException(
@@ -196,9 +195,8 @@ async def create_entity_note(
             entity_uuid = UUID(entity_id) if len(entity_id) > 20 else entity_id
             await service._verify_entity_access(entity_type.lower(), entity_uuid, current_user)
         except Exception as e:
-            logger.log_system(
-                level="warning",
-                message=f"Access denied for user {current_user.id} to create note on {entity_type} {entity_id}",
+            logger.warning(
+                f"Access denied for user {current_user.id} to create note on {entity_type} {entity_id}",
                 error=str(e)
             )
             raise HTTPException(
@@ -329,9 +327,8 @@ async def update_decision_status(
             entity_uuid = UUID(entity_id) if len(entity_id) > 20 else entity_id
             await service._verify_entity_access(entity_type.lower(), entity_uuid, current_user)
         except Exception as e:
-            logger.log_system(
-                level="warning",
-                message=f"Access denied for user {current_user.id} to update decision on {entity_type} {entity_id}",
+            logger.warning(
+                f"Access denied for user {current_user.id} to update decision on {entity_type} {entity_id}",
                 error=str(e)
             )
             raise HTTPException(
@@ -367,3 +364,139 @@ async def update_decision_status(
         "is_decision": note.is_decision,
         "decision_status": note.decision_status
     }
+
+
+
+@router.put("/{entity_type}/{entity_id}/notes/{note_id}", response_model=EntityNoteResponse)
+async def update_entity_note(
+    entity_type: str = Path(..., description="Entity type"),
+    entity_id: str = Path(..., description="Entity ID"),
+    note_id: str = Path(..., description="Note ID"),
+    note_update: EntityNoteCreate = ...,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update an existing note.
+    
+    Only the creator or Admin can update a note.
+    
+    Args:
+        entity_type: Type of entity
+        entity_id: ID of the entity
+        note_id: ID of the note
+        note_update: Updated note content
+        
+    Returns:
+        Updated note
+        
+    Raises:
+        403: Access denied (not creator or admin)
+        404: Note not found
+    """
+    # Get the note
+    result = await db.execute(
+        select(EntityNote).options(joinedload(EntityNote.creator)).where(EntityNote.id == note_id)
+    )
+    note = result.scalar_one_or_none()
+    
+    if not note:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Note not found"
+        )
+    
+    # Check permission: only creator or Admin can update
+    if note.created_by != current_user.id and current_user.role != "Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only edit your own notes"
+        )
+    
+    # Update note
+    note.note_text = note_update.note_text
+    if note_update.is_decision is not None:
+        note.is_decision = note_update.is_decision
+    if note_update.decision_status is not None:
+        note.decision_status = note_update.decision_status
+    
+    await db.commit()
+    await db.refresh(note)
+    
+    logger.info(
+        f"Note {note_id} updated by user {current_user.id}",
+        user_id=str(current_user.id),
+        entity_type=entity_type,
+        entity_id=entity_id
+    )
+    
+    return {
+        "id": str(note.id),
+        "entity_type": note.entity_type,
+        "entity_id": note.entity_id,
+        "note_text": note.note_text,
+        "created_by": str(note.created_by),
+        "created_at": note.created_at,
+        "creator_name": note.creator.full_name if note.creator else "Unknown",
+        "creator_email": note.creator.email if note.creator else "",
+        "is_decision": note.is_decision,
+        "decision_status": note.decision_status if note.is_decision else None
+    }
+
+
+@router.delete("/{entity_type}/{entity_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_entity_note(
+    entity_type: str = Path(..., description="Entity type"),
+    entity_id: str = Path(..., description="Entity ID"),
+    note_id: str = Path(..., description="Note ID"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete an existing note.
+    
+    Only the creator or Admin can delete a note.
+    
+    Args:
+        entity_type: Type of entity
+        entity_id: ID of the entity
+        note_id: ID of the note
+        
+    Returns:
+        204 No Content on success
+        
+    Raises:
+        403: Access denied (not creator or admin)
+        404: Note not found
+    """
+    # Get the note
+    result = await db.execute(
+        select(EntityNote).where(EntityNote.id == note_id)
+    )
+    note = result.scalar_one_or_none()
+    
+    if not note:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Note not found"
+        )
+    
+    # Check permission: only creator or Admin can delete
+    if note.created_by != current_user.id and current_user.role != "Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own notes"
+        )
+    
+    # Delete note
+    await db.delete(note)
+    await db.commit()
+    
+    logger.info(
+        f"Note {note_id} deleted by user {current_user.id}",
+        user_id=str(current_user.id),
+        entity_type=entity_type,
+        entity_id=entity_id
+    )
+    
+    return None

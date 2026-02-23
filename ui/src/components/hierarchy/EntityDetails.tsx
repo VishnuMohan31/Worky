@@ -278,6 +278,13 @@ export default function EntityDetails({ entity, type, compact = false }: EntityD
           </div>
         )}
         
+        {entity.created_by && (
+          <div>
+            <dt className="text-sm font-medium text-gray-500">Created By</dt>
+            <dd className="mt-1 text-sm text-gray-900">{entity.created_by_name || entity.createdByName || entity.created_by}</dd>
+          </div>
+        )}
+        
         {entity.estimated_hours !== undefined && (
           <div>
             <dt className="text-sm font-medium text-gray-500">Estimated Hours</dt>

@@ -23,12 +23,15 @@ interface UseCaseDetail {
 }
 
 interface UseCaseStats {
-  total_user_stories: number
-  user_stories_in_progress: number
-  user_stories_in_testing: number
-  user_stories_completed: number
-  total_tasks: number
+  status_counts: Record<string, number>
+  phase_distribution: any[]
+  rollup_counts: {
+    user_stories: number
+    tasks: number
+    subtasks: number
+  }
   completion_percentage: number
+  total_items: number
 }
 
 interface UseCaseDetailViewProps {
@@ -448,7 +451,7 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
                     <div className="grid grid-cols-4 gap-4">
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold" style={{ color: 'var(--text-color)' }}>
-                          {stats.total_user_stories}
+                          {stats.rollup_counts.user_stories}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           Total Stories
@@ -456,7 +459,7 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-blue-600">
-                          {stats.user_stories_in_progress}
+                          {stats.status_counts['In Progress'] || stats.status_counts['Planning'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           In Progress
@@ -464,7 +467,7 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-yellow-600">
-                          {stats.user_stories_in_testing}
+                          {stats.status_counts['In Testing'] || stats.status_counts['Testing'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           In Testing
@@ -472,7 +475,7 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-green-600">
-                          {stats.user_stories_completed}
+                          {stats.status_counts['Completed'] || stats.status_counts['Done'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           Completed
@@ -501,7 +504,7 @@ const UseCaseDetailView: React.FC<UseCaseDetailViewProps> = ({
                           Total Tasks
                         </span>
                         <span className="text-sm font-semibold" style={{ color: 'var(--text-color)' }}>
-                          {stats.total_tasks}
+                          {stats.rollup_counts.tasks}
                         </span>
                       </div>
                     </div>

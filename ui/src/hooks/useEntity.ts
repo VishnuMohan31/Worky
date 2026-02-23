@@ -81,6 +81,12 @@ export function useEntityList(type: EntityType, filters?: Record<string, any>) {
   return useQuery({
     queryKey: entityKeys.list(type, filters),
     queryFn: () => api.getEntityList(type, filters),
+    // Set staleTime to 0 to ensure fresh data after mutations
+    staleTime: 0,
+    // Always refetch when component mounts to ensure latest data
+    refetchOnMount: 'always',
+    // Refetch when window regains focus
+    refetchOnWindowFocus: true,
   })
 }
 

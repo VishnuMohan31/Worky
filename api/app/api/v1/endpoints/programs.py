@@ -58,7 +58,7 @@ async def list_programs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List programs with optional filters."""
+    """List programs with optional filters. All users can see all programs."""
     
     query = select(Program).where(Program.is_deleted == False)
     
@@ -68,9 +68,8 @@ async def list_programs(
     if status:
         query = query.where(Program.status == status)
     
-    # Apply client-level filtering for non-admin users
-    if current_user.role != "Admin":
-        query = query.where(Program.client_id == current_user.client_id)
+    # All users can see all programs (no client-level filtering)
+    # This matches the requirement: "every user should see the clients and programs"
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)

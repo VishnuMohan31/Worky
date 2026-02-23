@@ -70,6 +70,14 @@ async def create_assignment(
     """Create a new assignment - allows multiple users with same role, prevents duplicate user+role combinations."""
     
     try:
+        # Check if user is trying to assign owner - only Admin and HR can assign owners to any entity
+        if (assignment_data.assignment_type == "owner" and 
+            current_user.role not in ["Admin", "HR"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Admin and HR users can assign owners"
+            )
+        
         # Validate user exists
         user_result = await db.execute(select(User).where(User.id == assignment_data.user_id))
         user = user_result.scalar_one_or_none()
@@ -390,6 +398,14 @@ async def delete_assignment(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Assignment not found"
+        )
+    
+    # Check if user is trying to remove owner - only Admin and HR can remove owners from any entity
+    if (assignment.assignment_type == "owner" and 
+        current_user.role not in ["Admin", "HR"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Admin and HR users can remove owners"
         )
     
     try:

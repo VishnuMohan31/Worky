@@ -59,11 +59,19 @@ async def list_tasks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List tasks with optional filters."""
+    """List tasks with optional filters. Only shows tasks where user is assigned or is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
+    from sqlalchemy.orm import aliased
     
-    # Select only columns that exist in the database
-    # Note: sprint_id may not exist yet, so we handle it in serialization
-    query = select(Task).where(Task.is_deleted == False)
+    # Create aliases for creator and assignee
+    Creator = aliased(User)
+    Assignee = aliased(User)
+    
+    # Select tasks with creator and assignee information
+    query = select(Task, Creator.full_name.label('creator_name'), Assignee.full_name.label('assignee_name'))\
+        .outerjoin(Creator, Task.created_by == Creator.id)\
+        .outerjoin(Assignee, Task.assigned_to == Assignee.id)\
+        .where(Task.is_deleted == False)
     
     # Apply filters
     if user_story_id:
@@ -75,24 +83,52 @@ async def list_tasks(
     if priority:
         query = query.where(Task.priority == priority)
     
-    # Apply client-level filtering for non-admin users
-    if current_user.role != "Admin":
-        query = query.join(UserStory, Task.user_story_id == UserStory.id)\
-                     .join(Usecase, UserStory.usecase_id == Usecase.id)\
-                     .join(Project, Usecase.project_id == Project.id)\
-                     .join(Program, Project.program_id == Program.id)\
-                     .where(Program.client_id == current_user.client_id)
+    # Apply team-based and assignment-based access control
+    access_control = AccessControlService(db)
+    # Note: We need to extract just the Task part for access control
+    task_query = select(Task).where(Task.is_deleted == False)
+    if user_story_id:
+        task_query = task_query.where(Task.user_story_id == user_story_id)
+    if assigned_to:
+        task_query = task_query.where(Task.assigned_to == assigned_to)
+    if status:
+        task_query = task_query.where(Task.status == status)
+    if priority:
+        task_query = task_query.where(Task.priority == priority)
     
-    query = query.offset(skip).limit(limit)
+    task_query = await access_control.filter_tasks_by_access(current_user, task_query)
+    task_query = task_query.offset(skip).limit(limit)
+    
+    # Get accessible task IDs
+    task_result = await db.execute(task_query)
+    accessible_tasks = task_result.scalars().all()
+    accessible_task_ids = [t.id for t in accessible_tasks]
+    
+    if not accessible_task_ids:
+        return []
+    
+    # Now get full task data with user names
+    query = select(Task, Creator.full_name.label('creator_name'), Assignee.full_name.label('assignee_name'))\
+        .outerjoin(Creator, Task.created_by == Creator.id)\
+        .outerjoin(Assignee, Task.assigned_to == Assignee.id)\
+        .where(Task.id.in_(accessible_task_ids))
+    
     result = await db.execute(query)
-    tasks = result.scalars().all()
+    rows = result.all()
     
-    # Convert tasks to response with DD/MM/YYYY dates
+    # Convert tasks to response with DD/MM/YYYY dates and user names
     response_list = []
-    for task in tasks:
+    for row in rows:
+        task = row[0]
+        creator_name = row[1]
+        assignee_name = row[2]
+        
         try:
             # Convert dates to DD/MM/YYYY format for response
             task_dict = convert_dates_for_response(task)
+            # Add user names
+            task_dict['created_by_name'] = creator_name
+            task_dict['assigned_to_name'] = assignee_name
             # Ensure sprint_id is set to None if column doesn't exist
             if not hasattr(task, 'sprint_id'):
                 task_dict['sprint_id'] = None
@@ -111,19 +147,31 @@ async def get_task(
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific task by ID."""
+    from sqlalchemy.orm import aliased
+    
+    # Create aliases for creator and assignee
+    Creator = aliased(User)
+    Assignee = aliased(User)
     
     result = await db.execute(
-        select(Task).where(
+        select(Task, Creator.full_name.label('creator_name'), Assignee.full_name.label('assignee_name'))
+        .outerjoin(Creator, Task.created_by == Creator.id)
+        .outerjoin(Assignee, Task.assigned_to == Assignee.id)
+        .where(
             and_(
                 Task.id == task_id,
                 Task.is_deleted == False
             )
         )
     )
-    task = result.scalar_one_or_none()
+    row = result.one_or_none()
     
-    if not task:
+    if not row:
         raise ResourceNotFoundException("Task", str(task_id))
+    
+    task = row[0]
+    creator_name = row[1]
+    assignee_name = row[2]
     
     # Check access
     if current_user.role != "Admin":
@@ -146,6 +194,8 @@ async def get_task(
     
     # Convert dates to DD/MM/YYYY format for response
     task_dict = convert_dates_for_response(task)
+    task_dict['created_by_name'] = creator_name
+    task_dict['assigned_to_name'] = assignee_name
     return TaskResponse(**task_dict)
 
 
@@ -187,8 +237,16 @@ async def create_task(
         if not assignee_result.scalar_one_or_none():
             raise ResourceNotFoundException("User", str(task_data.assigned_to))
     
+    # Auto-assign non-admin users to their own tasks
+    assigned_to = task_data.assigned_to
+    if not assigned_to and current_user.role not in ["Admin", "HR"]:
+        assigned_to = current_user.id
+    
     # Convert DD/MM/YYYY dates to date objects for database
     task_dict = convert_dates_for_db(task_data.dict())
+    
+    # Override assigned_to with auto-assignment if applicable
+    task_dict['assigned_to'] = assigned_to
     
     task = Task(
         **task_dict,
@@ -200,16 +258,28 @@ async def create_task(
     await db.commit()
     await db.refresh(task)
     
+    # Get creator and assignee names
+    creator_name = current_user.full_name
+    assignee_name = None
+    if task.assigned_to:
+        assignee_result = await db.execute(
+            select(User.full_name).where(User.id == task.assigned_to)
+        )
+        assignee_name = assignee_result.scalar_one_or_none()
+    
     logger.log_activity(
         action="create_task",
         entity_type="task",
         entity_id=str(task.id),
         user_story_id=str(task.user_story_id),
-        assigned_to=str(task.assigned_to) if task.assigned_to else None
+        assigned_to=str(task.assigned_to) if task.assigned_to else None,
+        auto_assigned=assigned_to == current_user.id and not task_data.assigned_to
     )
     
     # Convert dates back to DD/MM/YYYY format for response
     task_dict = convert_dates_for_response(task)
+    task_dict['created_by_name'] = creator_name
+    task_dict['assigned_to_name'] = assignee_name
     return TaskResponse(**task_dict)
 
 

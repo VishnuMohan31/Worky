@@ -4,6 +4,7 @@
  */
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface Owner {
   id: string
@@ -29,11 +30,20 @@ interface OwnershipDisplayProps {
 }
 
 export default function OwnershipDisplay({ entityType, entityId, onOwnershipChange }: OwnershipDisplayProps) {
+  const { user } = useAuth()
   const [owners, setOwners] = useState<Owner[]>([])
   const [availableUsers, setAvailableUsers] = useState<User[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Check if user can manage owners (only Admin and HR)
+  const canManageOwners = user?.role === 'Admin' || user?.role === 'HR'
+  
+  // Debug logging
+  console.log('🔥 OwnershipDisplay - Version 2.1')
+  console.log('User role:', user?.role)
+  console.log('Can manage owners:', canManageOwners)
 
   // Load current owners
   useEffect(() => {
@@ -226,16 +236,19 @@ export default function OwnershipDisplay({ entityType, entityId, onOwnershipChan
                   <span className="font-semibold">{owner.name}</span>
                   <span className="text-xs text-blue-600">{owner.email}</span>
                 </div>
-                <button
-                  onClick={() => handleRemoveOwner(owner.assignmentId)}
-                  className="ml-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full p-1 transition-colors"
-                  disabled={loading}
-                  title="Remove owner"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                {/* Only show remove button for Admin and HR */}
+                {canManageOwners && (
+                  <button
+                    onClick={() => handleRemoveOwner(owner.assignmentId)}
+                    className="ml-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full p-1 transition-colors"
+                    disabled={loading}
+                    title="Remove owner"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -249,21 +262,22 @@ export default function OwnershipDisplay({ entityType, entityId, onOwnershipChan
         )}
       </div>
 
-      {/* Add Owner Section */}
-      <div className="relative">
-        <button
-          onClick={() => setShowDropdown(!showDropdown)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-          disabled={loading}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add Owner
-        </button>
+      {/* Add Owner Section - Only show for Admin and HR */}
+      {canManageOwners && (
+        <div className="relative">
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+            disabled={loading}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Owner
+          </button>
 
-        {/* Dropdown */}
-        {showDropdown && (
+          {/* Dropdown */}
+          {showDropdown && (
           <div className="absolute top-full left-0 mt-2 w-96 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
             <div className="p-4">
               {/* Search */}
@@ -339,6 +353,7 @@ export default function OwnershipDisplay({ entityType, entityId, onOwnershipChan
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

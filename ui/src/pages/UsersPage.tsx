@@ -64,6 +64,14 @@ export default function UsersPage() {
       alert('Please enter an email address')
       return
     }
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email.trim())) {
+      alert('Please enter a valid email address')
+      return
+    }
+    
     if (!formData.role) {
       alert('Please select a role')
       return
@@ -116,6 +124,14 @@ export default function UsersPage() {
       alert('Please enter an email address')
       return
     }
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email.trim())) {
+      alert('Please enter a valid email address')
+      return
+    }
+    
     if (!formData.role) {
       alert('Please select a role')
       return

@@ -30,24 +30,25 @@ class TeamService:
         self, 
         name: str,
         description: Optional[str],
-        project_id: str,
+        project_id: Optional[str],
         current_user: User
     ) -> Team:
         """
-        Create a new team for a project.
+        Create a new team, optionally assigned to a project.
         
         Requirements: 2.1, 2.2
         """
-        # Verify project exists and user has access
-        project_query = select(Project).where(Project.id == project_id)
-        project_result = await self.db.execute(project_query)
-        project = project_result.scalar_one_or_none()
-        
-        if not project:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Project not found"
-            )
+        # Verify project exists and user has access (only if project_id is provided)
+        if project_id:
+            project_query = select(Project).where(Project.id == project_id)
+            project_result = await self.db.execute(project_query)
+            project = project_result.scalar_one_or_none()
+            
+            if not project:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Project not found"
+                )
         
         # Check if user has permission to create teams for this project
         # For now, allow Admin, Project Manager, and Architect roles
@@ -61,22 +62,39 @@ class TeamService:
                 detail=f"Insufficient permissions to create teams. User role: {user_role}, Required: {allowed_roles}"
             )
         
-        # Check if team with same name already exists for this project
-        existing_team_query = select(Team).where(
-            and_(
-                Team.project_id == project_id,
-                Team.name == name,
-                Team.is_active == True
+        # Check if team with same name already exists (for this project if specified, or globally if not)
+        if project_id:
+            existing_team_query = select(Team).where(
+                and_(
+                    Team.project_id == project_id,
+                    Team.name == name,
+                    Team.is_active == True
+                )
             )
-        )
-        existing_team_result = await self.db.execute(existing_team_query)
-        existing_team = existing_team_result.scalar_one_or_none()
-        
-        if existing_team:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"An active team with the name '{name}' already exists for this project"
+            existing_team_result = await self.db.execute(existing_team_query)
+            existing_team = existing_team_result.scalar_one_or_none()
+            
+            if existing_team:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"An active team with the name '{name}' already exists for this project"
+                )
+        else:
+            # Check for duplicate team name globally when no project is specified
+            existing_team_query = select(Team).where(
+                and_(
+                    Team.name == name,
+                    Team.is_active == True
+                )
             )
+            existing_team_result = await self.db.execute(existing_team_query)
+            existing_team = existing_team_result.scalar_one_or_none()
+            
+            if existing_team:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"An active team with the name '{name}' already exists"
+                )
         
         # Create new team
         team = Team(

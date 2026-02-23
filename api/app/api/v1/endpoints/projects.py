@@ -61,7 +61,8 @@ async def list_projects(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List projects with optional filters."""
+    """List projects with optional filters. Only shows projects where user is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
     
     query = select(Project).options(selectinload(Project.program)).join(Program).where(Project.is_deleted == False)
     
@@ -71,9 +72,9 @@ async def list_projects(
     if status:
         query = query.where(Project.status == status)
     
-    # Apply client-level filtering for non-admin users
-    if current_user.role != "Admin":
-        query = query.where(Program.client_id == current_user.client_id)
+    # Apply team-based access control
+    access_control = AccessControlService(db)
+    query = await access_control.filter_projects_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
