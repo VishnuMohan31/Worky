@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
 import OwnershipDisplay from '../ownership/OwnershipDisplay'
@@ -35,6 +36,7 @@ interface ClientDetailViewProps {
 
 const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, onUpdate }) => {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [isInteracting, setIsInteracting] = useState(false)
@@ -46,6 +48,9 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
     phone: client.contact_phone,
     is_active: client.is_active
   })
+
+  // Check if user can edit (only Admin and HR)
+  const canEdit = user?.role === 'Admin' || user?.role === 'HR'
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -155,7 +160,7 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {!isEditing ? (
+            {!isEditing && canEdit ? (
               <button
                 onClick={() => setIsEditing(true)}
                 className="px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
@@ -166,7 +171,7 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
               >
                 Edit
               </button>
-            ) : (
+            ) : isEditing ? (
               <>
                 <button
                   onClick={handleCancel}
@@ -191,7 +196,7 @@ const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onClose, on
                   {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </>
-            )}
+            ) : null}
             <button 
               onClick={onClose}
               className="text-2xl hover:opacity-70 ml-2"

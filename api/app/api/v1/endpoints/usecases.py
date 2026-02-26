@@ -29,9 +29,9 @@ async def list_usecases(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List use cases with optional filters."""
-    
+    """List use cases with optional filters. Only shows use cases where user is assigned or is a team member (Admin excepted)."""
     from app.models.hierarchy import Program
+    from app.services.access_control_service import AccessControlService
     
     # Join through the hierarchy to apply client filtering
     query = select(Usecase).join(Project).join(Program).where(Usecase.is_deleted == False)
@@ -43,9 +43,9 @@ async def list_usecases(
     if priority:
         query = query.where(Usecase.priority == priority)
     
-    # Apply client-level filtering for non-admin users
-    if current_user.role != "Admin":
-        query = query.where(Program.client_id == current_user.client_id)
+    # Apply team-based and assignment-based access control
+    access_control = AccessControlService(db)
+    query = await access_control.filter_usecases_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)

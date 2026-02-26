@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import EntityNotes from '../hierarchy/EntityNotes'
 import ProjectTeamDisplay from './ProjectTeamDisplay'
@@ -20,13 +21,16 @@ interface ProjectDetail {
 }
 
 interface ProjectStats {
-  total_usecases: number
-  usecases_in_development: number
-  usecases_in_testing: number
-  usecases_completed: number
-  total_user_stories: number
-  total_tasks: number
+  status_counts: Record<string, number>
+  phase_distribution: any[]
+  rollup_counts: {
+    usecases: number
+    user_stories: number
+    tasks: number
+    subtasks: number
+  }
   completion_percentage: number
+  total_items: number
 }
 
 interface ProjectDetailViewProps {
@@ -39,10 +43,16 @@ interface ProjectDetailViewProps {
 
 const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId, programId, onClose, onUpdate }) => {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [stats, setStats] = useState<ProjectStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+  
+  // Check if user can edit (only Admin and HR)
+  const canEdit = user?.role === 'Admin' || user?.role === 'HR'
+  // Check if user can edit status (Admin, HR, or Product Manager)
+  const canEditStatus = user?.role === 'Admin' || user?.role === 'HR' || user?.role === 'Product Manager'
   // Helper to convert date from DD/MM/YYYY to YYYY-MM-DD for form inputs
   const convertDateToFormFormat = (dateStr?: string) => {
     if (!dateStr) return ''
@@ -230,7 +240,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {!isEditing ? (
+            {!isEditing && canEdit ? (
               <button
                 onClick={() => setIsEditing(true)}
                 className="px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
@@ -241,7 +251,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
               >
                 Edit
               </button>
-            ) : (
+            ) : isEditing ? (
               <>
                 <button
                   onClick={handleCancel}
@@ -266,7 +276,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                   {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </>
-            )}
+            ) : null}
             <button 
               onClick={onClose}
               className="text-2xl hover:opacity-70 ml-2"
@@ -436,6 +446,49 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       )}
                     </div>
                   </div>
+
+                  {/* Status Field */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                      Status
+                      {isEditing && !canEditStatus && (
+                        <span className="text-xs text-gray-500 ml-2">(Admin/HR/PM only)</span>
+                      )}
+                    </label>
+                    {isEditing ? (
+                      <>
+                        <select
+                          name="status"
+                          value={formData.status}
+                          onChange={handleInputChange}
+                          disabled={!canEditStatus}
+                          className="w-full px-4 py-2 rounded-md border disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          style={{ 
+                            backgroundColor: canEditStatus ? 'var(--surface-color)' : '#f3f4f6',
+                            borderColor: 'var(--border-color)',
+                            color: 'var(--text-color)'
+                          }}
+                        >
+                          <option value="Planning">Planning</option>
+                          <option value="Active">Active</option>
+                          <option value="On Hold">On Hold</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                        {!canEditStatus && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Only Admin, HR, and Product Manager can change project status
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-base" style={{ color: 'var(--text-color)' }}>
+                        <span className={`px-3 py-1 text-sm rounded ${getStatusColor(project.status)}`}>
+                          {project.status}
+                        </span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -473,7 +526,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                     <div className="grid grid-cols-4 gap-4">
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold" style={{ color: 'var(--text-color)' }}>
-                          {stats.total_usecases}
+                          {stats.rollup_counts.usecases}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           Total Use Cases
@@ -481,7 +534,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-blue-600">
-                          {stats.usecases_in_development}
+                          {stats.status_counts['In Development'] || stats.status_counts['Development'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           In Development
@@ -489,7 +542,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-yellow-600">
-                          {stats.usecases_in_testing}
+                          {stats.status_counts['In Testing'] || stats.status_counts['Testing'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           In Testing
@@ -497,7 +550,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                       </div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-color)' }}>
                         <p className="text-2xl font-bold text-green-600">
-                          {stats.usecases_completed}
+                          {stats.status_counts['Completed'] || stats.status_counts['Done'] || 0}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                           Completed
@@ -528,7 +581,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                           Total User Stories
                         </span>
                         <span className="text-sm font-semibold" style={{ color: 'var(--text-color)' }}>
-                          {stats.total_user_stories}
+                          {stats.rollup_counts.user_stories}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -536,7 +589,7 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, clientId
                           Total Tasks
                         </span>
                         <span className="text-sm font-semibold" style={{ color: 'var(--text-color)' }}>
-                          {stats.total_tasks}
+                          {stats.rollup_counts.tasks}
                         </span>
                       </div>
                     </div>

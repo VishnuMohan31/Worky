@@ -69,6 +69,10 @@ const transformTask = (task: any) => {
       assigned_to: task.assigned_to || task.assignedTo || null, // For backward compatibility
       assignedToName: task.assigned_to_name || task.assignedToName || null,
       assigned_to_name: task.assigned_to_name || task.assignedToName || null, // For backward compatibility
+      createdBy: task.created_by || task.createdBy || null,
+      created_by: task.created_by || task.createdBy || null, // For backward compatibility
+      createdByName: task.created_by_name || task.createdByName || null,
+      created_by_name: task.created_by_name || task.createdByName || null, // For backward compatibility
       estimatedHours: task.estimated_hours || task.estimatedHours || null,
       dueDate: task.due_date || task.dueDate || null,
       due_date: task.due_date || task.dueDate || null, // For backward compatibility

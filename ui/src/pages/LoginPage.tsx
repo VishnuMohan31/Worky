@@ -14,13 +14,18 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    console.log('📝 Login form submitted')
 
     try {
+      console.log('🔑 Calling login function...')
       await login(email, password)
+      console.log('✅ Login function completed successfully')
     } catch (err: any) {
+      console.error('❌ Login failed:', err)
       setError(err.message || 'Login failed')
     } finally {
       setLoading(false)
+      console.log('🏁 Login process finished')
     }
   }
 

@@ -61,7 +61,10 @@ async def list_projects(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List projects with optional filters."""
+    """List projects with optional filters. Only shows projects where user is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
+    from app.models.hierarchy import Usecase
+    from sqlalchemy import func, case
     
     query = select(Project).options(selectinload(Project.program)).join(Program).where(Project.is_deleted == False)
     
@@ -71,9 +74,9 @@ async def list_projects(
     if status:
         query = query.where(Project.status == status)
     
-    # Apply client-level filtering for non-admin users
-    if current_user.role != "Admin":
-        query = query.where(Program.client_id == current_user.client_id)
+    # Apply team-based access control
+    access_control = AccessControlService(db)
+    query = await access_control.filter_projects_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -85,11 +88,30 @@ async def list_projects(
         filters={"program_id": str(program_id) if program_id else None, "status": status}
     )
     
-    # Build response with program name and convert dates to DD/MM/YYYY
+    # Build response with program name, convert dates, and calculate progress
     response_list = []
     for proj in projects:
         proj_dict = convert_dates_for_response(proj)
         proj_dict["program_name"] = proj.program.name if proj.program else None
+        
+        # Calculate progress based on use case statuses
+        usecase_query = select(
+            func.count(Usecase.id).label('total'),
+            func.sum(case((Usecase.status.in_(['Completed', 'Done']), 1), else_=0)).label('completed')
+        ).where(
+            Usecase.project_id == proj.id,
+            Usecase.is_deleted == False
+        )
+        
+        usecase_result = await db.execute(usecase_query)
+        usecase_stats = usecase_result.one()
+        
+        total = usecase_stats.total or 0
+        completed = usecase_stats.completed or 0
+        progress = round((completed / total * 100), 1) if total > 0 else 0.0
+        
+        proj_dict["progress"] = progress
+        
         response_list.append(ProjectResponse(**proj_dict))
     
     return response_list
@@ -330,13 +352,17 @@ async def update_project(
         if not program or program.client_id != current_user.client_id:
             raise AccessDeniedException()
     
-    # Check if sprint configuration is being changed
-    old_sprint_length = project.sprint_length_weeks
-    old_sprint_starting_day = project.sprint_starting_day
-    sprint_config_changed = False
-    
     # Convert DD/MM/YYYY dates to date objects for database
     update_data = convert_dates_for_db(project_data.dict(exclude_unset=True))
+    
+    # Check if status is being changed - only Admin, HR, and Product Manager can change status
+    if 'status' in update_data and update_data['status'] != project.status:
+        if current_user.role not in ["Admin", "HR", "Product Manager"]:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=403,
+                detail="Only Admin, HR, and Product Manager users can change project status"
+            )
     
     # Additional date validation for update case
     start_date = update_data.get('start_date', project.start_date)
@@ -349,6 +375,11 @@ async def update_project(
             status_code=400,
             detail="End date cannot be before start date"
         )
+    
+    # Check if sprint configuration is being changed
+    old_sprint_length = project.sprint_length_weeks
+    old_sprint_starting_day = project.sprint_starting_day
+    sprint_config_changed = False
     
     # Check if sprint config fields are being updated
     if 'sprint_length_weeks' in update_data or 'sprint_starting_day' in update_data:

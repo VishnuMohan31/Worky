@@ -297,16 +297,16 @@ class AssignmentService:
                 "owner": []  # Empty list means any role is allowed
             },
             "usecase": {
-                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Product Manager", "Lead", "Manager", "DevOps", "HR", "Contact Person"]
             },
             "userstory": {
-                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Product Manager", "Lead", "Manager", "DevOps", "HR", "Contact Person"]
             },
             "task": {
-                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Product Manager", "Lead", "Manager", "DevOps", "HR", "Contact Person"]
             },
             "subtask": {
-                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Project Manager", "Lead", "Manager", "DevOps"]
+                "assignee": ["Developer", "Tester", "Designer", "Architect", "Admin", "Owner", "Product Manager", "Lead", "Manager", "DevOps", "HR", "Contact Person"]
             }
         }
         

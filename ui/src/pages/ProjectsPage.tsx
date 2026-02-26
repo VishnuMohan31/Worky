@@ -508,6 +508,7 @@ export default function ProjectsPage() {
         clients={clients}
         programs={programs}
         isAdmin={isAdmin}
+        userRole={user?.role}
       />
     </div>
   )

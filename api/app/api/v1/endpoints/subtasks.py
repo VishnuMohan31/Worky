@@ -56,7 +56,8 @@ async def list_subtasks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List subtasks with optional filters."""
+    """List subtasks with optional filters. Only shows subtasks where user is assigned or is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
     
     query = select(Subtask).where(Subtask.is_deleted == False)
     
@@ -70,9 +71,9 @@ async def list_subtasks(
     if status:
         query = query.where(Subtask.status == status)
     
-    # Non-admin users can only see their own subtasks
-    if current_user.role != "Admin":
-        query = query.where(Subtask.assigned_to == current_user.id)
+    # Apply team-based and assignment-based access control
+    access_control = AccessControlService(db)
+    query = await access_control.filter_subtasks_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     
@@ -83,7 +84,6 @@ async def list_subtasks(
     except Exception as e:
         # Log the error but return empty list instead of failing
         logger.error(f"Error fetching subtasks: {e}")
-        return []
         return []
 
 

@@ -70,6 +70,14 @@ async def create_assignment(
     """Create a new assignment - allows multiple users with same role, prevents duplicate user+role combinations."""
     
     try:
+        # Check if user is trying to assign owner - only Admin and HR can assign owners to any entity
+        if (assignment_data.assignment_type == "owner" and 
+            current_user.role not in ["Admin", "HR"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Admin and HR users can assign owners"
+            )
+        
         # Validate user exists
         user_result = await db.execute(select(User).where(User.id == assignment_data.user_id))
         user = user_result.scalar_one_or_none()
@@ -222,27 +230,31 @@ async def get_available_assignees(
     
     available_users = []
     project_id = None
+    parent_entity_id = None
+    parent_entity_type = None
     
-    # Get project ID for all project-level entities
+    # Get project ID and parent entity for all project-level entities
     if entity_type in ['usecase', 'userstory', 'task', 'subtask']:
         if entity_type == 'usecase':
-            # Direct project relationship
+            # Direct project relationship - show all team members
             usecase_result = await db.execute(select(Usecase).where(Usecase.id == entity_id))
             usecase = usecase_result.scalar_one_or_none()
             if usecase:
                 project_id = usecase.project_id
         
         elif entity_type == 'userstory':
-            # Get project ID through userstory -> usecase -> project
+            # Get parent usecase - show only users assigned to parent usecase
             userstory_result = await db.execute(
                 select(UserStory).options(selectinload(UserStory.usecase)).where(UserStory.id == entity_id)
             )
             userstory = userstory_result.scalar_one_or_none()
             if userstory and userstory.usecase:
                 project_id = userstory.usecase.project_id
+                parent_entity_id = userstory.usecase_id
+                parent_entity_type = 'usecase'
         
         elif entity_type == 'task':
-            # Get project ID through task -> user_story -> usecase -> project
+            # Get parent user story - show only users assigned to parent user story
             task_result = await db.execute(
                 select(Task).options(
                     selectinload(Task.user_story)
@@ -250,11 +262,14 @@ async def get_available_assignees(
                 ).where(Task.id == entity_id)
             )
             task = task_result.scalar_one_or_none()
-            if task and task.user_story and task.user_story.usecase:
-                project_id = task.user_story.usecase.project_id
+            if task and task.user_story:
+                parent_entity_id = task.user_story_id
+                parent_entity_type = 'userstory'
+                if task.user_story.usecase:
+                    project_id = task.user_story.usecase.project_id
         
         elif entity_type == 'subtask':
-            # Get project ID through subtask -> task -> user_story -> usecase -> project
+            # Get parent task - show only users assigned to parent task
             subtask_result = await db.execute(
                 select(Subtask).options(
                     selectinload(Subtask.task)
@@ -263,11 +278,31 @@ async def get_available_assignees(
                 ).where(Subtask.id == entity_id)
             )
             subtask = subtask_result.scalar_one_or_none()
-            if subtask and subtask.task and subtask.task.user_story and subtask.task.user_story.usecase:
-                project_id = subtask.task.user_story.usecase.project_id
+            if subtask and subtask.task:
+                parent_entity_id = subtask.task_id
+                parent_entity_type = 'task'
+                if subtask.task.user_story and subtask.task.user_story.usecase:
+                    project_id = subtask.task.user_story.usecase.project_id
     
-    if project_id:
-        # For project-level entities, only team members can be assigned
+    # Determine which users are available based on hierarchy
+    if parent_entity_id and parent_entity_type:
+        # For child entities (userstory, task, subtask), only show users assigned to parent
+        parent_assignments_result = await db.execute(
+            select(Assignment)
+            .options(selectinload(Assignment.user))
+            .where(
+                and_(
+                    Assignment.entity_type == parent_entity_type,
+                    Assignment.entity_id == parent_entity_id,
+                    Assignment.assignment_type == 'assignee',
+                    Assignment.is_active == True
+                )
+            )
+        )
+        parent_assignments = parent_assignments_result.scalars().all()
+        available_users = [assignment.user for assignment in parent_assignments if assignment.user and assignment.user.is_active]
+    elif project_id:
+        # For use cases (no parent), show all team members
         team_members_result = await db.execute(
             select(User)
             .join(TeamMember, User.id == TeamMember.user_id)
@@ -390,6 +425,14 @@ async def delete_assignment(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Assignment not found"
+        )
+    
+    # Check if user is trying to remove owner - only Admin and HR can remove owners from any entity
+    if (assignment.assignment_type == "owner" and 
+        current_user.role not in ["Admin", "HR"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Admin and HR users can remove owners"
         )
     
     try:

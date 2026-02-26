@@ -128,10 +128,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ projectId }) => 
 
   const handleCreateTeam = async () => {
     try {
-      if (!teamForm.name || !teamForm.project_id) {
+      if (!teamForm.name) {
         toast({
           title: 'Error',
-          description: 'Please fill in all required fields',
+          description: 'Please enter a team name',
           variant: 'destructive'
         });
         return;
@@ -295,15 +295,16 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ projectId }) => 
               
               {!projectId && (
                 <div>
-                  <Label htmlFor="team-project">Project *</Label>
+                  <Label htmlFor="team-project">Project (Optional)</Label>
                   <Select
                     value={teamForm.project_id}
                     onValueChange={(value) => setTeamForm({ ...teamForm, project_id: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select project" />
+                      <SelectValue placeholder="Select project (optional)" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="">None</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}

@@ -148,7 +148,7 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('Admin', 'Developer', 'Tester', 'Architect', 'Designer')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('Admin', 'Developer', 'Tester', 'Architect', 'Designer', 'HR', 'Product Manager', 'DevOps', 'Owner', 'Contact Person')),
     primary_role VARCHAR(50) DEFAULT 'Developer',
     secondary_roles TEXT[],
     is_contact_person BOOLEAN DEFAULT FALSE,

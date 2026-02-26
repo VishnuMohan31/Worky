@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import DecisionBadge from '../decisions/DecisionBadge'
+import RichTextEditor from '../common/RichTextEditor'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface EntityNote {
   id: string
@@ -21,6 +23,7 @@ interface EntityNotesProps {
 }
 
 const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
+  const { user } = useAuth()
   const [notes, setNotes] = useState<EntityNote[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -150,14 +153,12 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
       {/* Add Note Form */}
       {showAddForm && (
         <form onSubmit={handleSubmitNote} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <textarea
-            value={newNoteText}
-            onChange={(e) => setNewNoteText(e.target.value)}
-            placeholder="Write your note or comment here..."
-            rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          <RichTextEditor
+            content={newNoteText}
+            onChange={setNewNoteText}
+            placeholder="Write your note or comment here... Use the toolbar for formatting."
             disabled={submitting}
-            autoFocus
+            minHeight="200px"
           />
           <div className="flex justify-end gap-2 mt-3">
             <button
@@ -224,7 +225,7 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
                   >
                     {note.creator_name?.charAt(0).toUpperCase() || '?'}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                       {note.creator_name || 'Unknown User'}
                     </p>
@@ -235,9 +236,9 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
                 </div>
               </div>
 
-              {/* Note Content - Scrollable for long notes */}
+              {/* Note Content - Display Only */}
               <div 
-                className="mt-2 pl-0 max-h-40 overflow-y-auto"
+                className="mt-2 pl-0 max-h-96 overflow-y-auto rich-text-content"
                 style={{
                   backgroundColor: 'var(--background-color)',
                   padding: '12px',
@@ -245,9 +246,11 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
                   border: '1px solid var(--border-color)'
                 }}
               >
-                <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                  {note.note_text}
-                </p>
+                <div 
+                  className="prose prose-sm max-w-none" 
+                  style={{ color: 'var(--text-primary)' }}
+                  dangerouslySetInnerHTML={{ __html: note.note_text }}
+                />
               </div>
             </div>
           ))

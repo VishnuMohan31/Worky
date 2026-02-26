@@ -3,7 +3,7 @@ Pydantic schemas for team management.
 """
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # Team Schemas
@@ -15,7 +15,15 @@ class TeamBase(BaseModel):
 
 
 class TeamCreate(TeamBase):
-    project_id: str  # Required when creating a team
+    project_id: Optional[str] = None  # Optional - team can be created without a project
+    
+    @field_validator('project_id', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v):
+        """Convert empty string to None for project_id"""
+        if v == '' or v == 'null' or v == 'undefined':
+            return None
+        return v
 
 
 class TeamUpdate(BaseModel):
@@ -23,6 +31,14 @@ class TeamUpdate(BaseModel):
     description: Optional[str] = None
     project_id: Optional[str] = None  # Can be set to a project ID or to empty string "" to clear
     is_active: Optional[bool] = None
+    
+    @field_validator('project_id', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v):
+        """Convert empty string to None for project_id"""
+        if v == '' or v == 'null' or v == 'undefined':
+            return None
+        return v
 
 
 class TeamResponse(TeamBase):

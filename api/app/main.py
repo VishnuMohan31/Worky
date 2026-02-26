@@ -15,6 +15,7 @@ from app.core.exceptions import (
 )
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
+from app.middleware.cache_control_middleware import CacheControlMiddleware
 from app.api.v1.router import api_router
 import asyncio
 
@@ -41,6 +42,7 @@ app = FastAPI(
 )
 
 # Custom middleware
+app.add_middleware(CacheControlMiddleware)  # Add cache control first
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=500)
 

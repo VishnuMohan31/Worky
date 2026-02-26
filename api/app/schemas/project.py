@@ -129,6 +129,7 @@ class ProjectResponse(ProjectBase):
     id: str
     program_id: str
     program_name: Optional[str] = None
+    progress: Optional[float] = 0.0  # Completion percentage
     created_at: datetime
     updated_at: datetime
 

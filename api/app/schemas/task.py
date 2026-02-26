@@ -150,9 +150,12 @@ class TaskResponse(TaskBase):
     user_story_id: str
     phase_id: Optional[str] = None
     assigned_to: Optional[str] = None
+    assigned_to_name: Optional[str] = None
     sprint_id: Optional[str] = None
     actual_hours: Optional[Decimal] = None
     completed_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

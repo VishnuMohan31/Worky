@@ -29,7 +29,8 @@ async def list_user_stories(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List user stories with optional filters."""
+    """List user stories with optional filters. Only shows user stories where user is assigned or is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
     
     query = select(UserStory).where(UserStory.is_deleted == False)
     
@@ -40,11 +41,9 @@ async def list_user_stories(
     if priority:
         query = query.where(UserStory.priority == priority)
     
-    # Apply client-level filtering for non-admin users
-    if current_user.role != "Admin":
-        query = query.join(Usecase).join(Project).join(Program).where(
-            Program.client_id == current_user.client_id
-        )
+    # Apply team-based and assignment-based access control
+    access_control = AccessControlService(db)
+    query = await access_control.filter_user_stories_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)

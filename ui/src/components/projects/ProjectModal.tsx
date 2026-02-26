@@ -19,6 +19,7 @@ interface ProjectModalProps {
   clients: any[]
   programs: any[]
   isAdmin: boolean
+  userRole?: string
 }
 
 export default function ProjectModal({
@@ -30,7 +31,8 @@ export default function ProjectModal({
   selectedProgramId,
   clients,
   programs,
-  isAdmin
+  isAdmin,
+  userRole
 }: ProjectModalProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -47,6 +49,9 @@ export default function ProjectModal({
   const [error, setError] = useState('')
 
   const isEditMode = !!project
+  
+  // Check if user can edit status (Admin, HR, or Product Manager)
+  const canEditStatus = userRole === 'Admin' || userRole === 'HR' || userRole === 'Product Manager'
 
   useEffect(() => {
     if (project) {
@@ -333,11 +338,15 @@ export default function ProjectModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Status
+              {!canEditStatus && isEditMode && (
+                <span className="text-xs text-gray-500 ml-2">(Admin/HR/PM only)</span>
+              )}
             </label>
             <select
               value={formData.status}
               onChange={(e) => handleChange('status', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isEditMode && !canEditStatus}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="Planning">Planning</option>
               <option value="Active">Active</option>
@@ -345,6 +354,11 @@ export default function ProjectModal({
               <option value="Completed">Completed</option>
               <option value="Cancelled">Cancelled</option>
             </select>
+            {isEditMode && !canEditStatus && (
+              <p className="text-xs text-gray-500 mt-1">
+                Only Admin, HR, and Product Manager can change project status
+              </p>
+            )}
           </div>
 
           <div>

@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../../services/api'
 import Modal from '../common/Modal'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface Assignment {
   id: string
@@ -35,6 +36,7 @@ const ASSIGNMENT_TYPES = [
 ]
 
 export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssignmentChange }: EnhancedAssignmentDisplayProps) {
+  const { user } = useAuth()
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [availableUsers, setAvailableUsers] = useState<User[]>([])
   const [showModal, setShowModal] = useState(false)
@@ -42,6 +44,14 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
   const [selectedRole, setSelectedRole] = useState('assignee')
   const [loading, setLoading] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(false)
+  
+  // Check if user can manage assignments (only Admin and HR)
+  const canManageAssignments = user?.role === 'Admin' || user?.role === 'HR'
+  
+  // Debug logging
+  console.log('🔥 EnhancedAssignmentDisplay - Version 2.3')
+  console.log('User role:', user?.role)
+  console.log('Can manage assignments:', canManageAssignments)
   
   // Refs to prevent multiple simultaneous API calls
   const loadingAssignmentsRef = useRef(false)
@@ -298,28 +308,33 @@ export default function EnhancedAssignmentDisplay({ entityType, entityId, onAssi
           >
             <span>{assignment.name}</span>
             <span className="text-xs opacity-75">({getAssignmentTypeLabel(assignment.assignmentType)})</span>
-            <button
-              onClick={() => handleRemoveAssignment(assignment.assignmentId)}
-              className="ml-1 hover:opacity-80 font-bold"
-              disabled={loading}
-              title="Remove assignment"
-            >
-              ×
-            </button>
+            {/* Only show remove button for Admin and HR */}
+            {canManageAssignments && (
+              <button
+                onClick={() => handleRemoveAssignment(assignment.assignmentId)}
+                className="ml-1 hover:opacity-80 font-bold"
+                disabled={loading}
+                title="Remove assignment"
+              >
+                ×
+              </button>
+            )}
           </div>
         ))}
 
-        {/* Add Assignment Button */}
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-100 transition-colors border border-blue-200"
-          disabled={loading}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Assign
-        </button>
+        {/* Add Assignment Button - Only show for Admin and HR */}
+        {canManageAssignments && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-100 transition-colors border border-blue-200"
+            disabled={loading}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Assign
+          </button>
+        )}
 
         {/* Assignment Modal */}
         <Modal

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { fetchTodoItems } from '../../services/todoApi'
 
@@ -20,6 +21,7 @@ interface NavItem {
 
 export default function Sidebar() {
   const { t } = useLanguage()
+  const { user } = useAuth()
   const location = useLocation()
   const [companyName, setCompanyName] = useState<string>('Worky')
   const [todayTodoCount, setTodayTodoCount] = useState<number>(0)
@@ -80,6 +82,13 @@ export default function Sidebar() {
       ...prev,
       [groupKey]: !prev[groupKey]
     }))
+  }
+
+  // Check if user has access to management features
+  const hasManagementAccess = () => {
+    if (!user) return false
+    const allowedRoles = ['Admin', 'HR', 'Product Manager']
+    return allowedRoles.includes(user.role)
   }
 
   // Helper function to check if a nav item should be active
@@ -245,7 +254,15 @@ export default function Sidebar() {
         ))}
 
         {/* Grouped Items */}
-        {Object.entries(navGroups).map(([groupKey, group]) => (
+        {Object.entries(navGroups)
+          .filter(([groupKey]) => {
+            // Hide management section for users without access
+            if (groupKey === 'management' && !hasManagementAccess()) {
+              return false
+            }
+            return true
+          })
+          .map(([groupKey, group]) => (
           <div key={groupKey} className="mt-4">
             {/* Group Header */}
             <button

@@ -404,6 +404,8 @@ class HierarchyService:
         current_user: User
     ) -> Project:
         """Verify project exists and user has access"""
+        from app.services.access_control_service import AccessControlService
+        
         result = await self.db.execute(
             select(Project).where(
                 Project.id == project_id,
@@ -421,6 +423,14 @@ class HierarchyService:
         # Verify program and client-level access
         await self._get_and_verify_program_access(project.program_id, current_user)
         
+        # Check project-level access (team membership required)
+        access_control = AccessControlService(self.db)
+        if not await access_control.can_access_project(project_id, current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You must be a member of a team assigned to this project."
+            )
+        
         return project
     
     async def _get_and_verify_usecase_access(
@@ -429,6 +439,8 @@ class HierarchyService:
         current_user: User
     ) -> Usecase:
         """Verify use case exists and user has access"""
+        from app.services.access_control_service import AccessControlService
+        
         result = await self.db.execute(
             select(Usecase).where(
                 Usecase.id == usecase_id,
@@ -443,8 +455,13 @@ class HierarchyService:
                 detail=f"Use case with ID {usecase_id} not found"
             )
         
-        # Verify project and client-level access
-        await self._get_and_verify_project_access(usecase.project_id, current_user)
+        # Check use case-level access (assignment or team membership required)
+        access_control = AccessControlService(self.db)
+        if not await access_control.can_access_usecase(usecase_id, current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You must be assigned to this use case or be a team member of the project."
+            )
         
         return usecase
     
@@ -454,6 +471,8 @@ class HierarchyService:
         current_user: User
     ) -> UserStory:
         """Verify user story exists and user has access"""
+        from app.services.access_control_service import AccessControlService
+        
         result = await self.db.execute(
             select(UserStory).where(
                 UserStory.id == user_story_id,
@@ -468,8 +487,13 @@ class HierarchyService:
                 detail=f"User story with ID {user_story_id} not found"
             )
         
-        # Verify use case and client-level access
-        await self._get_and_verify_usecase_access(user_story.usecase_id, current_user)
+        # Check user story-level access (assignment or team membership required)
+        access_control = AccessControlService(self.db)
+        if not await access_control.can_access_user_story(user_story_id, current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You must be assigned to this user story or be a team member of the project."
+            )
         
         return user_story
     
@@ -479,6 +503,8 @@ class HierarchyService:
         current_user: User
     ) -> Task:
         """Verify task exists and user has access"""
+        from app.services.access_control_service import AccessControlService
+        
         result = await self.db.execute(
             select(Task).where(
                 Task.id == task_id,
@@ -493,8 +519,13 @@ class HierarchyService:
                 detail=f"Task with ID {task_id} not found"
             )
         
-        # Verify user story and client-level access
-        await self._get_and_verify_user_story_access(task.user_story_id, current_user)
+        # Check task-level access (assignment or team membership required)
+        access_control = AccessControlService(self.db)
+        if not await access_control.can_access_task(task_id, current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You must be assigned to this task or be a team member of the project."
+            )
         
         return task
     

@@ -13,6 +13,16 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Add timestamp to filenames to force cache invalidation
+        entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`
+      }
+    }
+  },
   server: {
     port: 3007,
     host: '0.0.0.0',

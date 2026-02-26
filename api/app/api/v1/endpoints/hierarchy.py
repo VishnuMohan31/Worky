@@ -301,8 +301,9 @@ async def list_projects_for_program(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List projects for a specific program."""
+    """List projects for a specific program. Only shows projects where user is a team member (Admin excepted)."""
     from sqlalchemy.orm import selectinload
+    from app.services.access_control_service import AccessControlService
     
     service = HierarchyService(db)
     await service._get_and_verify_program_access(program_id, current_user)
@@ -310,6 +311,10 @@ async def list_projects_for_program(
     query = select(Project).options(selectinload(Project.program)).where(Project.program_id == program_id, Project.is_deleted == False)
     if status_filter:
         query = query.where(Project.status == status_filter)
+    
+    # Apply access control filter
+    access_control = AccessControlService(db)
+    query = await access_control.filter_projects_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -380,13 +385,19 @@ async def list_usecases_for_project(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List use cases for a specific project."""
+    """List use cases for a specific project. Only shows use cases where user is assigned or is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
+    
     service = HierarchyService(db)
     await service._get_and_verify_project_access(project_id, current_user)
     
     query = select(Usecase).where(Usecase.project_id == project_id, Usecase.is_deleted == False)
     if status_filter:
         query = query.where(Usecase.status == status_filter)
+    
+    # Apply access control filter
+    access_control = AccessControlService(db)
+    query = await access_control.filter_usecases_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -448,13 +459,19 @@ async def list_user_stories_for_usecase(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List user stories for a specific use case."""
+    """List user stories for a specific use case. Only shows user stories where user is assigned or is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
+    
     service = HierarchyService(db)
     await service._get_and_verify_usecase_access(usecase_id, current_user)
     
     query = select(UserStory).where(UserStory.usecase_id == usecase_id, UserStory.is_deleted == False)
     if status_filter:
         query = query.where(UserStory.status == status_filter)
+    
+    # Apply access control filter
+    access_control = AccessControlService(db)
+    query = await access_control.filter_user_stories_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -517,7 +534,9 @@ async def list_tasks_for_user_story(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List tasks for a specific user story with phase and status filters."""
+    """List tasks for a specific user story with phase and status filters. Only shows tasks where user is assigned or is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
+    
     service = HierarchyService(db)
     await service._get_and_verify_user_story_access(story_id, current_user)
     
@@ -526,6 +545,10 @@ async def list_tasks_for_user_story(
         query = query.where(Task.phase_id == phase_filter)
     if status_filter:
         query = query.where(Task.status == status_filter)
+    
+    # Apply access control filter
+    access_control = AccessControlService(db)
+    query = await access_control.filter_tasks_by_access(current_user, query)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -589,11 +612,19 @@ async def list_subtasks_for_task(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List subtasks for a specific task."""
+    """List subtasks for a specific task. Only shows subtasks where user is assigned or is a team member (Admin excepted)."""
+    from app.services.access_control_service import AccessControlService
+    
     service = HierarchyService(db)
     await service._get_and_verify_task_access(task_id, current_user)
     
-    query = select(Subtask).where(Subtask.task_id == task_id, Subtask.is_deleted == False).offset(skip).limit(limit)
+    query = select(Subtask).where(Subtask.task_id == task_id, Subtask.is_deleted == False)
+    
+    # Apply access control filter
+    access_control = AccessControlService(db)
+    query = await access_control.filter_subtasks_by_access(current_user, query)
+    
+    query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     subtasks = result.scalars().all()
     

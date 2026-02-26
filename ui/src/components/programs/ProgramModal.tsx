@@ -17,6 +17,7 @@ interface ProgramModalProps {
   selectedClientId?: string
   clients: any[]
   isAdmin: boolean
+  userRole?: string // Add user role to check for HR
 }
 
 export default function ProgramModal({
@@ -26,7 +27,8 @@ export default function ProgramModal({
   program,
   selectedClientId,
   clients,
-  isAdmin
+  isAdmin,
+  userRole
 }: ProgramModalProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -42,6 +44,12 @@ export default function ProgramModal({
   const [error, setError] = useState('')
 
   const isEditMode = !!program
+  
+  // Check if user can manage owners (Admin or HR)
+  const canManageOwners = userRole === 'Admin' || userRole === 'HR'
+  
+  // Debug: Log the userRole and canManageOwners
+  console.log('ProgramModal - userRole:', userRole, 'canManageOwners:', canManageOwners)
 
   useEffect(() => {
     if (program) {
@@ -242,8 +250,8 @@ export default function ProgramModal({
         )}
 
         <div className="space-y-4">
-          {/* Owner Assignment - MOVED TO TOP */}
-          {isAdmin && (
+          {/* Owner Assignment - MOVED TO TOP - Only visible to Admin and HR */}
+          {canManageOwners && (
             <div className="mb-6 pb-4 border-b border-gray-200">
               <OwnerSelector
                 entityType="program"
@@ -251,6 +259,7 @@ export default function ProgramModal({
                 onOwnersChange={setSelectedOwners}
                 disabled={loading}
                 existingEntityId={isEditMode ? program.id : undefined}
+                userRole={userRole}
               />
             </div>
           )}

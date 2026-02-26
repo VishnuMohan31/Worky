@@ -65,10 +65,20 @@ export default function TeamsPage() {
   const loadInitialData = async () => {
     setLoading(true)
     try {
+      // Use safe API methods that don't trigger logout on 401/403
       const [teamsData, projectsData, usersData] = await Promise.all([
-        api.getTeams(),
-        api.getProjects(),
-        api.getUsers()
+        api.getTeams().catch(err => {
+          console.error('Failed to load teams:', err)
+          return { items: [], total: 0 }
+        }),
+        api.getProjectsSafe().catch(err => {
+          console.error('Failed to load projects:', err)
+          return []
+        }),
+        api.getUsersSafe().catch(err => {
+          console.error('Failed to load users:', err)
+          return []
+        })
       ])
       
       console.log('loadInitialData - teamsData:', teamsData)
@@ -125,22 +135,56 @@ export default function TeamsPage() {
       alert('Please enter a team name')
       return
     }
-    if (!newTeam.project_id) {
-      alert('Please select a project')
-      return
-    }
     
     try {
       console.log('Creating team with data:', newTeam)
-      const createdTeam = await api.createTeam(newTeam)
+      
+      // Prepare team data - send null for empty project_id
+      const teamData = {
+        name: newTeam.name.trim(),
+        description: newTeam.description.trim() || null,
+        project_id: newTeam.project_id || null
+      }
+      
+      console.log('Sending team data to API:', teamData)
+      const createdTeam = await api.createTeam(teamData)
       console.log('Team created successfully:', createdTeam)
+      
       setShowCreateModal(false)
       setNewTeam({ name: '', description: '', project_id: '' })
       await loadInitialData()
       alert('Team created successfully!')
     } catch (error: any) {
       console.error('Failed to create team:', error)
-      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create team. Please try again.'
+      console.error('Error response:', error.response)
+      
+      let errorMessage = 'Failed to create team. Please try again.'
+      
+      if (error.response) {
+        const status = error.response.status
+        const data = error.response.data
+        
+        if (status === 401) {
+          errorMessage = 'Authentication failed. Please log in again.'
+        } else if (status === 403) {
+          errorMessage = 'You do not have permission to create teams.'
+        } else if (status === 400 || status === 422) {
+          if (data?.detail) {
+            if (Array.isArray(data.detail)) {
+              errorMessage = data.detail.map((err: any) => err.msg || err.message).join(', ')
+            } else {
+              errorMessage = data.detail
+            }
+          }
+        } else if (status === 500) {
+          errorMessage = data?.detail || 'Server error occurred while creating team.'
+        } else {
+          errorMessage = data?.detail || data?.message || `Error ${status}: ${error.message}`
+        }
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
       alert(`Error: ${errorMessage}`)
     }
   }
@@ -426,15 +470,14 @@ export default function TeamsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Project
+                    Project (Optional)
                   </label>
                   <select
                     value={newTeam.project_id}
                     onChange={(e) => setNewTeam({ ...newTeam, project_id: e.target.value })}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
                   >
-                    <option value="">Select Project...</option>
+                    <option value="">None (No Project)</option>
                     {projects.map((project) => (
                       <option key={project.id} value={project.id}>
                         {project.name}
