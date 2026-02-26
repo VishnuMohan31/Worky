@@ -33,6 +33,8 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
   const [isDecision, setIsDecision] = useState(false)
   const [decisionStatus, setDecisionStatus] = useState('Active')
   const [filterType, setFilterType] = useState<'all' | 'notes' | 'decisions'>('all')
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editNoteText, setEditNoteText] = useState('')
 
   const loadNotes = async () => {
     try {
@@ -98,6 +100,86 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleEditNote = (note: EntityNote) => {
+    setEditingNoteId(note.id)
+    setEditNoteText(note.note_text)
+  }
+
+  const handleUpdateNote = async (noteId: string) => {
+    if (!editNoteText.trim()) {
+      return
+    }
+
+    try {
+      setSubmitting(true)
+      setError(null)
+      
+      // Update note via API - using fetch directly since API might not have the method
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/hierarchy/${entityType}/${entityId}/notes/${noteId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          note_text: editNoteText.trim()
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to update note')
+      }
+      
+      setEditingNoteId(null)
+      setEditNoteText('')
+      await loadNotes()
+    } catch (err: any) {
+      console.error('Error updating note:', err)
+      setError(err.message || 'Failed to update note')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingNoteId(null)
+    setEditNoteText('')
+  }
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!window.confirm('Are you sure you want to delete this note?')) {
+      return
+    }
+
+    try {
+      setError(null)
+      
+      // Delete note via API - using fetch directly
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/hierarchy/${entityType}/${entityId}/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete note')
+      }
+      
+      await loadNotes()
+    } catch (err: any) {
+      console.error('Error deleting note:', err)
+      setError(err.message || 'Failed to delete note')
+    }
+  }
+
+  const canEditNote = (note: EntityNote) => {
+    // Admin can edit any note, others can only edit their own
+    return user?.role === 'Admin' || user?.id === note.created_by
   }
 
   const formatDate = (dateString: string) => {
@@ -234,24 +316,70 @@ const EntityNotes: React.FC<EntityNotesProps> = ({ entityType, entityId }) => {
                     </p>
                   </div>
                 </div>
+                {canEditNote(note) && editingNoteId !== note.id && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditNote(note)}
+                      className="px-3 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title="Edit note"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteNote(note.id)}
+                      className="px-3 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Delete note"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Note Content - Display Only */}
-              <div 
-                className="mt-2 pl-0 max-h-96 overflow-y-auto rich-text-content"
-                style={{
-                  backgroundColor: 'var(--background-color)',
-                  padding: '12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-color)'
-                }}
-              >
+              {/* Note Content - Editable or Display */}
+              {editingNoteId === note.id ? (
+                <div className="space-y-3">
+                  <RichTextEditor
+                    content={editNoteText}
+                    onChange={setEditNoteText}
+                    placeholder="Edit your note..."
+                    disabled={submitting}
+                    minHeight="150px"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleUpdateNote(note.id)}
+                      className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      disabled={submitting || !editNoteText.trim()}
+                    >
+                      {submitting ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <div 
-                  className="prose prose-sm max-w-none" 
-                  style={{ color: 'var(--text-primary)' }}
-                  dangerouslySetInnerHTML={{ __html: note.note_text }}
-                />
-              </div>
+                  className="mt-2 pl-0 max-h-96 overflow-y-auto rich-text-content"
+                  style={{
+                    backgroundColor: 'var(--background-color)',
+                    padding: '12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)'
+                  }}
+                >
+                  <div 
+                    className="prose prose-sm max-w-none" 
+                    style={{ color: 'var(--text-primary)' }}
+                    dangerouslySetInnerHTML={{ __html: note.note_text }}
+                  />
+                </div>
+              )}
             </div>
           ))
         )}
