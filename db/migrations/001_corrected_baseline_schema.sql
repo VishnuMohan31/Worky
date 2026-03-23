@@ -50,18 +50,31 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create function for default notification preferences
+-- Guard against missing notification_preferences table/enum (created in migration 002)
 CREATE OR REPLACE FUNCTION create_default_notification_preferences()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO notification_preferences (user_id, notification_type, email_enabled, in_app_enabled, push_enabled)
-    VALUES 
-        (NEW.id, 'assignment_created', TRUE, TRUE, FALSE),
-        (NEW.id, 'assignment_removed', TRUE, TRUE, FALSE),
-        (NEW.id, 'team_member_added', TRUE, TRUE, FALSE),
-        (NEW.id, 'team_member_removed', TRUE, TRUE, FALSE),
-        (NEW.id, 'assignment_conflict', TRUE, TRUE, FALSE),
-        (NEW.id, 'bulk_assignment_completed', TRUE, TRUE, FALSE),
-        (NEW.id, 'bulk_assignment_failed', TRUE, TRUE, FALSE);
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'notification_preferences'
+    ) AND EXISTS (
+        SELECT 1 FROM pg_catalog.pg_type WHERE typname = 'notification_type'
+    ) THEN
+        BEGIN
+            INSERT INTO notification_preferences (user_id, notification_type, email_enabled, in_app_enabled, push_enabled)
+            VALUES 
+                (NEW.id, 'assignment_created', TRUE, TRUE, FALSE),
+                (NEW.id, 'assignment_removed', TRUE, TRUE, FALSE),
+                (NEW.id, 'team_member_added', TRUE, TRUE, FALSE),
+                (NEW.id, 'team_member_removed', TRUE, TRUE, FALSE),
+                (NEW.id, 'assignment_conflict', TRUE, TRUE, FALSE),
+                (NEW.id, 'bulk_assignment_completed', TRUE, TRUE, FALSE),
+                (NEW.id, 'bulk_assignment_failed', TRUE, TRUE, FALSE);
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE NOTICE 'Failed to create notification preferences for user %: %', NEW.id, SQLERRM;
+        END;
+    END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -608,6 +621,13 @@ INSERT INTO phases (id, name, short_description, color, display_order, is_active
     ('PHS-000004', 'Deployment', 'Deployment and release phase', '#10B981', 4, true),
     ('PHS-000005', 'Maintenance', 'Post-deployment maintenance phase', '#8B5CF6', 5, true)
 ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- RESET SEQUENCES: Advance past all seeded IDs so new records don't collide
+-- ============================================================================
+SELECT setval('clients_id_seq', (SELECT MAX(CAST(SPLIT_PART(id, '-', 2) AS INTEGER)) FROM clients));
+SELECT setval('users_id_seq',   (SELECT MAX(CAST(SPLIT_PART(id, '-', 2) AS INTEGER)) FROM users));
+SELECT setval('phases_id_seq',  (SELECT MAX(CAST(SPLIT_PART(id, '-', 2) AS INTEGER)) FROM phases));
 
 -- ============================================================================
 -- END OF CORRECTED BASELINE SCHEMA

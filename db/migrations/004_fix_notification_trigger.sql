@@ -8,15 +8,14 @@
 DROP FUNCTION IF EXISTS create_default_notification_preferences() CASCADE;
 
 CREATE OR REPLACE FUNCTION create_default_notification_preferences()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     -- Check if notification_preferences table exists and has the required enum type
     IF EXISTS (
         SELECT 1 FROM information_schema.tables 
         WHERE table_schema = 'public' AND table_name = 'notification_preferences'
     ) AND EXISTS (
-        SELECT 1 FROM information_schema.types 
-        WHERE type_name = 'notification_type'
+        SELECT 1 FROM pg_catalog.pg_type WHERE typname = 'notification_type'
     ) THEN
         BEGIN
             INSERT INTO notification_preferences (user_id, notification_type, email_enabled, in_app_enabled, push_enabled)
@@ -37,9 +36,9 @@ BEGIN
     
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
--- Recreate the trigger if it doesn't exist
+-- Recreate the trigger
 DROP TRIGGER IF EXISTS trigger_create_default_notification_preferences ON users;
 
 CREATE TRIGGER trigger_create_default_notification_preferences
@@ -48,14 +47,12 @@ CREATE TRIGGER trigger_create_default_notification_preferences
     EXECUTE FUNCTION create_default_notification_preferences();
 
 -- Create missing notification preferences for existing users
-DO $
+DO $$
 BEGIN
-    -- Only run if both tables exist
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'notification_preferences') 
-       AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users') 
-       AND EXISTS (SELECT 1 FROM information_schema.types WHERE type_name = 'notification_type') THEN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'notification_preferences') 
+       AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') 
+       AND EXISTS (SELECT 1 FROM pg_catalog.pg_type WHERE typname = 'notification_type') THEN
         
-        -- Create notification preferences for users who don't have them
         INSERT INTO notification_preferences (user_id, notification_type, email_enabled, in_app_enabled, push_enabled)
         SELECT 
             u.id,
@@ -80,4 +77,4 @@ BEGIN
         RAISE NOTICE 'Created missing notification preferences for existing users';
     END IF;
 END;
-$;
+$$;
