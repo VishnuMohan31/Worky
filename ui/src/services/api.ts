@@ -221,9 +221,8 @@ const addAuthToken = (config: any) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
-  } else {
-    console.warn('No authentication token found for request:', config.url)
   }
+  // No warning needed - login and public endpoints intentionally have no token
   return config
 }
 

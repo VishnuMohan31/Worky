@@ -59,9 +59,8 @@ volumes/logs/
 *.db
 *.sqlite
 *.sqlite3
-volumes/postgres/
-volumes/postgres-data/
-volumes/api-logs/
+volumes/
+../Worky_Shared_Data/
 
 # Docker
 .docker/

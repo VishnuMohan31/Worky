@@ -636,7 +636,7 @@ export default function SubtasksPage() {
             </div>
             <div className="mb-6">
               <p className="text-sm text-gray-600 mb-2">
-                Your authentication session has expired after 30 minutes of inactivity.
+                Your chat session has expired due to inactivity.
               </p>
               <p className="text-sm text-gray-600 mb-2">
                 <strong>To view subtasks, you must log in again.</strong>

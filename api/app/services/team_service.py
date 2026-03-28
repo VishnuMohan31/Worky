@@ -179,7 +179,7 @@ class TeamService:
                 return existing_member
         
         # Validate role
-        valid_roles = ["Owner", "Developer", "Tester", "Architect", "Designer", "Contact Person", "Member", "Lead", "Manager"]
+        valid_roles = ["Owner", "Developer", "Tester", "Architect", "Designer", "Contact Person", "Member", "Lead", "Manager", "HR", "DevOps", "Product Manager", "Admin"]
         if role not in valid_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

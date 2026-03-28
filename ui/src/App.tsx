@@ -32,13 +32,11 @@ import UserStoriesPage from './pages/UserStoriesPage'
 import PhasesPage from './pages/PhasesPage'
 import OrganizationsPage from './pages/OrganizationsPage'
 import SprintConfigurationPage from './pages/SprintConfigurationPage'
-import AuditHistoryTestPage from './pages/AuditHistoryTestPage'
 import TestRunsPage from './pages/TestRunsPage'
 import TestCasesPage from './pages/TestCasesPage'
 import BugLifecyclePage from './pages/BugLifecyclePage'
 import SubtasksPage from './pages/SubtasksPage'
 import TodoPage from './pages/TodoPage'
-import ChatWidgetTestPage from './pages/ChatWidgetTestPage'
 import ReportViewerPage from './pages/ReportViewerPage'
 import TeamsPage from './pages/TeamsPage'
 import DecisionsPage from './pages/DecisionsPage'
@@ -102,10 +100,6 @@ function App() {
                   <Route path="phases" element={<PhasesPage />} /> {/* Keep legacy route for compatibility */}
                   <Route path="organizations" element={<OrganizationsPage />} />
                   <Route path="sprint-configuration" element={<SprintConfigurationPage />} />
-                  
-                  {/* Test Pages */}
-                  <Route path="test/audit-history" element={<AuditHistoryTestPage />} />
-                  <Route path="test/chat-widget" element={<ChatWidgetTestPage />} />
                   
                   {/* Reports Viewer */}
                   <Route path="reports/:reportType" element={<ReportViewerPage />} />
