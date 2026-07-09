@@ -1,4 +1,28 @@
 services:
+  init-dirs:
+    image: alpine:3.19
+    container_name: worky-init-dirs
+    volumes:
+      - ${SHARED_DATA_PATH}:/shared_data
+    command: >
+      sh -c "mkdir -p /shared_data/postgres /shared_data/logs /shared_data/uploads &&
+             echo 'Shared data directories ready.'"
+    restart: "no"
+    networks:
+      - worky-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: worky-redis
+    networks:
+      - worky-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   db:
     image: postgres:15
     container_name: worky-postgres
@@ -11,7 +35,6 @@ services:
     volumes:
       - ${SHARED_DATA_PATH}/postgres:/var/lib/postgresql/data
       - ./db/migrations:/docker-entrypoint-initdb.d
-    # Use default entrypoint - password is already set via POSTGRES_PASSWORD env var
     networks:
       - worky-network
     restart: unless-stopped
@@ -40,8 +63,8 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-postgres}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       
-      # Redis - using host Redis on port 6379
-      REDIS_HOST: 172.17.0.1
+      # Redis
+      REDIS_HOST: redis
       REDIS_PORT: 6379
       
       # Security
@@ -54,7 +77,7 @@ services:
       
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      LOG_FILE: /app/logs/worky-api.log
+      # LOG_FILE intentionally omitted - logs go to stdout (captured by Docker)
       
       # External Services
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
@@ -74,7 +97,11 @@ services:
     networks:
       - worky-network
     depends_on:
+      init-dirs:
+        condition: service_completed_successfully
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:

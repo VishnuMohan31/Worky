@@ -12,7 +12,11 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     )
   }
 
-  if (!isAuthenticated) {
+  // Check localStorage as well — covers the case where login() just set the
+  // token but React hasn't flushed the user state update yet before navigate()
+  const hasToken = !!localStorage.getItem('token')
+
+  if (!isAuthenticated && !hasToken) {
     return <Navigate to="/login" replace />
   }
 

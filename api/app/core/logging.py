@@ -96,9 +96,17 @@ def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None, envir
     
     # File handler (if specified)
     if log_file:
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
+        try:
+            import os
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
+        except (PermissionError, OSError) as e:
+            # Fall back to stdout-only logging — don't crash the app
+            logging.getLogger().warning(
+                f"Could not open log file '{log_file}': {e}. Logging to stdout only."
+            )
     
     # Set levels for noisy libraries
     logging.getLogger("uvicorn").setLevel(logging.WARNING)

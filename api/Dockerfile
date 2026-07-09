@@ -40,8 +40,8 @@ COPY alembic ./alembic
 # Verify env.py exists (optional debug)
 RUN test -f alembic/env.py
 
-# Create logs directory
-RUN mkdir -p /app/logs && chmod 777 /app/logs
+# Create logs and uploads directories
+RUN mkdir -p /app/logs /app/uploads && chmod 777 /app/logs /app/uploads
 
 # Create non-root user
 RUN useradd -m -u 1000 worky && chown -R worky:worky /app

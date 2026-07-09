@@ -45,27 +45,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      console.log('🔐 Starting login process...')
       const response = await api.login(email, password)
-      console.log('✅ Login API response received:', { token: response.token ? 'present' : 'missing', user: response.user })
       
-      // Save token first
+      // Save token first — ProtectedRoute reads this synchronously
       localStorage.setItem('token', response.token)
-      console.log('💾 Token saved to localStorage')
       
       // Update user state
       setUser(response.user)
-      console.log('👤 User state updated:', response.user)
-      
-      // Wait a bit to ensure state is fully updated
-      await new Promise(resolve => setTimeout(resolve, 100))
       
       // Navigate to dashboard
-      console.log('🚀 Navigating to dashboard...')
       navigate('/dashboard', { replace: true })
-      console.log('✅ Navigation triggered')
     } catch (error) {
-      console.error('❌ Login error:', error)
+      console.error('Login error:', error)
       throw error
     }
   }
