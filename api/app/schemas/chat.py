@@ -151,6 +151,8 @@ class ChatMetadata(BaseModel):
     entities_accessed: List[str] = Field(default_factory=list)
     response_time_ms: Optional[int] = None
     llm_tokens_used: Optional[int] = None
+    # Extra fields used by chat_service (action_type, error_code, timestamp, etc.)
+    model_config = {"extra": "allow"}
 
 
 class ChatResponse(BaseModel):

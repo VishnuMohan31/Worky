@@ -65,6 +65,15 @@ class SessionService:
     def _get_messages_key(self, session_id: str) -> str:
         """Generate Redis key for session messages"""
         return f"chat:messages:{session_id}"
+
+    @staticmethod
+    def _parse_datetime(value: Any) -> datetime:
+        """Parse datetime from ISO string or pass through datetime objects."""
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            return datetime.fromisoformat(value)
+        raise ValueError(f"Unsupported datetime value: {value!r}")
     
     async def create_session(
         self,
@@ -105,11 +114,8 @@ class SessionService:
         
         try:
             session_key = self._get_session_key(session_id)
+            # mode='json' already serializes datetime/enums to JSON-safe values
             session_data = session_context.model_dump(mode='json')
-            
-            # Convert datetime objects to ISO format strings
-            session_data['created_at'] = session_data['created_at'].isoformat()
-            session_data['last_activity'] = session_data['last_activity'].isoformat()
             
             # Store session with TTL
             await self.redis_client.setex(
@@ -149,9 +155,9 @@ class SessionService:
             # Parse JSON and reconstruct SessionContext
             data = json.loads(session_data)
             
-            # Convert ISO format strings back to datetime
-            data['created_at'] = datetime.fromisoformat(data['created_at'])
-            data['last_activity'] = datetime.fromisoformat(data['last_activity'])
+            # Convert ISO format strings back to datetime if needed
+            data['created_at'] = self._parse_datetime(data['created_at'])
+            data['last_activity'] = self._parse_datetime(data['last_activity'])
             
             # Convert mentioned_entities list to SessionEntity objects
             if 'mentioned_entities' in data:
@@ -217,11 +223,8 @@ class SessionService:
             
             # Save updated session
             session_key = self._get_session_key(session_id)
+            # mode='json' already serializes datetime/enums to JSON-safe values
             session_data = session_context.model_dump(mode='json')
-            
-            # Convert datetime objects to ISO format strings
-            session_data['created_at'] = session_data['created_at'].isoformat()
-            session_data['last_activity'] = session_data['last_activity'].isoformat()
             
             await self.redis_client.setex(
                 session_key,
@@ -257,9 +260,8 @@ class SessionService:
         try:
             messages_key = self._get_messages_key(session_id)
             
-            # Convert message to JSON
+            # mode='json' already serializes datetime/enums to JSON-safe values
             message_data = message.model_dump(mode='json')
-            message_data['created_at'] = message_data['created_at'].isoformat()
             
             # Add message to list (right push)
             await self.redis_client.rpush(messages_key, json.dumps(message_data))
@@ -324,7 +326,7 @@ class SessionService:
             for msg_json in messages_data:
                 try:
                     msg_data = json.loads(msg_json)
-                    msg_data['created_at'] = datetime.fromisoformat(msg_data['created_at'])
+                    msg_data['created_at'] = self._parse_datetime(msg_data['created_at'])
                     messages.append(ChatMessageResponse(**msg_data))
                 except (json.JSONDecodeError, ValueError) as e:
                     logger.warning(f"Failed to parse message in session {session_id}: {e}")

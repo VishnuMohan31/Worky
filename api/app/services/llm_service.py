@@ -266,6 +266,42 @@ Important:
                 query, retrieved_data, intent_type,
                 error_msg="I encountered an issue processing your request. Here's the raw data:"
             ), 0
+
+    async def classify_intent(self, prompt: str) -> str:
+        """
+        Classify intent using the LLM. Used by IntentClassifier fallback.
+
+        Returns raw text content from the model, or empty string if unavailable.
+        """
+        if not self.client:
+            await self.connect()
+
+        if not self.client:
+            return ""
+
+        try:
+            response = await asyncio.wait_for(
+                self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You classify user intents for a project management chat "
+                                "assistant. Reply with concise structured text only."
+                            ),
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.1,
+                    max_tokens=300,
+                ),
+                timeout=self.timeout,
+            )
+            return response.choices[0].message.content or ""
+        except Exception as e:
+            logger.error(f"LLM intent classification failed: {e}")
+            return ""
     
     def _generate_fallback_response(
         self,

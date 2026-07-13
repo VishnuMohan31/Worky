@@ -17,6 +17,7 @@ import logging
 import uuid
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from enum import Enum
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -24,6 +25,7 @@ from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
     ChatMessageResponse,
+    ChatMetadata,
     IntentType,
     ActionType,
     ActionResult,
@@ -57,6 +59,31 @@ class ChatService:
         
         # Set LLM service for intent classifier fallback
         self.intent_classifier.set_llm_service(self.llm_service)
+
+    @staticmethod
+    def _build_metadata(request_id: str, **extra: Any) -> ChatMetadata:
+        """Build ChatMetadata safely from known + optional extra fields."""
+        return ChatMetadata(request_id=request_id, **extra)
+
+    @staticmethod
+    def _meta_get(metadata: Optional[Any], key: str, default: Any = None) -> Any:
+        """Read a metadata field whether metadata is a model or dict."""
+        if metadata is None:
+            return default
+        if isinstance(metadata, dict):
+            return metadata.get(key, default)
+        return getattr(metadata, key, default)
+
+    @staticmethod
+    def _serialize_actions(actions: Optional[List[Any]]) -> List[Dict[str, Any]]:
+        """Convert UIAction objects (or dicts) into JSON-safe dicts for Redis."""
+        serialized: List[Dict[str, Any]] = []
+        for action in actions or []:
+            if hasattr(action, "model_dump"):
+                serialized.append(action.model_dump(mode="json"))
+            elif isinstance(action, dict):
+                serialized.append(action)
+        return serialized
     
     async def initialize(self) -> None:
         """Initialize all services"""
@@ -196,11 +223,11 @@ class ChatService:
                     message=e.message,
                     data={},
                     actions=[],
-                    metadata={
-                        "request_id": request_id,
-                        "error_code": "ACTION_FAILED",
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
+                    metadata=self._build_metadata(
+                        request_id,
+                        error_code="ACTION_FAILED",
+                        timestamp=datetime.utcnow().isoformat(),
+                    ),
                 )
                 
                 # Still audit the failed action
@@ -233,11 +260,11 @@ class ChatService:
                     message="I encountered an error processing your request. Please try again.",
                     data={},
                     actions=[],
-                    metadata={
-                        "request_id": request_id,
-                        "error_code": "INTERNAL_ERROR",
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
+                    metadata=self._build_metadata(
+                        request_id,
+                        error_code="INTERNAL_ERROR",
+                        timestamp=datetime.utcnow().isoformat(),
+                    ),
                 )
                 
                 # Audit the error
@@ -324,17 +351,20 @@ class ChatService:
             status="success",
             message=structured_output.get("text", response_text),
             data=retrieved_data,
+            cards=structured_output.get("cards", []),
+            table=structured_output.get("table"),
             actions=self._format_ui_actions(structured_output.get("actions", [])),
-            metadata={
-                "request_id": request_id,
-                "intent_type": intent.intent_type.value,
-                "confidence": intent.confidence,
-                "tokens_used": tokens_used,
-                "entities_found": len(intent.entities),
-                "timestamp": datetime.utcnow().isoformat(),
-                "cards": structured_output.get("cards", []),
-                "table": structured_output.get("table")
-            }
+            metadata=self._build_metadata(
+                request_id,
+                intent_type=intent.intent_type,
+                llm_tokens_used=tokens_used,
+                entities_accessed=[
+                    f"{e.entity_type.value}:{e.entity_id or e.entity_name}"
+                    for e in intent.entities
+                ],
+                confidence=intent.confidence,
+                timestamp=datetime.utcnow().isoformat(),
+            ),
         )
     
     async def _handle_action_intent(
@@ -359,11 +389,11 @@ class ChatService:
                         "Please be more specific (e.g., 'set reminder for TSK-123 tomorrow').",
                 data={},
                 actions=[],
-                metadata={
-                    "request_id": request_id,
-                    "error_code": "AMBIGUOUS_ACTION",
-                    "timestamp": datetime.utcnow().isoformat()
-                }
+                metadata=self._build_metadata(
+                    request_id,
+                    error_code="AMBIGUOUS_ACTION",
+                    timestamp=datetime.utcnow().isoformat(),
+                ),
             )
         
         # Get action type
@@ -393,13 +423,13 @@ class ChatService:
             message=action_result.get('message', 'Action completed successfully'),
             data=action_result,
             actions=[],
-            metadata={
-                "request_id": request_id,
-                "intent_type": intent.intent_type.value,
-                "action_type": action_type.value,
-                "action_result": action_result.get('result', 'success'),
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            metadata=self._build_metadata(
+                request_id,
+                intent_type=intent.intent_type,
+                action_type=action_type.value,
+                action_result=action_result.get('result', 'success'),
+                timestamp=datetime.utcnow().isoformat(),
+            ),
         )
     
     async def _handle_navigation_intent(
@@ -418,11 +448,11 @@ class ChatService:
                         "Please specify an ID (e.g., 'open TSK-123').",
                 data={},
                 actions=[],
-                metadata={
-                    "request_id": request_id,
-                    "error_code": "NO_ENTITY",
-                    "timestamp": datetime.utcnow().isoformat()
-                }
+                metadata=self._build_metadata(
+                    request_id,
+                    error_code="NO_ENTITY",
+                    timestamp=datetime.utcnow().isoformat(),
+                ),
             )
         
         # Get first entity
@@ -454,11 +484,11 @@ class ChatService:
                     parameters={}
                 )
             ],
-            metadata={
-                "request_id": request_id,
-                "intent_type": intent.intent_type.value,
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            metadata=self._build_metadata(
+                request_id,
+                intent_type=intent.intent_type,
+                timestamp=datetime.utcnow().isoformat(),
+            ),
         )
     
     async def _handle_clarification_intent(
@@ -480,15 +510,20 @@ class ChatService:
         if not conversation_history:
             return ChatResponse(
                 status="success",
-                message="I'm here to help! You can ask me about tasks, projects, bugs, "
-                        "or request actions like setting reminders or updating status.",
+                message=(
+                    "Hi! I'm your Worky assistant. You can ask me things like:\n"
+                    "- Show my open tasks\n"
+                    "- List bugs in project X\n"
+                    "- Open TSK-123\n"
+                    "- Set a reminder for a task"
+                ),
                 data={},
                 actions=[],
-                metadata={
-                    "request_id": request_id,
-                    "intent_type": intent.intent_type.value,
-                    "timestamp": datetime.utcnow().isoformat()
-                }
+                metadata=self._build_metadata(
+                    request_id,
+                    intent_type=intent.intent_type,
+                    timestamp=datetime.utcnow().isoformat(),
+                ),
             )
         
         # Use LLM to generate clarification response based on context
@@ -509,12 +544,12 @@ class ChatService:
             message=response_text,
             data={},
             actions=[],
-            metadata={
-                "request_id": request_id,
-                "intent_type": intent.intent_type.value,
-                "tokens_used": tokens_used,
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            metadata=self._build_metadata(
+                request_id,
+                intent_type=intent.intent_type,
+                llm_tokens_used=tokens_used,
+                timestamp=datetime.utcnow().isoformat(),
+            ),
         )
     
     async def _retrieve_data(
@@ -626,23 +661,66 @@ class ChatService:
         return retrieved_data
     
     def _serialize_entity(self, entity: Any) -> Dict[str, Any]:
-        """Serialize database entity to dictionary"""
-        if hasattr(entity, '__dict__'):
-            # Get all non-private attributes
-            data = {
-                key: value
-                for key, value in entity.__dict__.items()
-                if not key.startswith('_')
-            }
-            
-            # Convert datetime objects to ISO format
-            for key, value in data.items():
-                if isinstance(value, datetime):
-                    data[key] = value.isoformat()
-            
+        """Serialize a SQLAlchemy model (or dict) to JSON-safe primitives only."""
+        if entity is None:
+            return {}
+
+        if isinstance(entity, dict):
+            return {k: self._json_safe(v) for k, v in entity.items()}
+
+        data: Dict[str, Any] = {}
+
+        # Prefer SQLAlchemy column values (skip relationships / lazy loaders)
+        try:
+            from sqlalchemy import inspect as sa_inspect
+            mapper = sa_inspect(entity.__class__)
+            for column in mapper.columns:
+                data[column.key] = self._json_safe(getattr(entity, column.key, None))
             return data
-        
-        return {}
+        except Exception:
+            pass
+
+        if hasattr(entity, "__dict__"):
+            for key, value in entity.__dict__.items():
+                if key.startswith("_"):
+                    continue
+                # Skip ORM relationship objects / collections
+                if hasattr(value, "__tablename__") or hasattr(value, "_sa_instance_state"):
+                    continue
+                if isinstance(value, (list, set, tuple)) and value and hasattr(next(iter(value)), "__tablename__"):
+                    continue
+                data[key] = self._json_safe(value)
+
+        return data
+
+    @staticmethod
+    def _json_safe(value: Any) -> Any:
+        """Convert common Python/SQLAlchemy values to JSON-safe types."""
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if hasattr(value, "isoformat"):
+            try:
+                return value.isoformat()
+            except Exception:
+                return str(value)
+        if isinstance(value, Enum):
+            return value.value
+        if isinstance(value, (list, tuple)):
+            return [ChatService._json_safe(v) for v in value]
+        if isinstance(value, dict):
+            return {k: ChatService._json_safe(v) for k, v in value.items()}
+        # Decimal, UUID, etc.
+        try:
+            from decimal import Decimal
+            if isinstance(value, Decimal):
+                return float(value)
+        except Exception:
+            pass
+        if hasattr(value, "__tablename__") or hasattr(value, "_sa_instance_state"):
+            return None
+        return str(value)
     
     def _format_ui_actions(self, actions: List[Dict[str, Any]]) -> List[UIAction]:
         """Format actions as UIAction objects"""
@@ -708,10 +786,11 @@ class ChatService:
             user_message = ChatMessageResponse(
                 id=f"msg_{uuid.uuid4().hex[:16]}",
                 session_id=session_id,
+                user_id=user.id,
                 role="user",
                 content=query,
                 intent_type=None,
-                entities=[],
+                entities={},
                 actions=[],
                 created_at=datetime.utcnow()
             )
@@ -719,14 +798,17 @@ class ChatService:
             await self.session_service.store_message(session_id, user_message)
             
             # Store assistant message
+            intent_type = self._meta_get(response.metadata, "intent_type")
+
             assistant_message = ChatMessageResponse(
                 id=f"msg_{uuid.uuid4().hex[:16]}",
                 session_id=session_id,
+                user_id=user.id,
                 role="assistant",
                 content=response.message,
-                intent_type=response.metadata.get('intent_type'),
-                entities=[],
-                actions=response.actions,
+                intent_type=intent_type,
+                entities={},
+                actions=self._serialize_actions(response.actions),
                 created_at=datetime.utcnow()
             )
             
@@ -758,9 +840,7 @@ class ChatService:
                 ]
             
             # Determine action performed
-            action_performed = None
-            if response.metadata.get('action_type'):
-                action_performed = response.metadata['action_type']
+            action_performed = self._meta_get(response.metadata, "action_type")
             
             # Determine action result
             if action_result is None:

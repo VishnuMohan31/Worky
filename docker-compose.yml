@@ -21,6 +21,22 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: worky-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ${SHARED_DATA_PATH}/redis:/data
+    networks:
+      - worky-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build:
       context: ./api
@@ -40,8 +56,8 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-postgres}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       
-      # Redis - using host Redis on port 6379
-      REDIS_HOST: 172.17.0.1
+      # Redis (compose service)
+      REDIS_HOST: redis
       REDIS_PORT: 6379
       
       # Security
@@ -62,6 +78,19 @@ services:
       BITBUCKET_TOKEN: ${BITBUCKET_TOKEN:-}
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
       
+      # LLM / Chat AI (OpenAI)
+      # Must be set in .env as LLM_API_KEY=sk-... (not OPENAI_API_KEY)
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.3}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-1000}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-30}
+      
+      # Chat Assistant
+      CHAT_ENABLE_ACTIONS: ${CHAT_ENABLE_ACTIONS:-true}
+      CHAT_ENABLE_AUDIT_LOGGING: ${CHAT_ENABLE_AUDIT_LOGGING:-true}
+      
       # Monitoring
       PROMETHEUS_PORT: 9090
       LOKI_URL: ${LOKI_URL:-}
@@ -75,6 +104,8 @@ services:
       - worky-network
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:

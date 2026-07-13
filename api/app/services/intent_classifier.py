@@ -432,6 +432,19 @@ class IntentClassifier:
         """
         query_lower = query.lower()
         scores = {intent_type: 0.0 for intent_type in IntentType}
+
+        # Greetings / small talk → clarification with high confidence (no LLM needed)
+        greeting_words = {
+            'hi', 'hello', 'hey', 'hola', 'yo', 'sup',
+            'good morning', 'good afternoon', 'good evening',
+            'how are you', 'whats up', "what's up", 'help'
+        }
+        stripped = query_lower.strip().rstrip('!?.')
+        if stripped in greeting_words or any(
+            stripped.startswith(g) and len(stripped.split()) <= 4
+            for g in ('hi ', 'hello ', 'hey ', 'good morning', 'good afternoon', 'good evening')
+        ):
+            return IntentType.CLARIFICATION, 0.95
         
         # Score based on keyword patterns
         for intent_type, patterns in self.INTENT_KEYWORDS.items():
@@ -561,8 +574,8 @@ class IntentClassifier:
         # First try rule-based classification
         intent = await self.classify(query, context)
         
-        # If confidence is low or query is complex, use LLM
-        if intent.requires_llm and self.llm_service:
+        # If confidence is low or query is complex, use LLM (only when configured)
+        if intent.requires_llm and self.llm_service and settings.LLM_API_KEY:
             try:
                 logger.info(f"Using LLM fallback for query: {query[:50]}...")
                 llm_intent = await self._classify_with_llm(query, context)
@@ -613,6 +626,8 @@ class IntentClassifier:
         try:
             # Call LLM service
             response = await self.llm_service.classify_intent(prompt)
+            if not response or not str(response).strip():
+                return None
             
             # Parse LLM response
             intent = self._parse_llm_classification(response, query)

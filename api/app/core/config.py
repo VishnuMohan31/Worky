@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # LLM Configuration
     LLM_PROVIDER: str = "openai"  # or "azure", "anthropic", "local"
     LLM_API_KEY: Optional[str] = None
-    LLM_MODEL: str = "gpt-4"
+    LLM_MODEL: str = "gpt-4o-mini"
     LLM_TEMPERATURE: float = 0.3
     LLM_MAX_TOKENS: int = 1000
     LLM_TIMEOUT: int = 30
